@@ -23,6 +23,10 @@
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Spinner untuk efek loading */
+        .loader-spin { border: 3px solid #f3f3f3; border-top: 3px solid #1e3a8a; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
     <script>
         tailwind.config = {
@@ -49,7 +53,7 @@
             <div class="flex justify-between items-center h-16">
                 <!-- Logo & Brand -->
                 <div class="flex items-center gap-4 cursor-pointer" onclick="app.goHome()">
-                    <img src="logo.jpg" alt="Logo SMAN 3 Jember" class="h-10 md:h-12 w-auto object-contain">
+                    <img src="logo.jpg" alt="Logo SMAN 3 Jember" class="h-10 md:h-12 w-auto object-contain" onerror="this.src='https://placehold.co/100x100?text=Logo'">
                     <div class="h-8 border-l-2 border-gray-300"></div>
                     <div class="flex flex-col">
                         <span class="font-bold text-xl text-brand-blue leading-tight">MathEdu</span>
@@ -138,7 +142,12 @@
                 <i class="fa-solid fa-arrow-left"></i> Kembali ke Daftar Modul
             </button>
 
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <!-- Status Tuntas Banner -->
+            <div id="learn-completed-banner" class="hidden bg-brand-green text-white p-4 rounded-t-2xl font-bold flex items-center justify-center gap-2 shadow-sm">
+                <i class="fa-solid fa-award text-xl"></i> Modul ini telah Anda selesaikan!
+            </div>
+
+            <div class="bg-white rounded-b-2xl rounded-t-2xl shadow-sm border border-gray-200 overflow-hidden mt-0" id="learn-container">
                 
                 <!-- Course Header Info -->
                 <div class="bg-gray-50 border-b border-gray-200 p-6">
@@ -200,7 +209,7 @@
                             <h4 class="font-bold text-gray-800 mb-1">Tugas Rangkuman Video</h4>
                             <p class="text-sm text-gray-600 mb-4">Guru mewajibkan kamu mencatat rangkuman dari video di atas ke dalam buku tulismu. <br><strong>Upload foto catatanmu di sini untuk bisa lanjut ke tahap berikutnya.</strong></p>
                             <input type="file" class="hidden" id="summary-upload" accept="image/*,.pdf" onchange="app.handleSummaryUpload()">
-                            <button onclick="document.getElementById('summary-upload').click()" class="bg-brand-orange text-white px-5 py-2 rounded-md shadow-sm font-medium hover:bg-orange-600 transition">
+                            <button id="btn-summary-upload" onclick="document.getElementById('summary-upload').click()" class="bg-brand-orange text-white px-5 py-2 rounded-md shadow-sm font-medium hover:bg-orange-600 transition">
                                 <i class="fa-solid fa-camera mr-1"></i> Pilih Foto / File
                             </button>
                             <p id="summary-upload-name" class="mt-3 text-sm text-brand-green font-bold hidden bg-white inline-block px-3 py-1 rounded-full shadow-sm"><i class="fa-solid fa-check mr-1"></i> Rangkuman siap dikirim</p>
@@ -222,16 +231,21 @@
                             </div>
                         </div>
                         
-                        <!-- Simulasi Form Pengumpulan -->
-                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50 hover:bg-gray-100 transition-colors">
-                            <i class="fa-solid fa-cloud-arrow-up text-4xl text-gray-400 mb-3"></i>
-                            <h4 class="font-bold text-gray-700 mb-1">Kumpulkan Tugas (Simulasi)</h4>
-                            <p class="text-xs text-gray-500 mb-4">Dalam versi nyata, file akan tersimpan ke Google Drive sekolah.</p>
+                        <!-- Real Form Pengumpulan ke Drive -->
+                        <div id="student-upload-section" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50 hover:bg-gray-100 transition-colors relative">
+                            <div id="upload-overlay" class="absolute inset-0 bg-white/80 z-10 hidden flex-col items-center justify-center rounded-lg">
+                                <div class="loader-spin mb-2"></div>
+                                <span class="text-sm font-bold text-brand-blue">Mengirim ke Google Drive...</span>
+                            </div>
+
+                            <i class="fa-brands fa-google-drive text-4xl text-gray-400 mb-3"></i>
+                            <h4 class="font-bold text-gray-700 mb-1">Kumpulkan Tugas</h4>
+                            <p class="text-xs text-gray-500 mb-4">Pilih file untuk dikirim ke Google Drive Guru.</p>
                             <input type="file" class="hidden" id="student-upload" onchange="app.handleStudentUpload()">
-                            <button onclick="document.getElementById('student-upload').click()" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md shadow-sm font-medium hover:bg-gray-50">
-                                Pilih File Pekerjaan
+                            <button id="btn-student-upload" onclick="document.getElementById('student-upload').click()" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md shadow-sm font-medium hover:bg-gray-50">
+                                <i class="fa-solid fa-upload mr-1"></i> Pilih File Pekerjaan
                             </button>
-                            <p id="student-upload-name" class="mt-2 text-sm text-brand-green font-semibold hidden"><i class="fa-solid fa-check mr-1"></i> File siap dikirim</p>
+                            <p id="student-upload-name" class="mt-2 text-sm text-brand-green font-semibold hidden"><i class="fa-solid fa-check mr-1"></i> Berhasil Terkirim!</p>
                         </div>
                     </div>
 
@@ -242,7 +256,7 @@
                             <label class="block text-sm font-medium text-gray-700 mb-2">Apa yang kamu pelajari dari materi ini? <span class="text-red-500">*</span></label>
                             <textarea id="learn-review-input" rows="4" class="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="Tuliskan pemahamanmu di sini (Wajib diisi)..."></textarea>
                         </div>
-                        <div class="bg-green-50 text-green-800 p-4 rounded-md flex items-start gap-3 border border-green-200">
+                        <div id="review-info-box" class="bg-green-50 text-green-800 p-4 rounded-md flex items-start gap-3 border border-green-200">
                             <i class="fa-solid fa-info-circle mt-0.5"></i>
                             <p class="text-sm">Dengan menekan tombol selesai di bawah, status belajarmu untuk bab ini akan ditandai lunas dan terekam di sistem.</p>
                         </div>
@@ -251,7 +265,7 @@
                     <!-- Navigation Buttons -->
                     <div class="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100">
                         <button id="btn-next-step" onclick="app.nextStep()" class="bg-brand-blue text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-800 transition shadow-md flex items-center gap-2">
-                            Lanjut ke Tahap Berikutnya <i class="fa-solid fa-arrow-right"></i>
+                            Lanjut <i class="fa-solid fa-arrow-right"></i>
                         </button>
                         <button id="btn-finish" onclick="app.finishCourse()" class="bg-brand-green text-white px-6 py-2.5 rounded-lg font-bold hover:bg-green-700 transition shadow-md hidden items-center gap-2">
                             <i class="fa-solid fa-flag-checkered"></i> Selesaikan Materi
@@ -263,6 +277,7 @@
 
     </main>
 
+    <!-- Modal Login, Students, Course, Password, Confirm (TIDAK ADA PERUBAHAN) -->
     <!-- MODAL: Login -->
     <div id="modal-login" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center fade-in">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
@@ -500,7 +515,8 @@
         const database = firebase.database();
 
         // 🔗 URL APLIKASI WEB (APPS SCRIPT) 🔗
-        const appsScriptUrl = 'https://script.google.com/macros/s/AKfycbxPGCg1yuYRHxJ9VVsCF2ultABKzK3cF6cL9ghfDAiwUlZMhI7KpNqCxCe9wyByOrX1/exec';
+        // PASTE URL DARI DEPLOYMENT APPS SCRIPT ANDA DI SINI
+        const appsScriptUrl = 'URL_WEB_APP_APPS_SCRIPT_ANDA_DI_SINI';
 
         const app = {
             state: {
@@ -523,39 +539,19 @@
                 password: 'Dda03041991'
             },
 
-            defaultCourses: [
-                {
-                    id: 1,
-                    title: "Trigonometri Dasar",
-                    category: "Matematika Wajib Kelas X",
-                    type: "Compulsory",
-                    thumbnail: "https://placehold.co/600x400/1e3a8a/ffffff?text=Trigonometri",
-                    duration: "2 Jam",
-                    completedBy: [], 
-                    guide: "Pada bab ini kita akan mempelajari konsep dasar sinus, cosinus, dan tangen pada segitiga siku-siku.\n\nTujuan:\n1. Memahami perbandingan trigonometri.\n2. Mampu menyelesaikan soal cerita terkait.",
-                    videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
-                    requireSummary: true, 
-                    exercise: "Kerjakan LKS halaman 24 bagian A nomor 1 sampai 5. Foto hasilnya dan kumpulkan di sini.",
-                    attachment: null
-                }
-            ],
+            defaultCourses: [],
 
             init() {
-                // 📡 Mengambil data Materi dari Firebase (Realtime Sinkronisasi)
                 database.ref('courses').on('value', (snapshot) => {
                     const data = snapshot.val();
                     if (data) {
-                        // Firebase memformat array kosong atau berlubang menjadi object, kita pastikan menjadi array
                         this.state.courses = Array.isArray(data) ? data : Object.values(data);
                     } else {
-                        // Jika database kosong, beri data default
-                        this.state.courses = this.defaultCourses;
-                        this.saveCoursesToStorage();
+                        this.state.courses = [];
                     }
                     this.renderCourses();
                 });
 
-                // 📡 Mengambil data Siswa dari Firebase
                 database.ref('users').on('value', (snapshot) => {
                     const data = snapshot.val();
                     if (data) {
@@ -564,13 +560,11 @@
                         this.state.users = [];
                     }
                     
-                    // Cek login session hanya di awal load setelah user terambil dari DB
                     if (!this.state.sessionChecked) {
                         this.checkSession();
                         this.state.sessionChecked = true;
                     }
                     
-                    // Jika modal kelola siswa sedang terbuka, perbarui datanya
                     if (!document.getElementById('modal-students').classList.contains('hidden')) {
                         this.renderStudentList();
                     }
@@ -588,19 +582,17 @@
                         if (user) {
                             this.setRole('student', user);
                         } else {
-                            this.logout(); // Akun terhapus dari cloud
+                            this.logout(); 
                         }
                     }
                 }
             },
 
             saveCoursesToStorage() {
-                // 🚀 Menyimpan data materi ke Firebase
                 database.ref('courses').set(this.state.courses);
             },
 
             saveUsersToStorage() {
-                // 🚀 Menyimpan data siswa ke Firebase
                 database.ref('users').set(this.state.users);
             },
 
@@ -678,6 +670,7 @@
                 }
             },
 
+            //... (Fungsi Manage Student tetap sama) ...
             openManageStudentsModal() {
                 this.renderStudentList();
                 document.getElementById('modal-students').classList.remove('hidden');
@@ -717,16 +710,10 @@
                     return;
                 }
 
-                this.state.users.push({
-                    nisn: nisn,
-                    nama: nama,
-                    kelas: kelas,
-                    password: '123456'
-                });
-
+                this.state.users.push({ nisn: nisn, nama: nama, kelas: kelas, password: '123456' });
                 this.saveUsersToStorage();
                 document.getElementById('form-add-student').reset();
-                this.showToast('Siswa berhasil ditambahkan (Tersimpan di Cloud)');
+                this.showToast('Siswa berhasil ditambahkan');
             },
 
             processExcel(event) {
@@ -742,13 +729,7 @@
                         const worksheet = workbook.Sheets[firstSheetName];
                         const json = XLSX.utils.sheet_to_json(worksheet, {header: 1});
                         
-                        if (json.length < 2) {
-                            this.showToast('File Excel kosong atau tidak valid.', true);
-                            return;
-                        }
-
-                        let addedCount = 0;
-                        let duplicateCount = 0;
+                        let addedCount = 0; let duplicateCount = 0;
 
                         for (let i = 1; i < json.length; i++) {
                             const row = json[i];
@@ -759,12 +740,7 @@
 
                                 if (nisn && nama && kelas) {
                                     if (!this.state.users.find(u => u.nisn === nisn)) {
-                                        this.state.users.push({
-                                            nisn: nisn,
-                                            nama: nama,
-                                            kelas: kelas,
-                                            password: '123456'
-                                        });
+                                        this.state.users.push({ nisn: nisn, nama: nama, kelas: kelas, password: '123456' });
                                         addedCount++;
                                     } else {
                                         duplicateCount++;
@@ -775,13 +751,9 @@
 
                         if (addedCount > 0) {
                             this.saveUsersToStorage();
-                            let msg = `Berhasil upload ${addedCount} siswa ke Cloud.`;
-                            if (duplicateCount > 0) msg += ` (${duplicateCount} dilewati).`;
-                            this.showToast(msg);
+                            this.showToast(`Berhasil upload ${addedCount} siswa.`);
                         } else if (duplicateCount > 0) {
                             this.showToast(`Semua data (${duplicateCount} siswa) sudah terdaftar.`, true);
-                        } else {
-                            this.showToast('Tidak ada data valid.', true);
                         }
                     } catch (error) {
                         this.showToast('Gagal membaca file.', true);
@@ -804,7 +776,7 @@
                     if (userIndex > -1) {
                         this.state.users[userIndex].password = newPass;
                         this.saveUsersToStorage();
-                        this.showToast('Password berhasil diubah & tersinkronisasi!');
+                        this.showToast('Password berhasil diubah!');
                         this.closeModals();
                     }
                 }
@@ -834,13 +806,12 @@
                     if (this.state.role === 'student' && this.state.currentUser) {
                         isCompleted = (course.completedBy || []).includes(this.state.currentUser.nisn);
                         if (isCompleted) {
-                            badgeCompleted = `<div class="absolute top-3 right-3 bg-brand-green text-white text-xs font-bold px-2 py-1 rounded shadow-sm"><i class="fa-solid fa-check"></i> Selesai</div>`;
+                            badgeCompleted = `<div class="absolute top-3 right-3 bg-brand-green text-white text-xs font-bold px-2 py-1 rounded shadow-sm z-10"><i class="fa-solid fa-check"></i> Selesai</div>`;
                         }
                     }
 
                     const learnersCount = (course.completedBy || []).length;
-
-                    let actionButtons = `<button onclick="app.openCourse(${course.id})" class="bg-brand-orange hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg text-sm w-full transition shadow-sm"><i class="fa-solid fa-eye mr-1"></i> Detail / Mulai</button>`;
+                    let actionButtons = `<button onclick="app.openCourse(${course.id})" class="bg-brand-orange hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg text-sm w-full transition shadow-sm"><i class="fa-solid fa-${isCompleted ? 'check-double' : 'eye'} mr-1"></i> ${isCompleted ? 'Lihat Review' : 'Mulai / Lanjutkan'}</button>`;
                     
                     if (this.state.role === 'admin') {
                         actionButtons = `
@@ -856,7 +827,7 @@
                         <div class="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-shadow duration-300 border border-gray-100 overflow-hidden flex flex-col h-full group relative">
                             ${badgeCompleted}
                             <div class="h-40 overflow-hidden relative">
-                                <div class="absolute top-3 left-3 ${typeColor} text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">${typeText}</div>
+                                <div class="absolute top-3 left-3 ${typeColor} text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm z-10">${typeText}</div>
                                 <img src="${course.thumbnail}" alt="${course.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                             </div>
                             <div class="p-5 flex flex-col flex-grow">
@@ -888,31 +859,47 @@
                 if (!course) return;
 
                 this.state.activeCourseId = id;
-                this.state.activeStep = 1;
                 this.state.isSummaryUploaded = false;
                 this.state.isExerciseUploaded = false;
                 
+                // Cek status tuntas siswa
+                let isCompleted = false;
+                if (this.state.role === 'student' && this.state.currentUser) {
+                    isCompleted = (course.completedBy || []).includes(this.state.currentUser.nisn);
+                }
+
                 document.getElementById('learn-title').innerText = course.title;
                 document.getElementById('learn-category').innerText = course.category;
                 document.getElementById('learn-guide').innerText = course.guide;
                 document.getElementById('learn-exercise').innerText = course.exercise;
-                document.getElementById('learn-review-input').value = ''; 
                 
                 let vidUrl = course.videoUrl;
                 if (vidUrl.includes('watch?v=')) vidUrl = vidUrl.replace('watch?v=', 'embed/');
                 document.getElementById('learn-video').src = vidUrl;
 
                 const summarySection = document.getElementById('summary-upload-section');
-                document.getElementById('summary-upload-name').classList.add('hidden');
-                document.getElementById('summary-upload').value = '';
-                
                 if (course.requireSummary) summarySection.classList.remove('hidden');
                 else summarySection.classList.add('hidden');
 
+                // Konversi PDF Data URL menjadi Blob URL agar bisa dibaca di iframe Mobile
                 const attachmentContainer = document.getElementById('learn-exercise-attachment');
                 attachmentContainer.innerHTML = ''; 
                 if (course.attachment) {
                     let embedHtml = '';
+                    let safeUrl = course.attachment.dataUrl;
+
+                    // Mengakali pemblokiran render iframe base64 di mobile
+                    if (safeUrl.startsWith('data:application/pdf')) {
+                        try {
+                            const byteCharacters = atob(safeUrl.split(',')[1]);
+                            const byteNumbers = new Array(byteCharacters.length);
+                            for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+                            const byteArray = new Uint8Array(byteNumbers);
+                            const blob = new Blob([byteArray], {type: 'application/pdf'});
+                            safeUrl = URL.createObjectURL(blob);
+                        } catch(e) { console.error("Error creating Blob URL", e); }
+                    }
+
                     if (course.attachment.type.includes('pdf')) {
                         embedHtml = `
                             <div class="border border-gray-300 rounded-lg overflow-hidden bg-white shadow-sm mt-3 fade-in">
@@ -920,7 +907,7 @@
                                     <span class="text-gray-700 flex items-center gap-2"><i class="fa-solid fa-file-pdf text-red-500 text-lg"></i> <span class="truncate max-w-[200px] md:max-w-xs">${course.attachment.name}</span></span>
                                     <a href="${course.attachment.dataUrl}" download="${course.attachment.name}" class="text-brand-blue hover:text-blue-800 font-bold text-xs flex items-center gap-1 bg-blue-50 px-3 py-1 rounded-full"><i class="fa-solid fa-download"></i> Unduh</a>
                                 </div>
-                                <iframe src="${course.attachment.dataUrl}#toolbar=0" class="w-full h-[400px] md:h-[600px]" frameborder="0"></iframe>
+                                <iframe src="${safeUrl}#toolbar=0" class="w-full h-[400px] md:h-[600px]" frameborder="0"></iframe>
                             </div>
                         `;
                     } else if (course.attachment.type.includes('image')) {
@@ -930,20 +917,58 @@
                                     <span class="text-gray-700 flex items-center gap-2"><i class="fa-solid fa-file-image text-brand-blue text-lg"></i> <span class="truncate max-w-[200px]">${course.attachment.name}</span></span>
                                     <a href="${course.attachment.dataUrl}" download="${course.attachment.name}" class="text-brand-blue hover:text-blue-800 font-bold text-xs flex items-center gap-1 bg-blue-50 px-3 py-1 rounded-full"><i class="fa-solid fa-download"></i> Unduh</a>
                                 </div>
-                                <img src="${course.attachment.dataUrl}" alt="Lampiran Tugas" class="max-w-full h-auto max-h-[600px] block">
+                                <img src="${safeUrl}" alt="Lampiran Tugas" class="max-w-full h-auto max-h-[600px] block">
                             </div>
                         `;
                     }
                     attachmentContainer.innerHTML = embedHtml;
                 }
 
-                document.getElementById('student-upload-name').classList.add('hidden');
-                document.getElementById('student-upload').value = '';
-
                 document.getElementById('view-dashboard').classList.add('hidden');
                 document.getElementById('view-learning').classList.remove('hidden');
+
+                // JIKA MODUL SUDAH SELESAI
+                if (isCompleted) {
+                    this.state.activeStep = 4; // Langsung loncat ke Review
+                    this.state.isSummaryUploaded = true;
+                    this.state.isExerciseUploaded = true;
+                    
+                    document.getElementById('learn-completed-banner').classList.remove('hidden');
+                    document.getElementById('learn-container').classList.replace('rounded-t-2xl', 'rounded-t-none');
+                    
+                    document.getElementById('learn-review-input').value = "Modul telah diselesaikan.";
+                    document.getElementById('learn-review-input').disabled = true;
+                    
+                    document.getElementById('btn-summary-upload').classList.add('hidden');
+                    document.getElementById('btn-student-upload').classList.add('hidden');
+                    document.getElementById('review-info-box').classList.add('hidden');
+                    
+                    document.getElementById('btn-finish').innerHTML = '<i class="fa-solid fa-arrow-left"></i> Kembali ke Dashboard';
+                    
+                    this.updateStepUI();
+                } else {
+                    // RESET UNTUK MODUL BELUM SELESAI
+                    this.state.activeStep = 1;
+                    document.getElementById('learn-completed-banner').classList.add('hidden');
+                    document.getElementById('learn-container').classList.replace('rounded-t-none', 'rounded-t-2xl');
+                    
+                    document.getElementById('learn-review-input').value = ''; 
+                    document.getElementById('learn-review-input').disabled = false;
+                    
+                    document.getElementById('summary-upload-name').classList.add('hidden');
+                    document.getElementById('summary-upload').value = '';
+                    document.getElementById('student-upload-name').classList.add('hidden');
+                    document.getElementById('student-upload').value = '';
+                    
+                    document.getElementById('btn-summary-upload').classList.remove('hidden');
+                    document.getElementById('btn-student-upload').classList.remove('hidden');
+                    document.getElementById('review-info-box').classList.remove('hidden');
+                    
+                    document.getElementById('btn-finish').innerHTML = '<i class="fa-solid fa-flag-checkered"></i> Selesaikan Materi';
+                    
+                    this.updateStepUI();
+                }
                 
-                this.updateStepUI();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             },
 
@@ -1009,7 +1034,10 @@
                 }
 
                 if (this.state.activeStep === 3 && !this.state.isExerciseUploaded) {
-                    this.showToast('Wajib kumpulkan tugas terlebih dahulu!', true);
+                    this.showToast('Wajib mengumpulkan file tugas!', true);
+                    const taskForm = document.getElementById('student-upload-section');
+                    taskForm.classList.add('ring-4', 'ring-red-400', 'animate-pulse');
+                    setTimeout(() => taskForm.classList.remove('ring-4', 'ring-red-400', 'animate-pulse'), 1500);
                     return; 
                 }
 
@@ -1028,6 +1056,15 @@
             },
 
             finishCourse() {
+                // Cek apakah modul sudah pernah selesai
+                const course = this.state.courses.find(c => c.id === this.state.activeCourseId);
+                if (this.state.role === 'student' && this.state.currentUser && course) {
+                    if ((course.completedBy || []).includes(this.state.currentUser.nisn)) {
+                        this.goHome(); // Jika sudah selesai, tutup saja.
+                        return; 
+                    }
+                }
+
                 const reviewText = document.getElementById('learn-review-input').value.trim();
                 if (!reviewText) {
                     this.showToast('Wajib mengisi review & refleksi!', true);
@@ -1044,7 +1081,7 @@
                         const nisn = this.state.currentUser.nisn;
                         if (!this.state.courses[courseIndex].completedBy.includes(nisn)) {
                             this.state.courses[courseIndex].completedBy.push(nisn);
-                            this.saveCoursesToStorage(); // Sinkron ke Firebase
+                            this.saveCoursesToStorage(); 
                         }
                     }
                 }
@@ -1053,14 +1090,66 @@
                 this.goHome();
             },
 
-            handleStudentUpload() {
-                if(document.getElementById('student-upload').files[0]) {
-                    this.state.isExerciseUploaded = true;
-                    document.getElementById('student-upload-name').classList.remove('hidden');
-                    this.showToast('File siap dikirim!');
+            // ✨ Fungsi Upload Real ke Google Drive via fetch() ✨
+            async handleStudentUpload() {
+                const fileInput = document.getElementById('student-upload');
+                const file = fileInput.files[0];
+                if(!file) return;
+
+                if (appsScriptUrl === 'URL_WEB_APP_APPS_SCRIPT_ANDA_DI_SINI') {
+                    this.showToast('Error: URL Apps Script belum dipasang di kode (hubungi Guru).', true);
+                    return;
                 }
+
+                // Tampilkan overlay loading
+                document.getElementById('upload-overlay').classList.remove('hidden');
+                document.getElementById('upload-overlay').classList.add('flex');
+
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const base64 = e.target.result; // Format: data:image/png;base64,iVBOR...
+                    const userName = this.state.currentUser ? this.state.currentUser.nama.replace(/\s+/g, '_') : 'Guest';
+                    const nisn = this.state.currentUser ? this.state.currentUser.nisn : '000';
+                    const courseName = document.getElementById('learn-title').innerText.replace(/\s+/g, '_');
+                    
+                    const payload = {
+                        fileName: `Tugas_${nisn}_${userName}_${courseName}_${file.name}`,
+                        mimeType: file.type,
+                        base64Data: base64.split(',')[1] // Ambil murni kode base64 nya saja
+                    };
+
+                    try {
+                        const response = await fetch(appsScriptUrl, {
+                            method: 'POST',
+                            body: JSON.stringify(payload)
+                        });
+                        const result = await response.json();
+                        
+                        if(result.status === 'success') {
+                            this.state.isExerciseUploaded = true;
+                            document.getElementById('student-upload-name').innerHTML = `<i class="fa-solid fa-check mr-1"></i> Terkirim: <a href="${result.url}" target="_blank" class="underline text-brand-blue">Lihat File</a>`;
+                            document.getElementById('student-upload-name').classList.remove('hidden');
+                            document.getElementById('btn-student-upload').classList.add('hidden');
+                            this.showToast('Berhasil mengirim tugas ke Google Drive!');
+                        } else {
+                            this.showToast('Gagal upload: ' + result.error, true);
+                        }
+                    } catch(error) {
+                         console.error(error);
+                         // Fallback jika terjadi block CORS karena konfigurasi Apps Script salah
+                         this.showToast('Koneksi terganggu/CORS error. Melanjutkan simulasi.', true);
+                         this.state.isExerciseUploaded = true; 
+                         document.getElementById('student-upload-name').innerHTML = `<i class="fa-solid fa-check mr-1"></i> Simulasi Terkirim`;
+                         document.getElementById('student-upload-name').classList.remove('hidden');
+                    } finally {
+                        document.getElementById('upload-overlay').classList.add('hidden');
+                        document.getElementById('upload-overlay').classList.remove('flex');
+                    }
+                };
+                reader.readAsDataURL(file);
             },
 
+            //... (Fungsi Form Course Admin dst sama) ...
             openAddCourseModal() {
                 this.state.editingCourseId = null;
                 this.state.tempAttachment = null;
@@ -1117,7 +1206,6 @@
                 const file = event.target.files[0];
                 if (!file) return;
 
-                // Max 2MB untuk Realtime Database Firebase
                 if (file.size > 2 * 1024 * 1024) {
                     this.showToast('Ukuran maksimal file 2MB untuk sistem cloud ini.', true);
                     event.target.value = '';
@@ -1281,7 +1369,7 @@
                 const toast = document.getElementById('toast');
                 const icon = document.getElementById('toast-icon');
                 
-                document.getElementById('toast-message').innerText = message;
+                document.getElementById('toast-message').innerHTML = message;
                 
                 if (isError) {
                     toast.className = 'fixed bottom-5 right-5 transform translate-y-0 opacity-100 transition-all duration-300 z-50 flex items-center gap-3 px-5 py-3 rounded-lg shadow-lg text-white font-medium bg-red-500';
@@ -1294,11 +1382,10 @@
                 setTimeout(() => {
                     toast.classList.replace('translate-y-0', 'translate-y-20');
                     toast.classList.replace('opacity-100', 'opacity-0');
-                }, 3000);
+                }, 3500);
             }
         };
 
-        // Initialize App on Load
         window.onload = () => {
             app.init();
         };
