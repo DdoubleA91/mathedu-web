@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MathEdu - LMS SMAN 3 Jember</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Library Pembaca Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    
+    <!-- 🔥 Firebase SDK (Compat version) 🔥 -->
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            blue: '#1e3a8a',
+                            light: '#eff6ff',
+                            orange: '#f97316',
+                            green: '#16a34a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Logo & Brand -->
+                <div class="flex items-center gap-4 cursor-pointer" onclick="app.goHome()">
+                    <img src="logo.jpg" alt="Logo SMAN 3 Jember" class="h-10 md:h-12 w-auto object-contain">
+                    <div class="h-8 border-l-2 border-gray-300"></div>
+                    <div class="flex flex-col">
+                        <span class="font-bold text-xl text-brand-blue leading-tight">MathEdu</span>
+                        <span class="text-[10px] text-gray-500 font-medium">LMS Matematika Interaktif</span>
+                    </div>
+                </div>
+
+                <!-- User Controls -->
+                <div class="flex items-center gap-3">
+                    <div id="auth-guest" class="block">
+                        <button onclick="app.openLoginModal()" class="bg-brand-blue text-white px-5 py-2 rounded-full font-medium text-sm hover:bg-blue-800 transition shadow-sm">
+                            <i class="fa-solid fa-sign-in-alt mr-1"></i> Login
+                        </button>
+                    </div>
+
+                    <div id="auth-user" class="hidden relative group">
+                        <div class="flex items-center gap-3 cursor-pointer p-1 rounded-full hover:bg-gray-100 transition">
+                            <div class="text-right hidden md:block">
+                                <div id="user-name" class="font-bold text-sm text-gray-800">Nama User</div>
+                                <div id="user-role" class="text-xs text-brand-orange font-medium">Role</div>
+                            </div>
+                            <div class="h-10 w-10 rounded-full bg-brand-blue text-white flex items-center justify-center font-bold shadow-inner">
+                                <span id="user-initial">U</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Dropdown Menu -->
+                        <div class="absolute right-0 top-full pt-2 w-48 hidden group-hover:block z-50">
+                            <div class="bg-white rounded-md shadow-lg py-1 border border-gray-100">
+                                <button id="btn-change-password" onclick="app.openChangePasswordModal()" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                    <i class="fa-solid fa-key mr-2 text-gray-400"></i> Ubah Password
+                                </button>
+                                <button onclick="app.logout()" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 border-t border-gray-100">
+                                    <i class="fa-solid fa-sign-out-alt mr-2"></i> Keluar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- VIEW: Dashboard -->
+        <div id="view-dashboard" class="fade-in block">
+            
+            <!-- Hero Section -->
+            <div class="bg-gradient-to-r from-brand-blue to-blue-600 rounded-2xl p-8 mb-10 text-white shadow-lg relative overflow-hidden">
+                <div class="relative z-10 md:w-2/3">
+                    <h1 class="text-3xl md:text-4xl font-bold mb-3">Materi Pembelajaran</h1>
+                    <p class="text-blue-100 mb-6 text-sm md:text-base">Eksplorasi modul interaktif matematika. Pelajari konsep, tonton video, dan kerjakan latihan untuk menguji pemahamanmu.</p>
+                    <div class="relative max-w-md">
+                        <input type="text" id="search-input" placeholder="Cari bab atau materi..." class="w-full pl-10 pr-4 py-3 rounded-full text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-orange shadow-sm" oninput="app.renderCourses()">
+                        <i class="fa-solid fa-search absolute left-4 top-3.5 text-gray-400"></i>
+                    </div>
+                </div>
+                <!-- Dekorasi -->
+                <div class="absolute right-0 top-0 h-full w-1/3 opacity-20 pointer-events-none hidden md:block">
+                    <i class="fa-solid fa-square-root-variable text-[150px] absolute -right-10 top-10"></i>
+                </div>
+            </div>
+
+            <!-- Admin Controls -->
+            <div id="admin-controls" class="hidden mb-6 flex gap-3 flex-wrap bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                <button onclick="app.openAddCourseModal()" class="bg-brand-orange text-white px-5 py-2 rounded-lg font-medium text-sm hover:bg-orange-600 transition flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-plus"></i> Tambah Modul Baru
+                </button>
+                <button onclick="app.openManageStudentsModal()" class="bg-gray-800 text-white px-5 py-2 rounded-lg font-medium text-sm hover:bg-gray-900 transition flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-users"></i> Kelola Siswa
+                </button>
+            </div>
+
+            <!-- Course Grid -->
+            <div id="course-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <!-- Diisi oleh JavaScript -->
+            </div>
+        </div>
+
+        <!-- VIEW: Learning Flow -->
+        <div id="view-learning" class="fade-in hidden">
+            <!-- Breadcrumb & Back -->
+            <button onclick="app.goHome()" class="text-gray-500 hover:text-brand-blue mb-4 flex items-center gap-2 text-sm font-medium transition">
+                <i class="fa-solid fa-arrow-left"></i> Kembali ke Daftar Modul
+            </button>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                
+                <!-- Course Header Info -->
+                <div class="bg-gray-50 border-b border-gray-200 p-6">
+                    <div class="flex justify-between items-start mb-2">
+                        <span id="learn-category" class="bg-blue-100 text-brand-blue text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wide">Kategori</span>
+                    </div>
+                    <h1 id="learn-title" class="text-2xl font-bold text-gray-800">Judul Materi</h1>
+                </div>
+
+                <!-- Progress Bar / Checkpoints -->
+                <div class="p-6 border-b border-gray-100 bg-white">
+                    <div class="flex items-center justify-between relative max-w-3xl mx-auto">
+                        <!-- Line bg -->
+                        <div class="absolute top-1/2 left-0 w-full h-1 bg-gray-200 -z-10 -translate-y-1/2 rounded-full"></div>
+                        <!-- Progress Line -->
+                        <div id="progress-line" class="absolute top-1/2 left-0 h-1 bg-brand-green -z-10 -translate-y-1/2 rounded-full transition-all duration-500 w-0"></div>
+                        
+                        <!-- Steps -->
+                        <div class="step-indicator active" data-step="1">
+                            <div class="w-10 h-10 rounded-full bg-brand-blue text-white flex items-center justify-center font-bold shadow-md ring-4 ring-white transition-all"><i class="fa-solid fa-book-open"></i></div>
+                            <div class="text-xs font-semibold mt-2 text-brand-blue text-center absolute -ml-4 w-20">Panduan</div>
+                        </div>
+                        <div class="step-indicator" data-step="2">
+                            <div class="w-10 h-10 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center font-bold shadow-sm ring-4 ring-white transition-all"><i class="fa-solid fa-play"></i></div>
+                            <div class="text-xs font-medium mt-2 text-gray-500 text-center absolute -ml-4 w-20">Video</div>
+                        </div>
+                        <div class="step-indicator" data-step="3">
+                            <div class="w-10 h-10 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center font-bold shadow-sm ring-4 ring-white transition-all"><i class="fa-solid fa-pen-clip"></i></div>
+                            <div class="text-xs font-medium mt-2 text-gray-500 text-center absolute -ml-4 w-20">Latihan</div>
+                        </div>
+                        <div class="step-indicator" data-step="4">
+                            <div class="w-10 h-10 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center font-bold shadow-sm ring-4 ring-white transition-all"><i class="fa-solid fa-check-double"></i></div>
+                            <div class="text-xs font-medium mt-2 text-gray-500 text-center absolute -ml-4 w-20">Review</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step Content Area -->
+                <div class="p-6 md:p-10 min-h-[400px] flex flex-col">
+                    
+                    <!-- Step 1: Guide -->
+                    <div id="content-step-1" class="step-content flex-grow fade-in block">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-book-open text-brand-blue mr-2"></i> Panduan & Tujuan Pembelajaran</h2>
+                        <div class="prose max-w-none text-gray-700 whitespace-pre-line" id="learn-guide">
+                            <!-- Injected content -->
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Video -->
+                    <div id="content-step-2" class="step-content flex-grow fade-in hidden">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-play text-brand-blue mr-2"></i> Video Pembelajaran</h2>
+                        <div class="aspect-w-16 aspect-h-9 bg-black rounded-lg overflow-hidden shadow-md max-w-4xl mx-auto">
+                            <iframe id="learn-video" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen class="w-full h-full min-h-[300px] md:min-h-[450px]"></iframe>
+                        </div>
+
+                        <!-- Form Upload Rangkuman -->
+                        <div id="summary-upload-section" class="mt-8 border-2 border-dashed border-brand-orange rounded-lg p-6 text-center bg-orange-50 hidden">
+                            <i class="fa-solid fa-book-open-reader text-3xl text-brand-orange mb-2"></i>
+                            <h4 class="font-bold text-gray-800 mb-1">Tugas Rangkuman Video</h4>
+                            <p class="text-sm text-gray-600 mb-4">Guru mewajibkan kamu mencatat rangkuman dari video di atas ke dalam buku tulismu. <br><strong>Upload foto catatanmu di sini untuk bisa lanjut ke tahap berikutnya.</strong></p>
+                            <input type="file" class="hidden" id="summary-upload" accept="image/*,.pdf" onchange="app.handleSummaryUpload()">
+                            <button onclick="document.getElementById('summary-upload').click()" class="bg-brand-orange text-white px-5 py-2 rounded-md shadow-sm font-medium hover:bg-orange-600 transition">
+                                <i class="fa-solid fa-camera mr-1"></i> Pilih Foto / File
+                            </button>
+                            <p id="summary-upload-name" class="mt-3 text-sm text-brand-green font-bold hidden bg-white inline-block px-3 py-1 rounded-full shadow-sm"><i class="fa-solid fa-check mr-1"></i> Rangkuman siap dikirim</p>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Exercise -->
+                    <div id="content-step-3" class="step-content flex-grow fade-in hidden">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-pen-clip text-brand-blue mr-2"></i> Latihan Soal & Tugas</h2>
+                        <div class="bg-blue-50 border-l-4 border-brand-blue p-4 rounded-r-md mb-6">
+                            <h3 class="font-bold text-brand-blue mb-1">Instruksi Tugas:</h3>
+                            <p class="text-gray-700 text-sm whitespace-pre-line" id="learn-exercise">
+                                <!-- Injected content -->
+                            </p>
+                            
+                            <!-- Container Lampiran (PDF/Gambar) dari Admin -->
+                            <div id="learn-exercise-attachment" class="mt-4">
+                                <!-- Akan diisi Iframe PDF / Tag IMG oleh Javascript -->
+                            </div>
+                        </div>
+                        
+                        <!-- Simulasi Form Pengumpulan -->
+                        <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50 hover:bg-gray-100 transition-colors">
+                            <i class="fa-solid fa-cloud-arrow-up text-4xl text-gray-400 mb-3"></i>
+                            <h4 class="font-bold text-gray-700 mb-1">Kumpulkan Tugas (Simulasi)</h4>
+                            <p class="text-xs text-gray-500 mb-4">Dalam versi nyata, file akan tersimpan ke Google Drive sekolah.</p>
+                            <input type="file" class="hidden" id="student-upload" onchange="app.handleStudentUpload()">
+                            <button onclick="document.getElementById('student-upload').click()" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md shadow-sm font-medium hover:bg-gray-50">
+                                Pilih File Pekerjaan
+                            </button>
+                            <p id="student-upload-name" class="mt-2 text-sm text-brand-green font-semibold hidden"><i class="fa-solid fa-check mr-1"></i> File siap dikirim</p>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Review -->
+                    <div id="content-step-4" class="step-content flex-grow fade-in hidden">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-check-double text-brand-blue mr-2"></i> Review & Refleksi</h2>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Apa yang kamu pelajari dari materi ini? <span class="text-red-500">*</span></label>
+                            <textarea id="learn-review-input" rows="4" class="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="Tuliskan pemahamanmu di sini (Wajib diisi)..."></textarea>
+                        </div>
+                        <div class="bg-green-50 text-green-800 p-4 rounded-md flex items-start gap-3 border border-green-200">
+                            <i class="fa-solid fa-info-circle mt-0.5"></i>
+                            <p class="text-sm">Dengan menekan tombol selesai di bawah, status belajarmu untuk bab ini akan ditandai lunas dan terekam di sistem.</p>
+                        </div>
+                    </div>
+
+                    <!-- Navigation Buttons -->
+                    <div class="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100">
+                        <button id="btn-next-step" onclick="app.nextStep()" class="bg-brand-blue text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-800 transition shadow-md flex items-center gap-2">
+                            Lanjut ke Tahap Berikutnya <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                        <button id="btn-finish" onclick="app.finishCourse()" class="bg-brand-green text-white px-6 py-2.5 rounded-lg font-bold hover:bg-green-700 transition shadow-md hidden items-center gap-2">
+                            <i class="fa-solid fa-flag-checkered"></i> Selesaikan Materi
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL: Login -->
+    <div id="modal-login" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center fade-in">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div class="bg-brand-blue p-5 text-center">
+                <h3 class="text-white font-bold text-xl">Login MathEdu</h3>
+                <p class="text-blue-100 text-xs mt-1">Masuk untuk mengakses materi</p>
+            </div>
+            <div class="p-6">
+                <form id="login-form" onsubmit="event.preventDefault(); app.processLogin();">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">NISN / Username</label>
+                        <input type="text" id="login-nisn" required class="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-brand-blue focus:outline-none">
+                    </div>
+                    <div class="mb-5">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <input type="password" id="login-password" required class="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-brand-blue focus:outline-none">
+                    </div>
+                    
+                    <div class="bg-blue-50 border border-blue-100 p-3 rounded-md mb-5 text-xs text-gray-600">
+                        <i class="fa-solid fa-circle-info text-brand-blue mr-1"></i> Gunakan NISN sebagai username. Jika lupa password, silakan lapor ke Guru (Admin).
+                    </div>
+
+                    <button type="submit" class="w-full bg-brand-blue text-white font-bold py-2 rounded-md hover:bg-blue-800 transition">Masuk</button>
+                    <button type="button" onclick="app.closeModals()" class="w-full mt-2 bg-gray-100 text-gray-700 font-medium py-2 rounded-md hover:bg-gray-200 transition">Batal</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Kelola Siswa -->
+    <div id="modal-students" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center fade-in">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center p-5 border-b border-gray-100">
+                <h3 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-users text-brand-blue mr-2"></i> Kelola Akun Siswa</h3>
+                <button onclick="app.closeModals()" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            
+            <div class="p-5 border-b border-gray-100 bg-gray-50 flex-shrink-0">
+                <form id="form-add-student" onsubmit="event.preventDefault(); app.addStudent();" class="flex gap-3 items-end flex-wrap">
+                    <div class="flex-1 min-w-[150px]">
+                        <label class="block text-xs font-medium text-gray-700 mb-1">NISN (Username)</label>
+                        <input type="text" id="s-nisn" required class="w-full border border-gray-300 rounded-md p-2 text-sm">
+                    </div>
+                    <div class="flex-1 min-w-[150px]">
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Nama Lengkap</label>
+                        <input type="text" id="s-nama" required class="w-full border border-gray-300 rounded-md p-2 text-sm">
+                    </div>
+                    <div class="w-[100px]">
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Kelas</label>
+                        <input type="text" id="s-kelas" required class="w-full border border-gray-300 rounded-md p-2 text-sm">
+                    </div>
+                    <button type="submit" class="bg-brand-green text-white px-4 py-2 rounded-md text-sm font-bold hover:bg-green-700 transition">
+                        <i class="fa-solid fa-plus mr-1"></i> Tambah
+                    </button>
+                </form>
+                <p class="text-[10px] text-gray-500 mt-2">*Password default untuk siswa baru adalah: <strong>123456</strong></p>
+
+                <hr class="my-4 border-gray-200">
+                <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div>
+                        <h4 class="text-sm font-bold text-brand-blue mb-1"><i class="fa-solid fa-file-excel mr-1"></i> Upload Data Massal (Excel)</h4>
+                        <p class="text-xs text-gray-600">Format tabel: <strong>Kolom A (NISN), Kolom B (Nama Lengkap), Kolom C (Kelas)</strong>. Baris pertama akan diabaikan.</p>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <input type="file" id="excel-upload" accept=".xlsx, .xls, .csv" class="hidden" onchange="app.processExcel(event)">
+                        <button type="button" onclick="document.getElementById('excel-upload').click()" class="bg-white border border-brand-blue text-brand-blue hover:bg-brand-blue hover:text-white transition px-4 py-2 rounded-md text-sm font-semibold shadow-sm flex items-center gap-2">
+                            <i class="fa-solid fa-upload"></i> Pilih File
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-5 overflow-y-auto flex-grow">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                        <tr>
+                            <th class="px-4 py-2 rounded-tl-md">NISN</th>
+                            <th class="px-4 py-2">Nama</th>
+                            <th class="px-4 py-2">Kelas</th>
+                            <th class="px-4 py-2 text-center rounded-tr-md">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="student-list" class="divide-y divide-gray-200">
+                        <!-- Diisi JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Form Tambah/Edit Modul -->
+    <div id="modal-course-form" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center fade-in">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center p-5 border-b border-gray-100 flex-shrink-0">
+                <h3 class="text-lg font-bold text-gray-800" id="modal-title-text"><i class="fa-solid fa-plus-circle text-brand-orange mr-2"></i> Tambah Modul Baru</h3>
+                <button onclick="app.closeModals()" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            
+            <div class="p-5 overflow-y-auto flex-grow">
+                <form id="course-form" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Judul Bab/Materi <span class="text-red-500">*</span></label>
+                            <input type="text" id="f-title" required class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="Contoh: Matriks Dasar">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Kategori <span class="text-red-500">*</span></label>
+                            <input type="text" id="f-category" required class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="Contoh: Matematika Wajib Kelas XI">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Tipe</label>
+                            <select id="f-type" class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-blue">
+                                <option>Wajib</option>
+                                <option>Peminatan</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Durasi/Estimasi Waktu</label>
+                            <input type="text" id="f-duration" class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="Contoh: 2 Jam, 45 Menit">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">URL Gambar Thumbnail (Opsional)</label>
+                        <input type="url" id="f-image" class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="https://contoh.com/gambar.jpg">
+                        <p class="text-[10px] text-gray-500 mt-1">Kosongkan untuk gambar otomatis.</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">URL Video YouTube (Checkpoint 2) <span class="text-red-500">*</span></label>
+                        <input type="url" id="f-video" required class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="https://www.youtube.com/watch?v=...">
+                    </div>
+                    
+                    <div class="bg-orange-50 border border-orange-100 p-3 rounded-md mt-2">
+                        <label class="flex items-start gap-2 cursor-pointer">
+                            <input type="checkbox" id="f-require-summary" class="mt-1 w-4 h-4 text-brand-orange rounded focus:ring-brand-orange border-gray-300">
+                            <div>
+                                <span class="text-sm font-bold text-gray-800">Wajibkan Upload Rangkuman Video</span>
+                                <p class="text-[10px] text-gray-600 leading-tight mt-0.5">Jika dicentang, siswa harus mengupload foto catatan mereka di Checkpoint 2 sebelum bisa lanjut.</p>
+                            </div>
+                        </label>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Panduan Pembelajaran (Checkpoint 1) <span class="text-red-500">*</span></label>
+                        <textarea id="f-guide" rows="3" required class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="Tulis instruksi awal atau tujuan pembelajaran di sini..."></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Instruksi Tugas/Latihan (Checkpoint 3) <span class="text-red-500">*</span></label>
+                        <textarea id="f-exercise" rows="2" required class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="Contoh: Kerjakan soal di bawah ini atau LKS Hal 10."></textarea>
+                    </div>
+
+                    <div class="bg-blue-50 border border-blue-100 p-4 rounded-lg">
+                        <label class="block text-sm font-bold text-brand-blue mb-1"><i class="fa-solid fa-paperclip mr-1"></i> Lampiran Tugas (Opsional)</label>
+                        <p class="text-xs text-gray-600 mb-3">Pilih file PDF atau Gambar untuk ditampilkan langsung kepada siswa di Checkpoint 3.</p>
+                        
+                        <input type="file" id="f-attachment" accept=".pdf, image/png, image/jpeg, image/jpg" onchange="app.handleAdminFileUpload(event)" class="hidden">
+                        
+                        <div class="flex items-center gap-3">
+                            <button type="button" onclick="document.getElementById('f-attachment').click()" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-semibold shadow-sm hover:bg-gray-50 transition">
+                                Pilih File
+                            </button>
+                            <span id="f-attachment-name" class="text-sm text-gray-600 font-medium truncate max-w-[200px]">Belum ada file</span>
+                            <button type="button" id="btn-remove-attachment" onclick="app.removeAdminAttachment()" class="text-red-500 hover:bg-red-50 p-1.5 rounded-full hidden transition" title="Hapus Lampiran">
+                                <i class="fa-solid fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+            <div class="p-5 border-t border-gray-100 bg-gray-50 flex justify-end gap-3 flex-shrink-0">
+                <button type="button" onclick="app.closeModals()" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-gray-700 font-medium hover:bg-gray-50 transition">Batal</button>
+                <button type="button" onclick="app.saveCourse()" id="btn-save-course" class="px-4 py-2 bg-brand-blue text-white rounded-md font-bold hover:bg-blue-800 transition">
+                    <i class="fa-solid fa-save mr-2"></i> Simpan Modul
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Ubah Password -->
+    <div id="modal-password" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center fade-in">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden p-6">
+            <h3 class="text-lg font-bold mb-4">Ubah Password</h3>
+            <form onsubmit="event.preventDefault(); app.changePassword();">
+                <div class="mb-3">
+                    <label class="block text-sm text-gray-700 mb-1">Password Baru</label>
+                    <input type="password" id="new-password" required class="w-full border border-gray-300 rounded-md p-2">
+                </div>
+                <button type="submit" class="w-full bg-brand-blue text-white font-bold py-2 rounded-md hover:bg-blue-800 transition mt-2">Simpan</button>
+                <button type="button" onclick="app.closeModals()" class="w-full mt-2 bg-gray-100 text-gray-700 font-medium py-2 rounded-md hover:bg-gray-200">Batal</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: Confirm -->
+    <div id="modal-confirm" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center fade-in">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 text-center">
+            <div class="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center text-3xl mx-auto mb-4">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 class="text-lg font-bold text-gray-800 mb-2" id="confirm-title">Konfirmasi</h3>
+            <p class="text-sm text-gray-600 mb-6" id="confirm-message">Apakah Anda yakin?</p>
+            <div class="flex gap-3 justify-center">
+                <button onclick="app.closeModals()" class="px-5 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200">Batal</button>
+                <button id="btn-confirm-yes" class="px-5 py-2 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600">Ya, Lanjutkan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center gap-3 px-5 py-3 rounded-lg shadow-lg text-white font-medium">
+        <i id="toast-icon" class="fa-solid fa-check-circle text-xl"></i>
+        <span id="toast-message">Pesan notifikasi</span>
+    </div>
+
+    <script>
+        // 🔥 INISIALISASI FIREBASE CLOUD DATABASE 🔥
+        const firebaseConfig = {
+            apiKey: "AIzaSyAB22tHjaY9jCeZ4mLRph-rRFT30PIOLXE",
+            authDomain: "mathedu-sman-3.firebaseapp.com",
+            databaseURL: "https://mathedu-sman-3-default-rtdb.firebaseio.com",
+            projectId: "mathedu-sman-3",
+            storageBucket: "mathedu-sman-3.firebasestorage.app",
+            messagingSenderId: "511812933483",
+            appId: "1:511812933483:web:7486713c9dc2d83b6d1e2e"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        const app = {
+            state: {
+                role: 'guest',
+                currentUser: null,
+                users: [], 
+                courses: [],
+                activeCourseId: null,
+                activeStep: 1,
+                editingCourseId: null,
+                tempAttachment: null, 
+                confirmAction: null,
+                isSummaryUploaded: false,
+                isExerciseUploaded: false,
+                sessionChecked: false
+            },
+
+            adminCreds: {
+                username: 'dody',
+                password: 'Dda03041991'
+            },
+
+            defaultCourses: [
+                {
+                    id: 1,
+                    title: "Trigonometri Dasar",
+                    category: "Matematika Wajib Kelas X",
+                    type: "Compulsory",
+                    thumbnail: "https://placehold.co/600x400/1e3a8a/ffffff?text=Trigonometri",
+                    duration: "2 Jam",
+                    completedBy: [], 
+                    guide: "Pada bab ini kita akan mempelajari konsep dasar sinus, cosinus, dan tangen pada segitiga siku-siku.\n\nTujuan:\n1. Memahami perbandingan trigonometri.\n2. Mampu menyelesaikan soal cerita terkait.",
+                    videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+                    requireSummary: true, 
+                    exercise: "Kerjakan LKS halaman 24 bagian A nomor 1 sampai 5. Foto hasilnya dan kumpulkan di sini.",
+                    attachment: null
+                }
+            ],
+
+            init() {
+                // 📡 Mengambil data Materi dari Firebase (Realtime Sinkronisasi)
+                database.ref('courses').on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        // Firebase memformat array kosong atau berlubang menjadi object, kita pastikan menjadi array
+                        this.state.courses = Array.isArray(data) ? data : Object.values(data);
+                    } else {
+                        // Jika database kosong, beri data default
+                        this.state.courses = this.defaultCourses;
+                        this.saveCoursesToStorage();
+                    }
+                    this.renderCourses();
+                });
+
+                // 📡 Mengambil data Siswa dari Firebase
+                database.ref('users').on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        this.state.users = Array.isArray(data) ? data : Object.values(data);
+                    } else {
+                        this.state.users = [];
+                    }
+                    
+                    // Cek login session hanya di awal load setelah user terambil dari DB
+                    if (!this.state.sessionChecked) {
+                        this.checkSession();
+                        this.state.sessionChecked = true;
+                    }
+                    
+                    // Jika modal kelola siswa sedang terbuka, perbarui datanya
+                    if (!document.getElementById('modal-students').classList.contains('hidden')) {
+                        this.renderStudentList();
+                    }
+                });
+            },
+
+            checkSession() {
+                const sessionUser = sessionStorage.getItem('mathedu_session');
+                if (sessionUser) {
+                    const parsedSession = JSON.parse(sessionUser);
+                    if (parsedSession.role === 'admin') {
+                        this.setRole('admin', { nama: 'Guru (Admin)', initial: 'A' });
+                    } else {
+                        const user = this.state.users.find(u => u.nisn === parsedSession.nisn);
+                        if (user) {
+                            this.setRole('student', user);
+                        } else {
+                            this.logout(); // Akun terhapus dari cloud
+                        }
+                    }
+                }
+            },
+
+            saveCoursesToStorage() {
+                // 🚀 Menyimpan data materi ke Firebase
+                database.ref('courses').set(this.state.courses);
+            },
+
+            saveUsersToStorage() {
+                // 🚀 Menyimpan data siswa ke Firebase
+                database.ref('users').set(this.state.users);
+            },
+
+            openLoginModal() {
+                document.getElementById('login-form').reset();
+                document.getElementById('modal-login').classList.remove('hidden');
+            },
+
+            processLogin() {
+                const nisn = document.getElementById('login-nisn').value;
+                const pass = document.getElementById('login-password').value;
+
+                if (nisn === this.adminCreds.username && pass === this.adminCreds.password) {
+                    this.setRole('admin', { nama: 'Bpk. Dody (Guru)', initial: 'D' });
+                    sessionStorage.setItem('mathedu_session', JSON.stringify({ role: 'admin', nisn: nisn }));
+                    this.closeModals();
+                    this.showToast('Berhasil login sebagai Admin');
+                    return;
+                }
+
+                const user = this.state.users.find(u => u.nisn === nisn);
+                if (user) {
+                    if (user.password === pass) {
+                        this.setRole('student', user);
+                        sessionStorage.setItem('mathedu_session', JSON.stringify({ role: 'student', nisn: nisn }));
+                        this.closeModals();
+                        this.showToast(`Selamat datang, ${user.nama}!`);
+                        return;
+                    } else {
+                        this.showToast('Password salah!', true);
+                    }
+                } else {
+                    this.showToast('Akun tidak ditemukan!', true);
+                }
+            },
+
+            logout() {
+                sessionStorage.removeItem('mathedu_session');
+                this.setRole('guest', null);
+                this.goHome();
+                this.showToast('Berhasil keluar');
+            },
+
+            setRole(role, userData) {
+                this.state.role = role;
+                this.state.currentUser = userData;
+
+                const authGuest = document.getElementById('auth-guest');
+                const authUser = document.getElementById('auth-user');
+                const adminControls = document.getElementById('admin-controls');
+
+                if (role === 'guest') {
+                    authGuest.classList.remove('hidden');
+                    authUser.classList.add('hidden');
+                    adminControls.classList.add('hidden');
+                } else {
+                    authGuest.classList.add('hidden');
+                    authUser.classList.remove('hidden');
+                    
+                    document.getElementById('user-name').innerText = userData.nama;
+                    document.getElementById('user-role').innerText = role === 'admin' ? 'Administrator' : 'Siswa';
+                    document.getElementById('user-initial').innerText = role === 'admin' ? userData.initial : userData.nama.charAt(0).toUpperCase();
+
+                    if (role === 'admin') {
+                        adminControls.classList.remove('hidden');
+                        adminControls.classList.add('flex');
+                    } else {
+                        adminControls.classList.add('hidden');
+                    }
+                }
+                
+                this.renderCourses();
+                if (!document.getElementById('view-learning').classList.contains('hidden')) {
+                   this.goHome();
+                }
+            },
+
+            openManageStudentsModal() {
+                this.renderStudentList();
+                document.getElementById('modal-students').classList.remove('hidden');
+            },
+
+            renderStudentList() {
+                const tbody = document.getElementById('student-list');
+                tbody.innerHTML = '';
+                
+                if (this.state.users.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-6 text-center text-gray-500">Belum ada data siswa.</td></tr>`;
+                    return;
+                }
+
+                this.state.users.forEach(user => {
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 font-medium text-gray-800">${user.nisn}</td>
+                            <td class="px-4 py-3">${user.nama}</td>
+                            <td class="px-4 py-3">${user.kelas}</td>
+                            <td class="px-4 py-3 text-center">
+                                <button onclick="app.confirmResetPassword('${user.nisn}')" class="text-orange-500 hover:bg-orange-50 p-1.5 rounded mr-1" title="Reset Password ke 123456"><i class="fa-solid fa-key"></i></button>
+                                <button onclick="app.confirmDeleteStudent('${user.nisn}')" class="text-red-500 hover:bg-red-50 p-1.5 rounded" title="Hapus Siswa"><i class="fa-solid fa-trash"></i></button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            },
+
+            addStudent() {
+                const nisn = document.getElementById('s-nisn').value;
+                const nama = document.getElementById('s-nama').value;
+                const kelas = document.getElementById('s-kelas').value;
+
+                if (this.state.users.find(u => u.nisn === nisn)) {
+                    this.showToast('NISN sudah terdaftar!', true);
+                    return;
+                }
+
+                this.state.users.push({
+                    nisn: nisn,
+                    nama: nama,
+                    kelas: kelas,
+                    password: '123456'
+                });
+
+                this.saveUsersToStorage();
+                document.getElementById('form-add-student').reset();
+                this.showToast('Siswa berhasil ditambahkan (Tersimpan di Cloud)');
+            },
+
+            processExcel(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, {type: 'array'});
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        const json = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+                        
+                        if (json.length < 2) {
+                            this.showToast('File Excel kosong atau tidak valid.', true);
+                            return;
+                        }
+
+                        let addedCount = 0;
+                        let duplicateCount = 0;
+
+                        for (let i = 1; i < json.length; i++) {
+                            const row = json[i];
+                            if (row && row.length >= 3 && row[0] !== undefined) {
+                                const nisn = String(row[0]).trim();
+                                const nama = String(row[1]).trim();
+                                const kelas = String(row[2]).trim();
+
+                                if (nisn && nama && kelas) {
+                                    if (!this.state.users.find(u => u.nisn === nisn)) {
+                                        this.state.users.push({
+                                            nisn: nisn,
+                                            nama: nama,
+                                            kelas: kelas,
+                                            password: '123456'
+                                        });
+                                        addedCount++;
+                                    } else {
+                                        duplicateCount++;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (addedCount > 0) {
+                            this.saveUsersToStorage();
+                            let msg = `Berhasil upload ${addedCount} siswa ke Cloud.`;
+                            if (duplicateCount > 0) msg += ` (${duplicateCount} dilewati).`;
+                            this.showToast(msg);
+                        } else if (duplicateCount > 0) {
+                            this.showToast(`Semua data (${duplicateCount} siswa) sudah terdaftar.`, true);
+                        } else {
+                            this.showToast('Tidak ada data valid.', true);
+                        }
+                    } catch (error) {
+                        this.showToast('Gagal membaca file.', true);
+                    } finally {
+                        event.target.value = '';
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            },
+
+            openChangePasswordModal() {
+                document.getElementById('new-password').value = '';
+                document.getElementById('modal-password').classList.remove('hidden');
+            },
+
+            changePassword() {
+                const newPass = document.getElementById('new-password').value;
+                if (this.state.role === 'student' && this.state.currentUser) {
+                    const userIndex = this.state.users.findIndex(u => u.nisn === this.state.currentUser.nisn);
+                    if (userIndex > -1) {
+                        this.state.users[userIndex].password = newPass;
+                        this.saveUsersToStorage();
+                        this.showToast('Password berhasil diubah & tersinkronisasi!');
+                        this.closeModals();
+                    }
+                }
+            },
+
+            renderCourses() {
+                const grid = document.getElementById('course-grid');
+                grid.innerHTML = '';
+                
+                const searchQuery = document.getElementById('search-input').value.toLowerCase();
+                const filtered = this.state.courses.filter(c => 
+                    c.title.toLowerCase().includes(searchQuery) || 
+                    c.category.toLowerCase().includes(searchQuery)
+                );
+
+                if (filtered.length === 0) {
+                    grid.innerHTML = `<div class="col-span-full text-center py-10 text-gray-500">Tidak ada materi yang ditemukan.</div>`;
+                    return;
+                }
+
+                filtered.forEach(course => {
+                    const typeColor = course.type === 'Compulsory' ? 'bg-red-500' : 'bg-brand-blue';
+                    const typeText = course.type === 'Compulsory' ? 'Wajib' : 'Peminatan';
+                    
+                    let isCompleted = false;
+                    let badgeCompleted = '';
+                    if (this.state.role === 'student' && this.state.currentUser) {
+                        isCompleted = (course.completedBy || []).includes(this.state.currentUser.nisn);
+                        if (isCompleted) {
+                            badgeCompleted = `<div class="absolute top-3 right-3 bg-brand-green text-white text-xs font-bold px-2 py-1 rounded shadow-sm"><i class="fa-solid fa-check"></i> Selesai</div>`;
+                        }
+                    }
+
+                    const learnersCount = (course.completedBy || []).length;
+
+                    let actionButtons = `<button onclick="app.openCourse(${course.id})" class="bg-brand-orange hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg text-sm w-full transition shadow-sm"><i class="fa-solid fa-eye mr-1"></i> Detail / Mulai</button>`;
+                    
+                    if (this.state.role === 'admin') {
+                        actionButtons = `
+                            <div class="flex gap-2">
+                                <button onclick="app.openCourse(${course.id})" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-3 rounded-lg text-sm flex-grow transition" title="Lihat"><i class="fa-solid fa-eye"></i></button>
+                                <button onclick="app.openEditModal(${course.id})" class="bg-blue-100 hover:bg-blue-200 text-brand-blue font-bold py-2 px-3 rounded-lg text-sm transition" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                                <button onclick="app.confirmDeleteCourse(${course.id})" class="bg-red-100 hover:bg-red-200 text-red-600 font-bold py-2 px-3 rounded-lg text-sm transition" title="Hapus"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        `;
+                    }
+
+                    grid.innerHTML += `
+                        <div class="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-shadow duration-300 border border-gray-100 overflow-hidden flex flex-col h-full group relative">
+                            ${badgeCompleted}
+                            <div class="h-40 overflow-hidden relative">
+                                <div class="absolute top-3 left-3 ${typeColor} text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">${typeText}</div>
+                                <img src="${course.thumbnail}" alt="${course.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                            </div>
+                            <div class="p-5 flex flex-col flex-grow">
+                                <div class="flex justify-between items-start mb-2">
+                                    <span class="bg-blue-50 text-brand-blue text-[10px] font-bold px-2 py-1 rounded border border-blue-100 truncate max-w-[70%]">${course.category}</span>
+                                    <span class="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded"><i class="fa-regular fa-clock"></i> ${course.duration || '-'}</span>
+                                </div>
+                                <h3 class="font-bold text-lg text-gray-800 mb-4 line-clamp-2">${course.title}</h3>
+                                
+                                <div class="mt-auto pt-4 border-t border-gray-50 flex justify-between items-center mb-4 text-xs text-gray-500">
+                                    <span class="flex items-center gap-1"><i class="fa-solid fa-user-graduate"></i> ${learnersCount} Siswa Selesai</span>
+                                </div>
+                                
+                                ${actionButtons}
+                            </div>
+                        </div>
+                    `;
+                });
+            },
+
+            openCourse(id) {
+                if (this.state.role === 'guest') {
+                    this.showToast('Harap login terlebih dahulu.', true);
+                    this.openLoginModal();
+                    return;
+                }
+
+                const course = this.state.courses.find(c => c.id === id);
+                if (!course) return;
+
+                this.state.activeCourseId = id;
+                this.state.activeStep = 1;
+                this.state.isSummaryUploaded = false;
+                this.state.isExerciseUploaded = false;
+                
+                document.getElementById('learn-title').innerText = course.title;
+                document.getElementById('learn-category').innerText = course.category;
+                document.getElementById('learn-guide').innerText = course.guide;
+                document.getElementById('learn-exercise').innerText = course.exercise;
+                document.getElementById('learn-review-input').value = ''; 
+                
+                let vidUrl = course.videoUrl;
+                if (vidUrl.includes('watch?v=')) vidUrl = vidUrl.replace('watch?v=', 'embed/');
+                document.getElementById('learn-video').src = vidUrl;
+
+                const summarySection = document.getElementById('summary-upload-section');
+                document.getElementById('summary-upload-name').classList.add('hidden');
+                document.getElementById('summary-upload').value = '';
+                
+                if (course.requireSummary) summarySection.classList.remove('hidden');
+                else summarySection.classList.add('hidden');
+
+                const attachmentContainer = document.getElementById('learn-exercise-attachment');
+                attachmentContainer.innerHTML = ''; 
+                if (course.attachment) {
+                    let embedHtml = '';
+                    if (course.attachment.type.includes('pdf')) {
+                        embedHtml = `
+                            <div class="border border-gray-300 rounded-lg overflow-hidden bg-white shadow-sm mt-3 fade-in">
+                                <div class="bg-gray-100 px-4 py-2 border-b border-gray-200 text-sm font-semibold flex items-center justify-between">
+                                    <span class="text-gray-700 flex items-center gap-2"><i class="fa-solid fa-file-pdf text-red-500 text-lg"></i> <span class="truncate max-w-[200px] md:max-w-xs">${course.attachment.name}</span></span>
+                                    <a href="${course.attachment.dataUrl}" download="${course.attachment.name}" class="text-brand-blue hover:text-blue-800 font-bold text-xs flex items-center gap-1 bg-blue-50 px-3 py-1 rounded-full"><i class="fa-solid fa-download"></i> Unduh</a>
+                                </div>
+                                <iframe src="${course.attachment.dataUrl}#toolbar=0" class="w-full h-[400px] md:h-[600px]" frameborder="0"></iframe>
+                            </div>
+                        `;
+                    } else if (course.attachment.type.includes('image')) {
+                        embedHtml = `
+                            <div class="border border-gray-300 rounded-lg overflow-hidden bg-white shadow-sm mt-3 fade-in inline-block">
+                                <div class="bg-gray-100 px-4 py-2 border-b border-gray-200 text-sm font-semibold flex items-center justify-between">
+                                    <span class="text-gray-700 flex items-center gap-2"><i class="fa-solid fa-file-image text-brand-blue text-lg"></i> <span class="truncate max-w-[200px]">${course.attachment.name}</span></span>
+                                    <a href="${course.attachment.dataUrl}" download="${course.attachment.name}" class="text-brand-blue hover:text-blue-800 font-bold text-xs flex items-center gap-1 bg-blue-50 px-3 py-1 rounded-full"><i class="fa-solid fa-download"></i> Unduh</a>
+                                </div>
+                                <img src="${course.attachment.dataUrl}" alt="Lampiran Tugas" class="max-w-full h-auto max-h-[600px] block">
+                            </div>
+                        `;
+                    }
+                    attachmentContainer.innerHTML = embedHtml;
+                }
+
+                document.getElementById('student-upload-name').classList.add('hidden');
+                document.getElementById('student-upload').value = '';
+
+                document.getElementById('view-dashboard').classList.add('hidden');
+                document.getElementById('view-learning').classList.remove('hidden');
+                
+                this.updateStepUI();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            },
+
+            goHome() {
+                document.getElementById('view-learning').classList.add('hidden');
+                document.getElementById('view-dashboard').classList.remove('hidden');
+                document.getElementById('learn-video').src = ''; 
+                this.renderCourses();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            },
+
+            updateStepUI() {
+                const progressPercentage = ((this.state.activeStep - 1) / 3) * 100;
+                document.getElementById('progress-line').style.width = `${progressPercentage}%`;
+
+                for (let i = 1; i <= 4; i++) {
+                    const indicator = document.querySelector(`.step-indicator[data-step="${i}"]`);
+                    const iconBg = indicator.querySelector('div:first-child');
+                    const text = indicator.querySelector('div:last-child');
+                    const content = document.getElementById(`content-step-${i}`);
+                    
+                    if (i < this.state.activeStep) {
+                        iconBg.className = 'w-10 h-10 rounded-full bg-brand-green text-white flex items-center justify-center font-bold shadow-md ring-4 ring-white transition-all';
+                        iconBg.innerHTML = '<i class="fa-solid fa-check"></i>';
+                        text.className = 'text-xs font-semibold mt-2 text-brand-green text-center absolute -ml-4 w-20';
+                        content.classList.add('hidden');
+                    } else if (i === this.state.activeStep) {
+                        iconBg.className = 'w-10 h-10 rounded-full bg-brand-blue text-white flex items-center justify-center font-bold shadow-md ring-4 ring-white transition-all';
+                        let icon = ['book-open', 'play', 'pen-clip', 'check-double'][i-1];
+                        iconBg.innerHTML = `<i class="fa-solid fa-${icon}"></i>`;
+                        text.className = 'text-xs font-bold mt-2 text-brand-blue text-center absolute -ml-4 w-20';
+                        content.classList.remove('hidden');
+                    } else {
+                        iconBg.className = 'w-10 h-10 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center font-bold shadow-sm ring-4 ring-white transition-all';
+                        let icon = ['book-open', 'play', 'pen-clip', 'check-double'][i-1];
+                        iconBg.innerHTML = `<i class="fa-solid fa-${icon}"></i>`;
+                        text.className = 'text-xs font-medium mt-2 text-gray-500 text-center absolute -ml-4 w-20';
+                        content.classList.add('hidden');
+                    }
+                }
+
+                if (this.state.activeStep === 4) {
+                    document.getElementById('btn-next-step').classList.add('hidden');
+                    document.getElementById('btn-finish').classList.remove('hidden');
+                    document.getElementById('btn-finish').classList.add('flex');
+                } else {
+                    document.getElementById('btn-next-step').classList.remove('hidden');
+                    document.getElementById('btn-finish').classList.add('hidden');
+                    document.getElementById('btn-finish').classList.remove('flex');
+                }
+            },
+
+            nextStep() {
+                if (this.state.activeStep === 2) {
+                    const course = this.state.courses.find(c => c.id === this.state.activeCourseId);
+                    if (course && course.requireSummary && !this.state.isSummaryUploaded) {
+                        this.showToast('Wajib upload foto rangkuman!', true);
+                        const summaryForm = document.getElementById('summary-upload-section');
+                        summaryForm.classList.add('ring-4', 'ring-red-400', 'animate-pulse');
+                        setTimeout(() => summaryForm.classList.remove('ring-4', 'ring-red-400', 'animate-pulse'), 1500);
+                        return;
+                    }
+                }
+
+                if (this.state.activeStep === 3 && !this.state.isExerciseUploaded) {
+                    this.showToast('Wajib kumpulkan tugas terlebih dahulu!', true);
+                    return; 
+                }
+
+                if (this.state.activeStep < 4) {
+                    this.state.activeStep++;
+                    this.updateStepUI();
+                }
+            },
+            
+            handleSummaryUpload() {
+                if(document.getElementById('summary-upload').files[0]) {
+                    this.state.isSummaryUploaded = true;
+                    document.getElementById('summary-upload-name').classList.remove('hidden');
+                    this.showToast('Foto rangkuman berhasil dipilih.');
+                }
+            },
+
+            finishCourse() {
+                const reviewText = document.getElementById('learn-review-input').value.trim();
+                if (!reviewText) {
+                    this.showToast('Wajib mengisi review & refleksi!', true);
+                    document.getElementById('learn-review-input').focus();
+                    return;
+                }
+
+                if (this.state.role === 'student' && this.state.currentUser) {
+                    const courseIndex = this.state.courses.findIndex(c => c.id === this.state.activeCourseId);
+                    if (courseIndex > -1) {
+                        if (!this.state.courses[courseIndex].completedBy) {
+                            this.state.courses[courseIndex].completedBy = [];
+                        }
+                        const nisn = this.state.currentUser.nisn;
+                        if (!this.state.courses[courseIndex].completedBy.includes(nisn)) {
+                            this.state.courses[courseIndex].completedBy.push(nisn);
+                            this.saveCoursesToStorage(); // Sinkron ke Firebase
+                        }
+                    }
+                }
+                
+                this.showToast('Materi selesai! Data tersimpan di Cloud.');
+                this.goHome();
+            },
+
+            handleStudentUpload() {
+                if(document.getElementById('student-upload').files[0]) {
+                    this.state.isExerciseUploaded = true;
+                    document.getElementById('student-upload-name').classList.remove('hidden');
+                    this.showToast('File siap dikirim!');
+                }
+            },
+
+            openAddCourseModal() {
+                this.state.editingCourseId = null;
+                this.state.tempAttachment = null;
+                document.getElementById('modal-title-text').innerHTML = '<i class="fa-solid fa-plus-circle text-brand-orange mr-2"></i> Tambah Modul Baru';
+                document.getElementById('btn-save-course').innerHTML = '<i class="fa-solid fa-save mr-2"></i> Simpan Modul';
+                document.getElementById('course-form').reset();
+                document.getElementById('f-require-summary').checked = false;
+                
+                document.getElementById('f-attachment-name').innerText = 'Belum ada file';
+                document.getElementById('btn-remove-attachment').classList.add('hidden');
+                document.getElementById('modal-course-form').classList.remove('hidden');
+            },
+
+            openEditModal(id) {
+                const course = this.state.courses.find(c => c.id === id);
+                if (!course) return;
+
+                this.state.editingCourseId = id;
+                document.getElementById('modal-title-text').innerHTML = '<i class="fa-solid fa-pen text-brand-blue mr-2"></i> Edit Modul';
+                document.getElementById('btn-save-course').innerHTML = '<i class="fa-solid fa-save mr-2"></i> Perbarui Modul';
+
+                document.getElementById('f-title').value = course.title;
+                document.getElementById('f-category').value = course.category;
+                document.getElementById('f-type').value = course.type === 'Compulsory' ? 'Wajib' : 'Peminatan';
+                document.getElementById('f-duration').value = course.duration || '';
+                
+                document.getElementById('f-require-summary').checked = course.requireSummary || false;
+                
+                let imgVal = course.thumbnail;
+                if(imgVal.includes('placehold.co')) imgVal = '';
+                document.getElementById('f-image').value = imgVal;
+                
+                let normalUrl = course.videoUrl;
+                if(normalUrl.includes('embed/')) normalUrl = normalUrl.replace('embed/', 'watch?v=');
+                document.getElementById('f-video').value = normalUrl;
+                
+                document.getElementById('f-guide').value = course.guide;
+                document.getElementById('f-exercise').value = course.exercise;
+
+                this.state.tempAttachment = course.attachment || null;
+                if (this.state.tempAttachment) {
+                    document.getElementById('f-attachment-name').innerText = this.state.tempAttachment.name;
+                    document.getElementById('btn-remove-attachment').classList.remove('hidden');
+                } else {
+                    document.getElementById('f-attachment-name').innerText = 'Belum ada file';
+                    document.getElementById('btn-remove-attachment').classList.add('hidden');
+                }
+                document.getElementById('f-attachment').value = '';
+
+                document.getElementById('modal-course-form').classList.remove('hidden');
+            },
+
+            handleAdminFileUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                // Max 2MB untuk Realtime Database Firebase
+                if (file.size > 2 * 1024 * 1024) {
+                    this.showToast('Ukuran maksimal file 2MB untuk sistem cloud ini.', true);
+                    event.target.value = '';
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.state.tempAttachment = {
+                        name: file.name,
+                        type: file.type,
+                        dataUrl: e.target.result
+                    };
+                    document.getElementById('f-attachment-name').innerText = file.name;
+                    document.getElementById('btn-remove-attachment').classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            },
+
+            removeAdminAttachment() {
+                this.state.tempAttachment = null;
+                document.getElementById('f-attachment').value = '';
+                document.getElementById('f-attachment-name').innerText = 'Belum ada file';
+                document.getElementById('btn-remove-attachment').classList.add('hidden');
+            },
+
+            saveCourse() {
+                const title = document.getElementById('f-title').value;
+                const category = document.getElementById('f-category').value;
+                const type = document.getElementById('f-type').value;
+                const duration = document.getElementById('f-duration').value;
+                const image = document.getElementById('f-image').value;
+                let video = document.getElementById('f-video').value;
+                const requireSummary = document.getElementById('f-require-summary').checked;
+                const guide = document.getElementById('f-guide').value;
+                const exercise = document.getElementById('f-exercise').value;
+
+                if (!title || !category || !video || !guide || !exercise) {
+                    this.showToast('Harap isi semua field wajib', true);
+                    return;
+                }
+
+                let embedUrl = video;
+                if (video.includes('youtube.com/watch?v=')) {
+                    embedUrl = video.replace('watch?v=', 'embed/').split('&')[0];
+                } else if (video.includes('youtu.be/')) {
+                    embedUrl = video.replace('youtu.be/', 'youtube.com/embed/').split('?')[0];
+                }
+
+                if (this.state.editingCourseId) {
+                    const index = this.state.courses.findIndex(c => c.id === this.state.editingCourseId);
+                    if (index > -1) {
+                        this.state.courses[index] = {
+                            ...this.state.courses[index],
+                            title: title,
+                            category: category,
+                            type: type === 'Wajib' ? 'Compulsory' : 'Advanced',
+                            thumbnail: image || `https://placehold.co/600x400/2563eb/ffffff?text=${encodeURIComponent(title)}`,
+                            duration: duration,
+                            guide: guide,
+                            videoUrl: embedUrl,
+                            requireSummary: requireSummary,
+                            exercise: exercise,
+                            attachment: this.state.tempAttachment
+                        };
+                        this.showToast('Modul diperbarui ke Cloud!');
+                    }
+                } else {
+                    const newCourse = {
+                        id: Date.now(),
+                        title: title,
+                        category: category,
+                        type: type === 'Wajib' ? 'Compulsory' : 'Advanced',
+                        thumbnail: image || `https://placehold.co/600x400/2563eb/ffffff?text=${encodeURIComponent(title)}`,
+                        duration: duration,
+                        completedBy: [],
+                        guide: guide,
+                        videoUrl: embedUrl,
+                        requireSummary: requireSummary,
+                        exercise: exercise,
+                        attachment: this.state.tempAttachment
+                    };
+                    this.state.courses.unshift(newCourse);
+                    this.showToast('Modul baru tersimpan di Cloud!');
+                }
+
+                this.saveCoursesToStorage();
+                this.closeModals();
+            },
+
+            showConfirm(title, message, actionCallback) {
+                document.getElementById('confirm-title').innerText = title;
+                document.getElementById('confirm-message').innerText = message;
+                this.state.confirmAction = actionCallback;
+                
+                const btnYes = document.getElementById('btn-confirm-yes');
+                const newBtn = btnYes.cloneNode(true);
+                btnYes.parentNode.replaceChild(newBtn, btnYes);
+                
+                newBtn.addEventListener('click', () => {
+                    if (this.state.confirmAction) this.state.confirmAction();
+                    this.closeConfirmModal();
+                });
+
+                document.getElementById('modal-confirm').classList.remove('hidden');
+            },
+
+            closeConfirmModal() {
+                document.getElementById('modal-confirm').classList.add('hidden');
+                this.state.confirmAction = null;
+            },
+
+            confirmDeleteCourse(id) {
+                this.showConfirm(
+                    "Hapus Modul", 
+                    "Yakin menghapus modul ini secara permanen dari Cloud?", 
+                    () => {
+                        this.state.courses = this.state.courses.filter(c => c.id !== id);
+                        this.saveCoursesToStorage();
+                        this.showToast('Modul dihapus dari Cloud.');
+                    }
+                );
+            },
+
+            confirmDeleteStudent(nisn) {
+                this.showConfirm(
+                    "Hapus Siswa", 
+                    `Yakin menghapus siswa (${nisn}) dari Cloud?`, 
+                    () => {
+                        this.state.users = this.state.users.filter(u => u.nisn !== nisn);
+                        this.saveUsersToStorage();
+                        this.showToast('Siswa dihapus dari Cloud.');
+                    }
+                );
+            },
+
+            confirmResetPassword(nisn) {
+                this.showConfirm(
+                    "Reset Password", 
+                    `Kembalikan password (${nisn}) ke default (123456)?`, 
+                    () => {
+                        const userIndex = this.state.users.findIndex(u => u.nisn === nisn);
+                        if(userIndex > -1) {
+                            this.state.users[userIndex].password = '123456';
+                            this.saveUsersToStorage();
+                            this.showToast('Password direset di Cloud.');
+                        }
+                    }
+                );
+            },
+
+            closeModals() {
+                document.getElementById('modal-login').classList.add('hidden');
+                document.getElementById('modal-students').classList.add('hidden');
+                document.getElementById('modal-course-form').classList.add('hidden');
+                document.getElementById('modal-password').classList.add('hidden');
+                this.closeConfirmModal();
+            },
+
+            showToast(message, isError = false) {
+                const toast = document.getElementById('toast');
+                const icon = document.getElementById('toast-icon');
+                
+                document.getElementById('toast-message').innerText = message;
+                
+                if (isError) {
+                    toast.className = 'fixed bottom-5 right-5 transform translate-y-0 opacity-100 transition-all duration-300 z-50 flex items-center gap-3 px-5 py-3 rounded-lg shadow-lg text-white font-medium bg-red-500';
+                    icon.className = 'fa-solid fa-triangle-exclamation text-xl';
+                } else {
+                    toast.className = 'fixed bottom-5 right-5 transform translate-y-0 opacity-100 transition-all duration-300 z-50 flex items-center gap-3 px-5 py-3 rounded-lg shadow-lg text-white font-medium bg-gray-800';
+                    icon.className = 'fa-solid fa-check-circle text-xl text-brand-green';
+                }
+
+                setTimeout(() => {
+                    toast.classList.replace('translate-y-0', 'translate-y-20');
+                    toast.classList.replace('opacity-100', 'opacity-0');
+                }, 3000);
+            }
+        };
+
+        // Initialize App on Load
+        window.onload = () => {
+            app.init();
+        };
+    </script>
+</body>
+</html>
