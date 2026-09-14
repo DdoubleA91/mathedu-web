@@ -204,7 +204,11 @@
                         </div>
 
                         <!-- Form Upload Rangkuman -->
-                        <div id="summary-upload-section" class="mt-8 border-2 border-dashed border-brand-orange rounded-lg p-6 text-center bg-orange-50 hidden">
+                        <div id="summary-upload-section" class="mt-8 border-2 border-dashed border-brand-orange rounded-lg p-6 text-center bg-orange-50 hidden relative">
+                            <div id="summary-upload-overlay" class="absolute inset-0 bg-white/80 z-10 hidden flex-col items-center justify-center rounded-lg">
+                                <div class="loader-spin mb-2"></div>
+                                <span class="text-sm font-bold text-brand-blue">Mengirim ke Google Drive...</span>
+                            </div>
                             <i class="fa-solid fa-book-open-reader text-3xl text-brand-orange mb-2"></i>
                             <h4 class="font-bold text-gray-800 mb-1">Tugas Rangkuman Video</h4>
                             <p class="text-sm text-gray-600 mb-4">Guru mewajibkan kamu mencatat rangkuman dari video di atas ke dalam buku tulismu. <br><strong>Upload foto catatanmu di sini untuk bisa lanjut ke tahap berikutnya.</strong></p>
@@ -1047,12 +1051,64 @@
                 }
             },
             
+            // ✨ Fungsi Upload Real ke Google Drive via fetch() ✨
             handleSummaryUpload() {
-                if(document.getElementById('summary-upload').files[0]) {
-                    this.state.isSummaryUploaded = true;
-                    document.getElementById('summary-upload-name').classList.remove('hidden');
-                    this.showToast('Foto rangkuman berhasil dipilih.');
+                const fileInput = document.getElementById('summary-upload');
+                const file = fileInput.files[0];
+                if (!file) return;
+
+                if (appsScriptUrl === 'URL_WEB_APP_APPS_SCRIPT_ANDA_DI_SINI') {
+                    this.showToast('Error: URL Apps Script belum dipasang di kode (hubungi Guru).', true);
+                    return;
                 }
+
+                document.getElementById('summary-upload-overlay').classList.remove('hidden');
+                document.getElementById('summary-upload-overlay').classList.add('flex');
+                document.getElementById('summary-upload-name').classList.add('hidden');
+
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const base64 = e.target.result;
+                    const userName = this.state.currentUser ? this.state.currentUser.nama.replace(/\s+/g, '_') : 'Guest';
+                    const nisn = this.state.currentUser ? this.state.currentUser.nisn : '000';
+                    const courseName = document.getElementById('learn-title').innerText.replace(/\s+/g, '_');
+
+                    const payload = {
+                        fileName: `Rangkuman_${nisn}_${userName}_${courseName}_${file.name}`,
+                        mimeType: file.type,
+                        base64Data: base64.split(',')[1]
+                    };
+
+                    try {
+                        const response = await fetch(appsScriptUrl, {
+                            method: 'POST',
+                            body: JSON.stringify(payload)
+                        });
+                        const result = await response.json();
+
+                        if (result.status === 'success') {
+                            const link = result.fileUrl || result.url;
+                            this.state.isSummaryUploaded = true;
+                            document.getElementById('summary-upload-name').innerHTML = `<i class="fa-solid fa-check mr-1"></i> Terkirim: <a href="${link}" target="_blank" class="underline text-brand-blue">Lihat File</a>`;
+                            document.getElementById('summary-upload-name').classList.remove('hidden');
+                            document.getElementById('btn-summary-upload').classList.add('hidden');
+                            this.showToast('Rangkuman berhasil terkirim ke Google Drive!');
+                        } else {
+                            this.showToast('Gagal upload: ' + (result.message || result.error || 'Tidak diketahui'), true);
+                            fileInput.value = '';
+                        }
+                    } catch (error) {
+                        console.error(error);
+                        // Upload benar-benar gagal terkirim ke Drive - JANGAN tandai sebagai selesai,
+                        // supaya siswa tahu harus coba lagi dan tidak ada tugas yang "hilang diam-diam".
+                        this.showToast('Gagal terhubung ke Google Drive. Cek koneksi internet lalu coba lagi.', true);
+                        fileInput.value = '';
+                    } finally {
+                        document.getElementById('summary-upload-overlay').classList.add('hidden');
+                        document.getElementById('summary-upload-overlay').classList.remove('flex');
+                    }
+                };
+                reader.readAsDataURL(file);
             },
 
             finishCourse() {
@@ -1126,21 +1182,22 @@
                         const result = await response.json();
                         
                         if(result.status === 'success') {
+                            const link = result.fileUrl || result.url;
                             this.state.isExerciseUploaded = true;
-                            document.getElementById('student-upload-name').innerHTML = `<i class="fa-solid fa-check mr-1"></i> Terkirim: <a href="${result.url}" target="_blank" class="underline text-brand-blue">Lihat File</a>`;
+                            document.getElementById('student-upload-name').innerHTML = `<i class="fa-solid fa-check mr-1"></i> Terkirim: <a href="${link}" target="_blank" class="underline text-brand-blue">Lihat File</a>`;
                             document.getElementById('student-upload-name').classList.remove('hidden');
                             document.getElementById('btn-student-upload').classList.add('hidden');
                             this.showToast('Berhasil mengirim tugas ke Google Drive!');
                         } else {
-                            this.showToast('Gagal upload: ' + result.error, true);
+                            this.showToast('Gagal upload: ' + (result.message || result.error || 'Tidak diketahui'), true);
+                            fileInput.value = '';
                         }
                     } catch(error) {
                          console.error(error);
-                         // Fallback jika terjadi block CORS karena konfigurasi Apps Script salah
-                         this.showToast('Koneksi terganggu/CORS error. Melanjutkan simulasi.', true);
-                         this.state.isExerciseUploaded = true; 
-                         document.getElementById('student-upload-name').innerHTML = `<i class="fa-solid fa-check mr-1"></i> Simulasi Terkirim`;
-                         document.getElementById('student-upload-name').classList.remove('hidden');
+                         // Upload benar-benar gagal terkirim ke Drive - JANGAN tandai sebagai selesai,
+                         // supaya tidak ada tugas yang "hilang diam-diam" tanpa sepengetahuan siswa/guru.
+                         this.showToast('Gagal terhubung ke Google Drive. Cek koneksi internet lalu coba lagi.', true);
+                         fileInput.value = '';
                     } finally {
                         document.getElementById('upload-overlay').classList.add('hidden');
                         document.getElementById('upload-overlay').classList.remove('flex');
