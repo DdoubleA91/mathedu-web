@@ -127,6 +127,27 @@
                 <button onclick="app.openManageStudentsModal()" class="bg-gray-800 text-white px-5 py-2 rounded-lg font-medium text-sm hover:bg-gray-900 transition flex items-center gap-2 shadow-sm">
                     <i class="fa-solid fa-users"></i> Kelola Siswa
                 </button>
+                <button onclick="app.openReportsModal()" class="bg-teal-600 text-white px-5 py-2 rounded-lg font-medium text-sm hover:bg-teal-700 transition flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-chart-column"></i> Rekap Nilai & Tugas
+                </button>
+            </div>
+
+            <!-- Progres Belajar Siswa -->
+            <div id="student-progress-banner" class="hidden mb-6 bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div class="flex-grow">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-sm font-bold text-gray-700"><i class="fa-solid fa-chart-simple text-brand-blue mr-1"></i> Progres Belajarmu</span>
+                            <span id="progress-summary-text" class="text-sm font-bold text-brand-blue">0 dari 0 modul selesai</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div id="progress-summary-bar" class="bg-brand-green h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <button id="btn-continue-course" class="hidden bg-brand-blue text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-blue-800 transition whitespace-nowrap flex-shrink-0">
+                        <i class="fa-solid fa-play mr-1"></i> Lanjutkan Belajar
+                    </button>
+                </div>
             </div>
 
             <!-- Course Grid -->
@@ -384,7 +405,48 @@
         </div>
     </div>
 
-    <!-- MODAL: Form Tambah/Edit Modul -->
+    <!-- MODAL: Rekap Nilai & Tugas -->
+    <div id="modal-reports" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center fade-in">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center p-5 border-b border-gray-100 flex-shrink-0">
+                <h3 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-chart-column text-teal-600 mr-2"></i> Rekap Nilai & Tugas</h3>
+                <button onclick="app.closeModals()" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+
+            <div class="p-5 border-b border-gray-100 bg-gray-50 flex-shrink-0 flex flex-col md:flex-row gap-3 md:items-end md:justify-between">
+                <div class="flex-grow">
+                    <label class="block text-xs font-medium text-gray-700 mb-1">Pilih Modul</label>
+                    <select id="report-course-select" class="w-full md:w-96 border border-gray-300 rounded-md p-2 text-sm bg-white" onchange="app.renderReportTable()">
+                        <!-- Diisi JS -->
+                    </select>
+                </div>
+                <button onclick="app.exportReportToExcel()" class="bg-brand-green text-white px-4 py-2 rounded-md text-sm font-bold hover:bg-green-700 transition flex items-center gap-2 justify-center flex-shrink-0">
+                    <i class="fa-solid fa-file-excel"></i> Unduh Excel
+                </button>
+            </div>
+
+            <div class="p-5 overflow-y-auto flex-grow">
+                <div id="report-summary-line" class="text-sm text-gray-600 mb-3 font-medium"></div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-100">
+                            <tr>
+                                <th class="px-3 py-2 rounded-tl-md">Nama</th>
+                                <th class="px-3 py-2">Kelas</th>
+                                <th class="px-3 py-2 text-center">Rangkuman</th>
+                                <th class="px-3 py-2 text-center">Tugas</th>
+                                <th class="px-3 py-2 text-center">Skor Kuis</th>
+                                <th class="px-3 py-2 text-center rounded-tr-md">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="report-table-body" class="divide-y divide-gray-200">
+                            <!-- Diisi JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
     <div id="modal-course-form" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center fade-in">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center p-5 border-b border-gray-100 flex-shrink-0">
@@ -679,6 +741,24 @@
                 database.ref('courses').set(this.state.courses);
             },
 
+            // 🗂️ Mencatat file rangkuman/tugas siswa ke dalam data modul, supaya guru
+            // bisa melihatnya lagi lewat "Rekap Nilai & Tugas" tanpa buka Drive manual.
+            saveSubmissionRecord(courseId, type, fileName, fileUrl) {
+                if (!this.state.currentUser) return;
+                const nisn = this.state.currentUser.nisn;
+                const courseIndex = this.state.courses.findIndex(c => c.id === courseId);
+                if (courseIndex === -1) return;
+
+                if (!this.state.courses[courseIndex].submissions) this.state.courses[courseIndex].submissions = {};
+                if (!this.state.courses[courseIndex].submissions[nisn]) this.state.courses[courseIndex].submissions[nisn] = {};
+                this.state.courses[courseIndex].submissions[nisn][type] = {
+                    fileName: fileName,
+                    fileUrl: fileUrl,
+                    submittedAt: new Date().toISOString()
+                };
+                this.saveCoursesToStorage();
+            },
+
             saveUsersToStorage() {
                 database.ref('users').set(this.state.users);
             },
@@ -761,6 +841,100 @@
             openManageStudentsModal() {
                 this.renderStudentList();
                 document.getElementById('modal-students').classList.remove('hidden');
+            },
+
+            openReportsModal() {
+                const select = document.getElementById('report-course-select');
+                select.innerHTML = this.state.courses.map(c => `<option value="${c.id}">${c.title}</option>`).join('');
+
+                if (this.state.courses.length > 0) {
+                    this.renderReportTable();
+                } else {
+                    document.getElementById('report-table-body').innerHTML = '<tr><td colspan="6" class="text-center text-gray-400 py-4">Belum ada modul.</td></tr>';
+                    document.getElementById('report-summary-line').innerText = '';
+                }
+                document.getElementById('modal-reports').classList.remove('hidden');
+            },
+
+            getReportRows(courseId) {
+                const course = this.state.courses.find(c => c.id === courseId);
+                if (!course) return [];
+
+                // Siswa target: kalau modul dibatasi "Siswa Tertentu", cuma tampilkan siswa itu.
+                let targetStudents = this.state.users;
+                if (course.visibility && course.visibility.mode === 'selected') {
+                    const nisns = course.visibility.studentNisns || [];
+                    targetStudents = this.state.users.filter(u => nisns.includes(u.nisn));
+                }
+
+                return targetStudents.map(u => {
+                    const sub = (course.submissions && course.submissions[u.nisn]) || {};
+                    const quizResult = (course.quizResults && course.quizResults[u.nisn]) || null;
+                    return {
+                        nama: u.nama,
+                        kelas: u.kelas || '-',
+                        rangkuman: sub.rangkuman || null,
+                        tugas: sub.tugas || null,
+                        quizScore: quizResult ? quizResult.score : null,
+                        quizPassed: quizResult ? quizResult.passed : null,
+                        selesai: (course.completedBy || []).includes(u.nisn)
+                    };
+                });
+            },
+
+            renderReportTable() {
+                const courseId = parseInt(document.getElementById('report-course-select').value);
+                const rows = this.getReportRows(courseId);
+                const tbody = document.getElementById('report-table-body');
+
+                if (rows.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-400 py-4">Belum ada siswa target untuk modul ini.</td></tr>';
+                    document.getElementById('report-summary-line').innerText = '';
+                    return;
+                }
+
+                const doneCount = rows.filter(r => r.selesai).length;
+                document.getElementById('report-summary-line').innerText = `${doneCount} dari ${rows.length} siswa telah menyelesaikan modul ini.`;
+
+                tbody.innerHTML = rows.map(r => `
+                    <tr>
+                        <td class="px-3 py-2 font-medium text-gray-800">${r.nama}</td>
+                        <td class="px-3 py-2 text-gray-500">${r.kelas}</td>
+                        <td class="px-3 py-2 text-center">${r.rangkuman ? `<a href="${r.rangkuman.fileUrl}" target="_blank" rel="noopener" class="text-brand-blue underline"><i class="fa-solid fa-check text-brand-green mr-1"></i>Lihat</a>` : '<span class="text-gray-300">-</span>'}</td>
+                        <td class="px-3 py-2 text-center">${r.tugas ? `<a href="${r.tugas.fileUrl}" target="_blank" rel="noopener" class="text-brand-blue underline"><i class="fa-solid fa-check text-brand-green mr-1"></i>Lihat</a>` : '<span class="text-gray-300">-</span>'}</td>
+                        <td class="px-3 py-2 text-center">${r.quizScore !== null ? `<span class="font-bold ${r.quizPassed ? 'text-brand-green' : 'text-brand-orange'}">${r.quizScore}%</span>` : '<span class="text-gray-300">-</span>'}</td>
+                        <td class="px-3 py-2 text-center">${r.selesai ? '<span class="bg-green-100 text-brand-green text-xs font-bold px-2 py-1 rounded">Tuntas</span>' : '<span class="bg-gray-100 text-gray-500 text-xs font-bold px-2 py-1 rounded">Belum</span>'}</td>
+                    </tr>
+                `).join('');
+            },
+
+            exportReportToExcel() {
+                const courseId = parseInt(document.getElementById('report-course-select').value);
+                const course = this.state.courses.find(c => c.id === courseId);
+                if (!course) return;
+
+                const rows = this.getReportRows(courseId);
+                if (rows.length === 0) {
+                    this.showToast('Tidak ada data untuk diekspor.', true);
+                    return;
+                }
+
+                const dataForExcel = rows.map(r => ({
+                    'Nama': r.nama,
+                    'Kelas': r.kelas,
+                    'Rangkuman': r.rangkuman ? 'Sudah' : 'Belum',
+                    'Link Rangkuman': r.rangkuman ? r.rangkuman.fileUrl : '',
+                    'Tugas': r.tugas ? 'Sudah' : 'Belum',
+                    'Link Tugas': r.tugas ? r.tugas.fileUrl : '',
+                    'Skor Kuis (%)': r.quizScore !== null ? r.quizScore : '',
+                    'Status': r.selesai ? 'Tuntas' : 'Belum Tuntas'
+                }));
+
+                const ws = XLSX.utils.json_to_sheet(dataForExcel);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Rekap');
+                const safeTitle = course.title.replace(/[\\/:*?"<>|]/g, '-').slice(0, 40);
+                XLSX.writeFile(wb, `Rekap_${safeTitle}.xlsx`);
             },
 
             renderStudentList() {
@@ -948,6 +1122,42 @@
                         </div>
                     `;
                 });
+
+                this.updateStudentProgressBanner();
+            },
+
+            updateStudentProgressBanner() {
+                const banner = document.getElementById('student-progress-banner');
+                if (this.state.role !== 'student' || !this.state.currentUser) {
+                    banner.classList.add('hidden');
+                    return;
+                }
+
+                const nisn = this.state.currentUser.nisn;
+                const visibleCourses = this.state.courses.filter(c => {
+                    if (c.visibility && c.visibility.mode === 'selected') {
+                        return (c.visibility.studentNisns || []).includes(nisn);
+                    }
+                    return true;
+                });
+
+                const total = visibleCourses.length;
+                const doneCount = visibleCourses.filter(c => (c.completedBy || []).includes(nisn)).length;
+                const percentage = total > 0 ? Math.round((doneCount / total) * 100) : 0;
+
+                document.getElementById('progress-summary-text').innerText = `${doneCount} dari ${total} modul selesai`;
+                document.getElementById('progress-summary-bar').style.width = `${percentage}%`;
+
+                const nextCourse = visibleCourses.find(c => !(c.completedBy || []).includes(nisn));
+                const continueBtn = document.getElementById('btn-continue-course');
+                if (nextCourse) {
+                    continueBtn.classList.remove('hidden');
+                    continueBtn.onclick = () => this.openCourse(nextCourse.id);
+                } else {
+                    continueBtn.classList.add('hidden');
+                }
+
+                banner.classList.toggle('hidden', total === 0);
             },
 
             openCourse(id) {
@@ -1229,6 +1439,7 @@
                             document.getElementById('summary-upload-name').classList.remove('hidden');
                             document.getElementById('btn-summary-upload').classList.add('hidden');
                             this.showToast('Rangkuman berhasil terkirim ke Google Drive!');
+                            this.saveSubmissionRecord(this.state.activeCourseId, 'rangkuman', file.name, link);
                         } else {
                             this.showToast('Gagal upload: ' + (result.message || result.error || 'Tidak diketahui'), true);
                             fileInput.value = '';
@@ -1451,6 +1662,7 @@
                             document.getElementById('student-upload-name').classList.remove('hidden');
                             document.getElementById('btn-student-upload').classList.add('hidden');
                             this.showToast('Berhasil mengirim tugas ke Google Drive!');
+                            this.saveSubmissionRecord(this.state.activeCourseId, 'tugas', file.name, link);
                         } else {
                             this.showToast('Gagal upload: ' + (result.message || result.error || 'Tidak diketahui'), true);
                             fileInput.value = '';
@@ -1914,6 +2126,7 @@
                 document.getElementById('modal-students').classList.add('hidden');
                 document.getElementById('modal-course-form').classList.add('hidden');
                 document.getElementById('modal-password').classList.add('hidden');
+                document.getElementById('modal-reports').classList.add('hidden');
                 this.closeConfirmModal();
             },
 
