@@ -427,6 +427,27 @@
                         </label>
                     </div>
 
+                    <div class="bg-purple-50 border border-purple-100 p-4 rounded-lg mt-2">
+                        <label class="block text-sm font-bold text-purple-800 mb-2"><i class="fa-solid fa-user-group mr-1"></i> Tampilkan Modul Untuk</label>
+                        <div class="flex gap-4 mb-3">
+                            <label class="flex items-center gap-2 text-sm cursor-pointer">
+                                <input type="radio" name="f-visibility-mode" value="all" id="f-visibility-all" checked onchange="app.toggleVisibilityMode()">
+                                Semua Siswa
+                            </label>
+                            <label class="flex items-center gap-2 text-sm cursor-pointer">
+                                <input type="radio" name="f-visibility-mode" value="selected" id="f-visibility-selected" onchange="app.toggleVisibilityMode()">
+                                Siswa Tertentu
+                            </label>
+                        </div>
+                        <div id="f-student-target-wrapper" class="hidden">
+                            <input type="text" id="f-student-search" placeholder="Cari nama atau kelas siswa..." class="w-full border border-gray-300 rounded-md p-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-brand-blue" oninput="app.renderStudentTargetOptions()">
+                            <div id="f-student-target-list" class="max-h-48 overflow-y-auto border border-purple-200 rounded-md bg-white p-2 space-y-1 text-sm">
+                                <!-- Diisi oleh JavaScript -->
+                            </div>
+                            <p class="text-[10px] text-gray-500 mt-1">Centang siswa yang boleh melihat modul ini. Siswa lain tidak akan melihat modul ini muncul di daftar mereka.</p>
+                        </div>
+                    </div>
+
                     <hr class="my-4">
 
                     <div>
@@ -532,6 +553,7 @@
                 activeStep: 1,
                 editingCourseId: null,
                 tempAttachment: null, 
+                tempTargetNisns: [],
                 confirmAction: null,
                 isSummaryUploaded: false,
                 isExerciseUploaded: false,
@@ -791,10 +813,15 @@
                 grid.innerHTML = '';
                 
                 const searchQuery = document.getElementById('search-input').value.toLowerCase();
-                const filtered = this.state.courses.filter(c => 
-                    c.title.toLowerCase().includes(searchQuery) || 
-                    c.category.toLowerCase().includes(searchQuery)
-                );
+                const filtered = this.state.courses.filter(c => {
+                    const matchesSearch = c.title.toLowerCase().includes(searchQuery) || c.category.toLowerCase().includes(searchQuery);
+                    if (!matchesSearch) return false;
+
+                    if (this.state.role === 'student' && this.state.currentUser && c.visibility && c.visibility.mode === 'selected') {
+                        return (c.visibility.studentNisns || []).includes(this.state.currentUser.nisn);
+                    }
+                    return true;
+                });
 
                 if (filtered.length === 0) {
                     grid.innerHTML = `<div class="col-span-full text-center py-10 text-gray-500">Tidak ada materi yang ditemukan.</div>`;
@@ -815,6 +842,11 @@
                     }
 
                     const learnersCount = (course.completedBy || []).length;
+                    let visibilityBadge = '';
+                    if (this.state.role === 'admin' && course.visibility && course.visibility.mode === 'selected') {
+                        const targetCount = (course.visibility.studentNisns || []).length;
+                        visibilityBadge = `<span class="flex items-center gap-1 text-purple-600"><i class="fa-solid fa-user-lock"></i> ${targetCount} Siswa Terpilih</span>`;
+                    }
                     let actionButtons = `<button onclick="app.openCourse(${course.id})" class="bg-brand-orange hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg text-sm w-full transition shadow-sm"><i class="fa-solid fa-${isCompleted ? 'check-double' : 'eye'} mr-1"></i> ${isCompleted ? 'Lihat Review' : 'Mulai / Lanjutkan'}</button>`;
                     
                     if (this.state.role === 'admin') {
@@ -843,6 +875,7 @@
                                 
                                 <div class="mt-auto pt-4 border-t border-gray-50 flex justify-between items-center mb-4 text-xs text-gray-500">
                                     <span class="flex items-center gap-1"><i class="fa-solid fa-user-graduate"></i> ${learnersCount} Siswa Selesai</span>
+                                    ${visibilityBadge}
                                 </div>
                                 
                                 ${actionButtons}
@@ -1210,10 +1243,15 @@
             openAddCourseModal() {
                 this.state.editingCourseId = null;
                 this.state.tempAttachment = null;
+                this.state.tempTargetNisns = [];
                 document.getElementById('modal-title-text').innerHTML = '<i class="fa-solid fa-plus-circle text-brand-orange mr-2"></i> Tambah Modul Baru';
                 document.getElementById('btn-save-course').innerHTML = '<i class="fa-solid fa-save mr-2"></i> Simpan Modul';
                 document.getElementById('course-form').reset();
                 document.getElementById('f-require-summary').checked = false;
+                document.getElementById('f-visibility-all').checked = true;
+                document.getElementById('f-student-target-wrapper').classList.add('hidden');
+                document.getElementById('f-student-search').value = '';
+                this.renderStudentTargetOptions();
                 
                 document.getElementById('f-attachment-name').innerText = 'Belum ada file';
                 document.getElementById('btn-remove-attachment').classList.add('hidden');
@@ -1245,6 +1283,19 @@
                 
                 document.getElementById('f-guide').value = course.guide;
                 document.getElementById('f-exercise').value = course.exercise;
+
+                const vis = course.visibility;
+                document.getElementById('f-student-search').value = '';
+                if (vis && vis.mode === 'selected') {
+                    document.getElementById('f-visibility-selected').checked = true;
+                    document.getElementById('f-student-target-wrapper').classList.remove('hidden');
+                    this.state.tempTargetNisns = [...(vis.studentNisns || [])];
+                } else {
+                    document.getElementById('f-visibility-all').checked = true;
+                    document.getElementById('f-student-target-wrapper').classList.add('hidden');
+                    this.state.tempTargetNisns = [];
+                }
+                this.renderStudentTargetOptions();
 
                 this.state.tempAttachment = course.attachment || null;
                 if (this.state.tempAttachment) {
@@ -1289,6 +1340,74 @@
                 document.getElementById('btn-remove-attachment').classList.add('hidden');
             },
 
+            toggleVisibilityMode() {
+                const isSelected = document.getElementById('f-visibility-selected').checked;
+                document.getElementById('f-student-target-wrapper').classList.toggle('hidden', !isSelected);
+                if (isSelected) this.renderStudentTargetOptions();
+            },
+
+            onTargetCheckboxChange(nisn, checked) {
+                if (checked) {
+                    if (!this.state.tempTargetNisns.includes(nisn)) this.state.tempTargetNisns.push(nisn);
+                } else {
+                    this.state.tempTargetNisns = this.state.tempTargetNisns.filter(n => n !== nisn);
+                }
+            },
+
+            toggleClassCheckboxes(kelas) {
+                const studentsInClass = this.state.users.filter(u => (u.kelas || 'Tanpa Kelas') === kelas);
+                const allSelected = studentsInClass.length > 0 && studentsInClass.every(u => this.state.tempTargetNisns.includes(u.nisn));
+                if (allSelected) {
+                    this.state.tempTargetNisns = this.state.tempTargetNisns.filter(n => !studentsInClass.some(u => u.nisn === n));
+                } else {
+                    studentsInClass.forEach(u => {
+                        if (!this.state.tempTargetNisns.includes(u.nisn)) this.state.tempTargetNisns.push(u.nisn);
+                    });
+                }
+                this.renderStudentTargetOptions();
+            },
+
+            renderStudentTargetOptions() {
+                const listEl = document.getElementById('f-student-target-list');
+                const query = (document.getElementById('f-student-search').value || '').toLowerCase();
+
+                if (this.state.users.length === 0) {
+                    listEl.innerHTML = '<p class="text-gray-400 text-xs p-2">Belum ada data siswa. Tambahkan siswa dulu di menu Manajemen Siswa.</p>';
+                    return;
+                }
+
+                const groups = {};
+                this.state.users.forEach(u => {
+                    const kelas = u.kelas || 'Tanpa Kelas';
+                    if (!groups[kelas]) groups[kelas] = [];
+                    groups[kelas].push(u);
+                });
+
+                let html = '';
+                Object.keys(groups).sort().forEach(kelas => {
+                    const studentsInClass = groups[kelas].filter(u =>
+                        u.nama.toLowerCase().includes(query) || kelas.toLowerCase().includes(query)
+                    );
+                    if (studentsInClass.length === 0) return;
+
+                    html += `<div class="mb-2">
+                        <div class="flex items-center justify-between bg-gray-100 px-2 py-1 rounded font-bold text-gray-700 text-xs">
+                            <span>${kelas}</span>
+                            <button type="button" onclick="app.toggleClassCheckboxes('${kelas.replace(/'/g, "\\'")}')" class="text-brand-blue hover:underline font-semibold normal-case">Pilih Semua</button>
+                        </div>`;
+                    studentsInClass.forEach(u => {
+                        const checked = this.state.tempTargetNisns.includes(u.nisn) ? 'checked' : '';
+                        html += `<label class="flex items-center gap-2 px-2 py-1 hover:bg-gray-50 rounded cursor-pointer">
+                            <input type="checkbox" class="f-target-student-checkbox" value="${u.nisn}" ${checked} onchange="app.onTargetCheckboxChange('${u.nisn}', this.checked)">
+                            <span>${u.nama} <span class="text-gray-400 text-xs">(${u.nisn})</span></span>
+                        </label>`;
+                    });
+                    html += `</div>`;
+                });
+
+                listEl.innerHTML = html || '<p class="text-gray-400 text-xs p-2">Tidak ada siswa yang cocok dengan pencarian.</p>';
+            },
+
             saveCourse() {
                 const title = document.getElementById('f-title').value;
                 const category = document.getElementById('f-category').value;
@@ -1303,6 +1422,16 @@
                 if (!title || !category || !video || !guide || !exercise) {
                     this.showToast('Harap isi semua field wajib', true);
                     return;
+                }
+
+                const visibilityMode = document.getElementById('f-visibility-selected').checked ? 'selected' : 'all';
+                let visibility = { mode: 'all', studentNisns: [] };
+                if (visibilityMode === 'selected') {
+                    if (this.state.tempTargetNisns.length === 0) {
+                        this.showToast('Pilih minimal satu siswa, atau gunakan mode "Semua Siswa".', true);
+                        return;
+                    }
+                    visibility = { mode: 'selected', studentNisns: [...this.state.tempTargetNisns] };
                 }
 
                 let embedUrl = video;
@@ -1326,7 +1455,8 @@
                             videoUrl: embedUrl,
                             requireSummary: requireSummary,
                             exercise: exercise,
-                            attachment: this.state.tempAttachment
+                            attachment: this.state.tempAttachment,
+                            visibility: visibility
                         };
                         this.showToast('Modul diperbarui ke Cloud!');
                     }
@@ -1343,7 +1473,8 @@
                         videoUrl: embedUrl,
                         requireSummary: requireSummary,
                         exercise: exercise,
-                        attachment: this.state.tempAttachment
+                        attachment: this.state.tempAttachment,
+                        visibility: visibility
                     };
                     this.state.courses.unshift(newCourse);
                     this.showToast('Modul baru tersimpan di Cloud!');
