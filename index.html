@@ -130,6 +130,14 @@
                 <button onclick="app.openReportsModal()" class="bg-teal-600 text-white px-5 py-2 rounded-lg font-medium text-sm hover:bg-teal-700 transition flex items-center gap-2 shadow-sm">
                     <i class="fa-solid fa-chart-column"></i> Rekap Nilai & Tugas
                 </button>
+                <button onclick="app.openAnnouncementsModal()" class="bg-yellow-500 text-white px-5 py-2 rounded-lg font-medium text-sm hover:bg-yellow-600 transition flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-bullhorn"></i> Kelola Pengumuman
+                </button>
+            </div>
+
+            <!-- Papan Pengumuman -->
+            <div id="announcements-section" class="hidden mb-6 space-y-2">
+                <!-- Diisi oleh JavaScript -->
             </div>
 
             <!-- Progres Belajar Siswa -->
@@ -176,6 +184,7 @@
                         <span id="learn-category" class="bg-blue-100 text-brand-blue text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wide">Kategori</span>
                     </div>
                     <h1 id="learn-title" class="text-2xl font-bold text-gray-800">Judul Materi</h1>
+                    <p id="learn-deadline-info" class="hidden text-xs font-bold mt-2 px-2 py-1 rounded inline-block"></p>
                 </div>
 
                 <!-- Progress Bar / Checkpoints -->
@@ -447,6 +456,29 @@
             </div>
         </div>
     </div>
+
+    <!-- MODAL: Kelola Pengumuman -->
+    <div id="modal-announcements" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center fade-in">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center p-5 border-b border-gray-100 flex-shrink-0">
+                <h3 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-bullhorn text-yellow-600 mr-2"></i> Kelola Pengumuman</h3>
+                <button onclick="app.closeModals()" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="p-5 border-b border-gray-100 flex-shrink-0">
+                <textarea id="new-announcement-text" rows="3" class="w-full border border-gray-300 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="Tulis pengumuman baru untuk siswa..."></textarea>
+                <button onclick="app.addAnnouncement()" class="mt-2 bg-brand-blue text-white px-4 py-2 rounded-md text-sm font-bold hover:bg-blue-800 transition w-full">
+                    <i class="fa-solid fa-paper-plane mr-1"></i> Kirim Pengumuman
+                </button>
+            </div>
+            <div class="p-5 overflow-y-auto flex-grow">
+                <p class="text-xs text-gray-500 mb-2">Hanya 3 pengumuman terbaru yang ditampilkan ke siswa. Hapus yang sudah tidak relevan.</p>
+                <div id="announcements-admin-list" class="space-y-2">
+                    <!-- Diisi oleh JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="modal-course-form" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center fade-in">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center p-5 border-b border-gray-100 flex-shrink-0">
@@ -479,6 +511,12 @@
                             <label class="block text-sm font-medium text-gray-700 mb-1">Durasi/Estimasi Waktu</label>
                             <input type="text" id="f-duration" class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="Contoh: 2 Jam, 45 Menit">
                         </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tenggat Waktu (Opsional)</label>
+                        <input type="date" id="f-deadline" class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-blue">
+                        <p class="text-[10px] text-gray-500 mt-1">Kosongkan jika modul ini tidak punya batas waktu pengerjaan.</p>
                     </div>
 
                     <div>
@@ -680,7 +718,8 @@
                 confirmAction: null,
                 isSummaryUploaded: false,
                 isExerciseUploaded: false,
-                sessionChecked: false
+                sessionChecked: false,
+                announcements: []
             },
 
             adminCreds: {
@@ -716,6 +755,17 @@
                     
                     if (!document.getElementById('modal-students').classList.contains('hidden')) {
                         this.renderStudentList();
+                    }
+                });
+
+                database.ref('announcements').on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    this.state.announcements = data
+                        ? Object.keys(data).map(key => ({ id: key, ...data[key] })).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+                        : [];
+                    this.renderPublicAnnouncements();
+                    if (!document.getElementById('modal-announcements').classList.contains('hidden')) {
+                        this.renderAnnouncementsAdminList();
                     }
                 });
             },
@@ -937,6 +987,72 @@
                 XLSX.writeFile(wb, `Rekap_${safeTitle}.xlsx`);
             },
 
+            openAnnouncementsModal() {
+                document.getElementById('new-announcement-text').value = '';
+                this.renderAnnouncementsAdminList();
+                document.getElementById('modal-announcements').classList.remove('hidden');
+            },
+
+            addAnnouncement() {
+                const text = document.getElementById('new-announcement-text').value.trim();
+                if (!text) {
+                    this.showToast('Tulis isi pengumuman dulu.', true);
+                    return;
+                }
+                database.ref('announcements').push({
+                    text: text,
+                    createdAt: new Date().toISOString()
+                });
+                document.getElementById('new-announcement-text').value = '';
+                this.showToast('Pengumuman berhasil dikirim!');
+            },
+
+            deleteAnnouncement(id) {
+                database.ref('announcements/' + id).remove();
+                this.showToast('Pengumuman dihapus.');
+            },
+
+            formatAnnouncementDate(iso) {
+                return new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            },
+
+            renderAnnouncementsAdminList() {
+                const container = document.getElementById('announcements-admin-list');
+                if (this.state.announcements.length === 0) {
+                    container.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">Belum ada pengumuman.</p>';
+                    return;
+                }
+                container.innerHTML = this.state.announcements.map(a => `
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 flex items-start justify-between gap-2">
+                        <div>
+                            <p class="text-sm text-gray-800">${a.text}</p>
+                            <p class="text-xs text-gray-400 mt-1">${this.formatAnnouncementDate(a.createdAt)}</p>
+                        </div>
+                        <button onclick="app.deleteAnnouncement('${a.id}')" class="text-red-400 hover:text-red-600 flex-shrink-0"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `).join('');
+            },
+
+            renderPublicAnnouncements() {
+                const section = document.getElementById('announcements-section');
+                const latest = this.state.announcements.slice(0, 3);
+                if (latest.length === 0) {
+                    section.classList.add('hidden');
+                    section.innerHTML = '';
+                    return;
+                }
+                section.innerHTML = latest.map(a => `
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3">
+                        <i class="fa-solid fa-bullhorn text-yellow-600 mt-1"></i>
+                        <div class="flex-grow">
+                            <p class="text-sm text-gray-800">${a.text}</p>
+                            <p class="text-xs text-gray-500 mt-1">${this.formatAnnouncementDate(a.createdAt)}</p>
+                        </div>
+                    </div>
+                `).join('');
+                section.classList.remove('hidden');
+            },
+
             renderStudentList() {
                 const tbody = document.getElementById('student-list');
                 tbody.innerHTML = '';
@@ -1086,6 +1202,14 @@
                     if (this.state.role === 'admin' && this.hasQuizEnabled(course)) {
                         quizBadge = `<span class="flex items-center gap-1 text-teal-600"><i class="fa-solid fa-clipboard-question"></i> Kuis Aktif</span>`;
                     }
+
+                    let deadlineBadgeHtml = '';
+                    if (course.deadline && !isCompleted) {
+                        const status = this.getDeadlineStatus(course.deadline);
+                        if (status) {
+                            deadlineBadgeHtml = `<div class="text-[10px] font-bold px-2 py-1 rounded inline-flex items-center gap-1 mb-2 ${status.cls}"><i class="fa-solid fa-calendar-days"></i> ${status.text}</div>`;
+                        }
+                    }
                     let actionButtons = `<button onclick="app.openCourse(${course.id})" class="bg-brand-orange hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg text-sm w-full transition shadow-sm"><i class="fa-solid fa-${isCompleted ? 'check-double' : 'eye'} mr-1"></i> ${isCompleted ? 'Lihat Review' : 'Mulai / Lanjutkan'}</button>`;
                     
                     if (this.state.role === 'admin') {
@@ -1110,6 +1234,7 @@
                                     <span class="bg-blue-50 text-brand-blue text-[10px] font-bold px-2 py-1 rounded border border-blue-100 truncate max-w-[70%]">${course.category}</span>
                                     <span class="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-1 rounded"><i class="fa-regular fa-clock"></i> ${course.duration || '-'}</span>
                                 </div>
+                                ${deadlineBadgeHtml}
                                 <h3 class="font-bold text-lg text-gray-800 mb-4 line-clamp-2">${course.title}</h3>
                                 
                                 <div class="mt-auto pt-4 border-t border-gray-50 flex justify-between items-center mb-4 text-xs text-gray-500">
@@ -1181,6 +1306,15 @@
                 }
 
                 document.getElementById('learn-title').innerText = course.title;
+                const deadlineEl = document.getElementById('learn-deadline-info');
+                if (course.deadline && !isCompleted) {
+                    const status = this.getDeadlineStatus(course.deadline);
+                    const formattedDate = new Date(course.deadline + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                    deadlineEl.innerHTML = `<i class="fa-solid fa-calendar-days mr-1"></i> Tenggat: ${formattedDate} (${status.text})`;
+                    deadlineEl.className = `text-xs font-bold mt-2 px-2 py-1 rounded inline-block ${status.cls}`;
+                } else {
+                    deadlineEl.classList.add('hidden');
+                }
                 document.getElementById('learn-category').innerText = course.category;
                 document.getElementById('learn-guide').innerText = course.guide;
                 document.getElementById('learn-exercise').innerText = course.exercise;
@@ -1303,6 +1437,20 @@
 
             hasQuizEnabled(course) {
                 return !!(course && course.quiz && course.quiz.enabled && (course.quiz.questions || []).length > 0);
+            },
+
+            getDeadlineStatus(deadlineStr) {
+                if (!deadlineStr) return null;
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const due = new Date(deadlineStr + 'T00:00:00');
+                const diffDays = Math.round((due - today) / 86400000);
+
+                if (diffDays < 0) return { text: `Terlambat ${Math.abs(diffDays)} hari`, cls: 'bg-red-50 text-red-600' };
+                if (diffDays === 0) return { text: 'Tenggat hari ini', cls: 'bg-orange-50 text-orange-600' };
+                if (diffDays === 1) return { text: 'Tenggat besok', cls: 'bg-orange-50 text-orange-600' };
+                if (diffDays <= 3) return { text: `${diffDays} hari lagi`, cls: 'bg-orange-50 text-orange-600' };
+                return { text: `${diffDays} hari lagi`, cls: 'bg-gray-50 text-gray-500' };
             },
 
             updateStepUI() {
@@ -1690,6 +1838,7 @@
                 document.getElementById('modal-title-text').innerHTML = '<i class="fa-solid fa-plus-circle text-brand-orange mr-2"></i> Tambah Modul Baru';
                 document.getElementById('btn-save-course').innerHTML = '<i class="fa-solid fa-save mr-2"></i> Simpan Modul';
                 document.getElementById('course-form').reset();
+                document.getElementById('f-deadline').value = '';
                 document.getElementById('f-require-summary').checked = false;
                 document.getElementById('f-visibility-all').checked = true;
                 document.getElementById('f-student-target-wrapper').classList.add('hidden');
@@ -1720,6 +1869,7 @@
                 document.getElementById('f-category').value = course.category;
                 document.getElementById('f-type').value = course.type === 'Compulsory' ? 'Wajib' : 'Peminatan';
                 document.getElementById('f-duration').value = course.duration || '';
+                document.getElementById('f-deadline').value = course.deadline || '';
                 
                 document.getElementById('f-require-summary').checked = course.requireSummary || false;
                 
@@ -1956,6 +2106,7 @@
                 const category = document.getElementById('f-category').value;
                 const type = document.getElementById('f-type').value;
                 const duration = document.getElementById('f-duration').value;
+                const deadline = document.getElementById('f-deadline').value || null;
                 const image = document.getElementById('f-image').value;
                 let video = document.getElementById('f-video').value;
                 const requireSummary = document.getElementById('f-require-summary').checked;
@@ -2024,6 +2175,7 @@
                             type: type === 'Wajib' ? 'Compulsory' : 'Advanced',
                             thumbnail: image || `https://placehold.co/600x400/2563eb/ffffff?text=${encodeURIComponent(title)}`,
                             duration: duration,
+                            deadline: deadline,
                             guide: guide,
                             videoUrl: embedUrl,
                             requireSummary: requireSummary,
@@ -2042,6 +2194,7 @@
                         type: type === 'Wajib' ? 'Compulsory' : 'Advanced',
                         thumbnail: image || `https://placehold.co/600x400/2563eb/ffffff?text=${encodeURIComponent(title)}`,
                         duration: duration,
+                        deadline: deadline,
                         completedBy: [],
                         guide: guide,
                         videoUrl: embedUrl,
@@ -2127,6 +2280,7 @@
                 document.getElementById('modal-course-form').classList.add('hidden');
                 document.getElementById('modal-password').classList.add('hidden');
                 document.getElementById('modal-reports').classList.add('hidden');
+                document.getElementById('modal-announcements').classList.add('hidden');
                 this.closeConfirmModal();
             },
 
