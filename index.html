@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MathEdu - LMS SMAN 3 Jember</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="icon" href="icon-192.png" type="image/png">
+    <link rel="apple-touch-icon" href="icon-192.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -46,6 +50,11 @@
     </script>
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+
+    <!-- Tombol Install PWA (muncul otomatis kalau browser mendukung) -->
+    <button id="btn-install-pwa" onclick="app.installPwa()" class="hidden fixed bottom-20 right-5 z-50 bg-brand-blue text-white px-4 py-3 rounded-full shadow-lg hover:bg-blue-800 transition items-center gap-2 text-sm font-bold">
+        <i class="fa-solid fa-download"></i> Install Aplikasi
+    </button>
 
     <!-- Header -->
     <header class="bg-white shadow-sm sticky top-0 z-40">
@@ -227,6 +236,12 @@
                         <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-book-open text-brand-blue mr-2"></i> Panduan & Tujuan Pembelajaran</h2>
                         <div class="prose max-w-none text-gray-700 whitespace-pre-line" id="learn-guide">
                             <!-- Injected content -->
+                        </div>
+                        <div id="learn-interactive-container" class="hidden mt-6">
+                            <h3 class="text-sm font-bold text-gray-600 mb-2"><i class="fa-solid fa-shapes text-brand-blue mr-1"></i> Coba Eksplorasi Interaktif</h3>
+                            <div class="border border-gray-300 rounded-lg overflow-hidden shadow-sm">
+                                <iframe id="learn-interactive-frame" src="" class="w-full h-[450px]" frameborder="0" allowfullscreen></iframe>
+                            </div>
                         </div>
                     </div>
 
@@ -613,6 +628,12 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Panduan Pembelajaran (Checkpoint 1) <span class="text-red-500">*</span></label>
                         <textarea id="f-guide" rows="3" required class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="Tulis instruksi awal atau tujuan pembelajaran di sini..."></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Link GeoGebra/Desmos (Opsional)</label>
+                        <input type="url" id="f-interactive-url" class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="https://www.geogebra.org/m/xxxxxx atau https://www.desmos.com/calculator/xxxxxx">
+                        <p class="text-[10px] text-gray-500 mt-1">Tempel link "Share" dari GeoGebra atau Desmos. Akan ditampilkan sebagai applet interaktif di Checkpoint 1.</p>
                     </div>
 
                     <div>
@@ -1317,6 +1338,15 @@
                 }
                 document.getElementById('learn-category').innerText = course.category;
                 document.getElementById('learn-guide').innerText = course.guide;
+                const interactiveContainer = document.getElementById('learn-interactive-container');
+                const interactiveFrame = document.getElementById('learn-interactive-frame');
+                if (course.interactiveUrl) {
+                    interactiveFrame.src = course.interactiveUrl;
+                    interactiveContainer.classList.remove('hidden');
+                } else {
+                    interactiveFrame.src = '';
+                    interactiveContainer.classList.add('hidden');
+                }
                 document.getElementById('learn-exercise').innerText = course.exercise;
                 
                 let vidUrl = course.videoUrl;
@@ -1882,6 +1912,7 @@
                 document.getElementById('f-video').value = normalUrl;
                 
                 document.getElementById('f-guide').value = course.guide;
+                document.getElementById('f-interactive-url').value = course.interactiveUrl || '';
                 document.getElementById('f-exercise').value = course.exercise;
 
                 const vis = course.visibility;
@@ -2111,6 +2142,7 @@
                 let video = document.getElementById('f-video').value;
                 const requireSummary = document.getElementById('f-require-summary').checked;
                 const guide = document.getElementById('f-guide').value;
+                const interactiveUrl = document.getElementById('f-interactive-url').value.trim() || null;
                 const exercise = document.getElementById('f-exercise').value;
 
                 if (!title || !category || !video || !guide || !exercise) {
@@ -2177,6 +2209,7 @@
                             duration: duration,
                             deadline: deadline,
                             guide: guide,
+                            interactiveUrl: interactiveUrl,
                             videoUrl: embedUrl,
                             requireSummary: requireSummary,
                             exercise: exercise,
@@ -2197,6 +2230,7 @@
                         deadline: deadline,
                         completedBy: [],
                         guide: guide,
+                        interactiveUrl: interactiveUrl,
                         videoUrl: embedUrl,
                         requireSummary: requireSummary,
                         exercise: exercise,
@@ -2302,8 +2336,40 @@
                     toast.classList.replace('translate-y-0', 'translate-y-20');
                     toast.classList.replace('opacity-100', 'opacity-0');
                 }, 3500);
+            },
+
+            installPwa() {
+                if (!window.deferredInstallPrompt) return;
+                window.deferredInstallPrompt.prompt();
+                window.deferredInstallPrompt.userChoice.then(() => {
+                    window.deferredInstallPrompt = null;
+                    document.getElementById('btn-install-pwa').classList.add('hidden');
+                });
             }
         };
+
+        // 📲 Tangkap event install PWA dari browser, tampilkan tombol Install manual
+        window.addEventListener('beforeinstallprompt', (event) => {
+            event.preventDefault();
+            window.deferredInstallPrompt = event;
+            const btn = document.getElementById('btn-install-pwa');
+            btn.classList.remove('hidden');
+            btn.classList.add('flex');
+        });
+
+        window.addEventListener('appinstalled', () => {
+            document.getElementById('btn-install-pwa').classList.add('hidden');
+            window.deferredInstallPrompt = null;
+        });
+
+        // 🔧 Daftarkan Service Worker untuk dukungan "Add to Home Screen"
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch((err) => {
+                    console.log('Pendaftaran Service Worker gagal:', err);
+                });
+            });
+        }
 
         window.onload = () => {
             app.init();
