@@ -763,7 +763,9 @@
 
             adminCreds: {
                 username: 'dody',
-                password: 'Dda03041991'
+                // 🔒 Ini adalah hasil hash SHA-256 dari password, bukan password aslinya.
+                // Password asli tidak lagi tersimpan di mana pun dalam kode ini.
+                passwordHash: 'b9d6e799ce46ec58ad9c19b81434ca2bb9b79d02e5ba89e8e0c2bd1a94a95dfd'
             },
 
             defaultCourses: [],
@@ -865,16 +867,24 @@
                 database.ref('users').set(this.state.users);
             },
 
+            // 🔒 Hash password dengan SHA-256 (Web Crypto API bawaan browser, tanpa library tambahan).
+            // Password tidak lagi disimpan mentah di database - hanya hasil hash-nya.
+            async hashPassword(password) {
+                const enc = new TextEncoder().encode(password);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', enc);
+                return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+            },
+
             openLoginModal() {
                 document.getElementById('login-form').reset();
                 document.getElementById('modal-login').classList.remove('hidden');
             },
 
-            processLogin() {
+            async processLogin() {
                 const nisn = document.getElementById('login-nisn').value;
                 const pass = document.getElementById('login-password').value;
 
-                if (nisn === this.adminCreds.username && pass === this.adminCreds.password) {
+                if (nisn === this.adminCreds.username && (await this.hashPassword(pass)) === this.adminCreds.passwordHash) {
                     this.setRole('admin', { nama: 'Bpk. Dody (Guru)', initial: 'D' });
                     sessionStorage.setItem('mathedu_session', JSON.stringify({ role: 'admin', nisn: nisn }));
                     this.closeModals();
@@ -884,7 +894,16 @@
 
                 const user = this.state.users.find(u => u.nisn === nisn);
                 if (user) {
-                    if (user.password === pass) {
+                    const enteredHash = await this.hashPassword(pass);
+                    const matchesHash = user.password === enteredHash;
+                    const matchesLegacyPlaintext = user.password === pass;
+
+                    if (matchesHash || matchesLegacyPlaintext) {
+                        if (matchesLegacyPlaintext && !matchesHash) {
+                            // Password lama masih tersimpan mentah - migrasi otomatis ke hash saat ini juga.
+                            user.password = enteredHash;
+                            this.saveUsersToStorage();
+                        }
                         this.setRole('student', user);
                         sessionStorage.setItem('mathedu_session', JSON.stringify({ role: 'student', nisn: nisn }));
                         this.closeModals();
@@ -1205,7 +1224,7 @@
                 });
             },
 
-            addStudent() {
+            async addStudent() {
                 const nisn = document.getElementById('s-nisn').value;
                 const nama = document.getElementById('s-nama').value;
                 const kelas = document.getElementById('s-kelas').value;
@@ -1215,7 +1234,8 @@
                     return;
                 }
 
-                this.state.users.push({ nisn: nisn, nama: nama, kelas: kelas, password: '123456' });
+                const hashedPassword = await this.hashPassword('123456');
+                this.state.users.push({ nisn: nisn, nama: nama, kelas: kelas, password: hashedPassword });
                 this.saveUsersToStorage();
                 document.getElementById('form-add-student').reset();
                 this.showToast('Siswa berhasil ditambahkan');
@@ -1226,7 +1246,7 @@
                 if (!file) return;
 
                 const reader = new FileReader();
-                reader.onload = (e) => {
+                reader.onload = async (e) => {
                     try {
                         const data = new Uint8Array(e.target.result);
                         const workbook = XLSX.read(data, {type: 'array'});
@@ -1235,6 +1255,7 @@
                         const json = XLSX.utils.sheet_to_json(worksheet, {header: 1});
                         
                         let addedCount = 0; let duplicateCount = 0;
+                        const hashedDefaultPassword = await this.hashPassword('123456');
 
                         for (let i = 1; i < json.length; i++) {
                             const row = json[i];
@@ -1245,7 +1266,7 @@
 
                                 if (nisn && nama && kelas) {
                                     if (!this.state.users.find(u => u.nisn === nisn)) {
-                                        this.state.users.push({ nisn: nisn, nama: nama, kelas: kelas, password: '123456' });
+                                        this.state.users.push({ nisn: nisn, nama: nama, kelas: kelas, password: hashedDefaultPassword });
                                         addedCount++;
                                     } else {
                                         duplicateCount++;
@@ -1274,12 +1295,12 @@
                 document.getElementById('modal-password').classList.remove('hidden');
             },
 
-            changePassword() {
+            async changePassword() {
                 const newPass = document.getElementById('new-password').value;
                 if (this.state.role === 'student' && this.state.currentUser) {
                     const userIndex = this.state.users.findIndex(u => u.nisn === this.state.currentUser.nisn);
                     if (userIndex > -1) {
-                        this.state.users[userIndex].password = newPass;
+                        this.state.users[userIndex].password = await this.hashPassword(newPass);
                         this.saveUsersToStorage();
                         this.showToast('Password berhasil diubah!');
                         this.closeModals();
@@ -1798,7 +1819,8 @@
                 let html = '';
                 course.quiz.questions.forEach((q, qIndex) => {
                     html += `<div class="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <p class="font-semibold text-gray-800 mb-3">${qIndex + 1}. ${q.text}</p>
+                        ${q.text ? `<p class="font-semibold text-gray-800 mb-3">${qIndex + 1}. ${q.text}</p>` : `<p class="font-semibold text-gray-800 mb-3">${qIndex + 1}. Perhatikan gambar berikut:</p>`}
+                        ${q.image ? `<img src="${q.image}" class="max-w-full max-h-72 rounded-md border border-gray-300 mb-3" alt="Gambar soal ${qIndex + 1}">` : ''}
                         <div class="space-y-2">
                             ${q.options.map((opt, oIndex) => opt ? `
                                 <label class="flex items-center gap-2 p-2 rounded-md hover:bg-white cursor-pointer border border-transparent hover:border-gray-200">
@@ -2047,6 +2069,7 @@
                     document.getElementById('f-quiz-enrichment-course').value = quiz.enrichmentCourseId || '';
                     this.state.tempQuizQuestions = (quiz.questions || []).map(q => ({
                         text: q.text || '',
+                        image: q.image || null,
                         options: [...(q.options || ['', '', '', ''])],
                         correct: q.correct || 0
                     }));
@@ -2192,13 +2215,42 @@
 
             addQuizQuestion() {
                 this.syncQuizQuestionsFromDOM();
-                this.state.tempQuizQuestions.push({ text: '', options: ['', '', '', ''], correct: 0 });
+                this.state.tempQuizQuestions.push({ text: '', image: null, options: ['', '', '', ''], correct: 0 });
                 this.renderQuizQuestionsEditor();
             },
 
             removeQuizQuestion(index) {
                 this.syncQuizQuestionsFromDOM();
                 this.state.tempQuizQuestions.splice(index, 1);
+                this.renderQuizQuestionsEditor();
+            },
+
+            handleQuizQuestionImage(index, event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                if (file.size > 1.5 * 1024 * 1024) {
+                    this.showToast('Ukuran gambar maksimal 1.5MB.', true);
+                    event.target.value = '';
+                    return;
+                }
+
+                this.syncQuizQuestionsFromDOM();
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    if (!this.state.tempQuizQuestions[index]) return;
+                    this.state.tempQuizQuestions[index].image = e.target.result;
+                    this.renderQuizQuestionsEditor();
+                };
+                reader.readAsDataURL(file);
+            },
+
+            removeQuizQuestionImage(index) {
+                this.syncQuizQuestionsFromDOM();
+                if (this.state.tempQuizQuestions[index]) {
+                    this.state.tempQuizQuestions[index].image = null;
+                }
                 this.renderQuizQuestionsEditor();
             },
 
@@ -2209,7 +2261,7 @@
                     const options = Array.from(block.querySelectorAll('.quiz-q-option')).map(inp => inp.value);
                     const correctInput = block.querySelector('.quiz-q-correct:checked');
                     const correct = correctInput ? parseInt(correctInput.value) : 0;
-                    this.state.tempQuizQuestions[index] = { text, options, correct };
+                    this.state.tempQuizQuestions[index] = { ...this.state.tempQuizQuestions[index], text, options, correct };
                 });
             },
 
@@ -2226,7 +2278,21 @@
                             <span class="text-xs font-bold text-gray-500">Soal #${index + 1}</span>
                             <button type="button" onclick="app.removeQuizQuestion(${index})" class="text-red-500 hover:text-red-700 text-xs"><i class="fa-solid fa-trash"></i></button>
                         </div>
-                        <textarea rows="2" class="w-full border border-gray-300 rounded-md p-2 text-sm mb-2 quiz-q-text" placeholder="Tulis pertanyaan...">${q.text || ''}</textarea>
+                        <textarea rows="2" class="w-full border border-gray-300 rounded-md p-2 text-sm mb-2 quiz-q-text" placeholder="Tulis pertanyaan (opsional kalau sudah pakai gambar)...">${q.text || ''}</textarea>
+                        <div class="mb-2">
+                            ${q.image ? `
+                                <div class="relative inline-block">
+                                    <img src="${q.image}" class="max-h-32 rounded border border-gray-300" alt="Gambar soal">
+                                    <button type="button" onclick="app.removeQuizQuestionImage(${index})" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"><i class="fa-solid fa-times"></i></button>
+                                </div>
+                            ` : `
+                                <label class="inline-flex items-center gap-2 text-xs font-medium text-teal-700 border border-dashed border-teal-300 rounded-md px-3 py-2 cursor-pointer hover:bg-teal-50">
+                                    <i class="fa-solid fa-image"></i> Tambah Gambar Soal (Opsional)
+                                    <input type="file" accept="image/*" class="hidden" onchange="app.handleQuizQuestionImage(${index}, event)">
+                                </label>
+                            `}
+                            <p class="text-[10px] text-gray-400 mt-1">Cocok untuk soal berisi rumus/simbol matematika yang sulit diketik - foto atau screenshot soalnya saja.</p>
+                        </div>
                         <div class="space-y-1">
                             ${[0, 1, 2, 3].map(i => `
                                 <div class="flex items-center gap-2">
@@ -2275,13 +2341,14 @@
                     const validQuestions = this.state.tempQuizQuestions
                         .map(q => ({
                             text: (q.text || '').trim(),
+                            image: q.image || null,
                             options: (q.options || []).map(o => (o || '').trim()),
                             correct: q.correct || 0
                         }))
-                        .filter(q => q.text && q.options.filter(o => o).length >= 2);
+                        .filter(q => (q.text || q.image) && q.options.filter(o => o).length >= 2);
 
                     if (validQuestions.length === 0) {
-                        this.showToast('Kuis diaktifkan tapi belum ada soal valid (butuh pertanyaan + minimal 2 pilihan jawaban).', true);
+                        this.showToast('Kuis diaktifkan tapi belum ada soal valid (butuh pertanyaan/gambar + minimal 2 pilihan jawaban).', true);
                         return;
                     }
 
@@ -2405,10 +2472,10 @@
                 this.showConfirm(
                     "Reset Password", 
                     `Kembalikan password (${nisn}) ke default (123456)?`, 
-                    () => {
+                    async () => {
                         const userIndex = this.state.users.findIndex(u => u.nisn === nisn);
                         if(userIndex > -1) {
-                            this.state.users[userIndex].password = '123456';
+                            this.state.users[userIndex].password = await this.hashPassword('123456');
                             this.saveUsersToStorage();
                             this.showToast('Password direset di Cloud.');
                         }
