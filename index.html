@@ -334,6 +334,23 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Forum Tanya Jawab -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mt-4">
+                <div class="p-5 border-b border-gray-100">
+                    <h3 class="font-bold text-gray-800"><i class="fa-solid fa-comments text-brand-blue mr-2"></i> Tanya Jawab</h3>
+                    <p class="text-xs text-gray-500 mt-1">Ada yang belum jelas dari materi ini? Tulis pertanyaanmu di sini.</p>
+                </div>
+                <div id="discussion-list" class="p-5 space-y-3 max-h-96 overflow-y-auto">
+                    <!-- Diisi oleh JavaScript -->
+                </div>
+                <div class="p-4 border-t border-gray-100 bg-gray-50 flex gap-2">
+                    <input type="text" id="discussion-input" placeholder="Tulis pertanyaan atau jawaban..." class="flex-grow border border-gray-300 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue" onkeydown="if(event.key==='Enter') app.postDiscussionMessage()">
+                    <button onclick="app.postDiscussionMessage()" class="bg-brand-blue text-white px-4 py-2 rounded-md text-sm font-bold hover:bg-blue-800 transition flex-shrink-0">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
         </div>
 
     </main>
@@ -740,7 +757,8 @@
                 isSummaryUploaded: false,
                 isExerciseUploaded: false,
                 sessionChecked: false,
-                announcements: []
+                announcements: [],
+                discussions: {}
             },
 
             adminCreds: {
@@ -787,6 +805,19 @@
                     this.renderPublicAnnouncements();
                     if (!document.getElementById('modal-announcements').classList.contains('hidden')) {
                         this.renderAnnouncementsAdminList();
+                    }
+                });
+
+                database.ref('discussions').on('value', (snapshot) => {
+                    const data = snapshot.val() || {};
+                    this.state.discussions = {};
+                    Object.keys(data).forEach(courseId => {
+                        this.state.discussions[courseId] = Object.keys(data[courseId])
+                            .map(key => ({ id: key, ...data[courseId][key] }))
+                            .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+                    });
+                    if (this.state.activeCourseId && !document.getElementById('view-learning').classList.contains('hidden')) {
+                        this.renderDiscussion(this.state.activeCourseId);
                     }
                 });
             },
@@ -1072,6 +1103,82 @@
                     </div>
                 `).join('');
                 section.classList.remove('hidden');
+            },
+
+            escapeHtml(str) {
+                const div = document.createElement('div');
+                div.textContent = str == null ? '' : str;
+                return div.innerHTML;
+            },
+
+            formatDiscussionDate(iso) {
+                return new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+            },
+
+            postDiscussionMessage() {
+                const input = document.getElementById('discussion-input');
+                const text = input.value.trim();
+                if (!text) return;
+
+                const courseId = this.state.activeCourseId;
+                if (!courseId || !this.state.currentUser) return;
+
+                const message = {
+                    author: this.state.currentUser.nama,
+                    role: this.state.role,
+                    text: text,
+                    createdAt: new Date().toISOString()
+                };
+                if (this.state.role === 'student') message.nisn = this.state.currentUser.nisn;
+
+                database.ref(`discussions/${courseId}`).push(message);
+                input.value = '';
+            },
+
+            deleteDiscussionMessage(courseId, messageId) {
+                database.ref(`discussions/${courseId}/${messageId}`).remove();
+            },
+
+            renderDiscussion(courseId) {
+                const container = document.getElementById('discussion-list');
+                if (!container) return;
+                const messages = this.state.discussions[courseId] || [];
+
+                if (messages.length === 0) {
+                    container.innerHTML = '<p class="text-xs text-gray-400 text-center py-6">Belum ada pertanyaan. Jadilah yang pertama bertanya!</p>';
+                    return;
+                }
+
+                const myNisn = this.state.currentUser ? this.state.currentUser.nisn : null;
+                const canModerate = this.state.role === 'admin';
+
+                container.innerHTML = messages.map(m => {
+                    const isAdminMsg = m.role === 'admin';
+                    const isMine = isAdminMsg ? (this.state.role === 'admin') : (m.nisn === myNisn);
+                    const authorSafe = this.escapeHtml(m.author);
+                    const textSafe = this.escapeHtml(m.text);
+                    const initial = (m.author || '?').charAt(0).toUpperCase();
+                    const canDelete = canModerate || (this.state.role === 'student' && m.nisn === myNisn);
+
+                    return `
+                        <div class="flex gap-2 ${isMine ? 'flex-row-reverse' : ''}">
+                            <div class="w-8 h-8 rounded-full ${isAdminMsg ? 'bg-brand-orange' : 'bg-brand-blue'} text-white flex items-center justify-center text-xs font-bold flex-shrink-0">${initial}</div>
+                            <div class="max-w-[75%] ${isAdminMsg ? 'bg-orange-50' : 'bg-blue-50'} rounded-lg p-3">
+                                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                                    <span class="text-xs font-bold text-gray-700">${authorSafe}</span>
+                                    ${isAdminMsg ? '<span class="text-[9px] bg-brand-orange text-white px-1.5 py-0.5 rounded-full font-bold">GURU</span>' : ''}
+                                </div>
+                                <p class="text-sm text-gray-800 whitespace-pre-line">${textSafe}</p>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <p class="text-[10px] text-gray-400">${this.formatDiscussionDate(m.createdAt)}</p>
+                                    ${canDelete ? `<button onclick="app.deleteDiscussionMessage('${courseId}', '${m.id}')" class="text-[10px] text-red-400 hover:underline">Hapus</button>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                container.scrollTop = container.scrollHeight;
             },
 
             renderStudentList() {
@@ -1454,6 +1561,7 @@
                     this.updateStepUI();
                 }
                 
+                this.renderDiscussion(course.id);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             },
 
