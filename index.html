@@ -1598,6 +1598,13 @@
                 return !!(course && course.quiz && course.quiz.enabled && (course.quiz.questions || []).length > 0);
             },
 
+            // Pilihan jawaban lama disimpan sebagai string teks biasa; yang baru sebagai {text, image}.
+            // Fungsi ini menyeragamkan keduanya supaya kode lain tidak perlu peduli format aslinya.
+            normalizeOption(opt) {
+                if (typeof opt === 'string') return { text: opt, image: null };
+                return { text: (opt && opt.text) || '', image: (opt && opt.image) || null };
+            },
+
             getDeadlineStatus(deadlineStr) {
                 if (!deadlineStr) return null;
                 const today = new Date();
@@ -1822,12 +1829,17 @@
                         ${q.text ? `<p class="font-semibold text-gray-800 mb-3">${qIndex + 1}. ${q.text}</p>` : `<p class="font-semibold text-gray-800 mb-3">${qIndex + 1}. Perhatikan gambar berikut:</p>`}
                         ${q.image ? `<img src="${q.image}" class="max-w-full max-h-72 rounded-md border border-gray-300 mb-3" alt="Gambar soal ${qIndex + 1}">` : ''}
                         <div class="space-y-2">
-                            ${q.options.map((opt, oIndex) => opt ? `
-                                <label class="flex items-center gap-2 p-2 rounded-md hover:bg-white cursor-pointer border border-transparent hover:border-gray-200">
+                            ${q.options.map((opt, oIndex) => {
+                                const optImg = q.optionImages && q.optionImages[oIndex];
+                                if (!opt && !optImg) return '';
+                                return `
+                                <label class="flex items-center gap-3 p-2 rounded-md hover:bg-white cursor-pointer border border-transparent hover:border-gray-200">
                                     <input type="radio" name="quiz-answer-${qIndex}" value="${oIndex}" class="quiz-answer-input">
-                                    <span class="text-sm text-gray-700">${opt}</span>
+                                    ${optImg ? `<img src="${optImg}" class="max-h-16 rounded border border-gray-200" alt="Pilihan ${String.fromCharCode(65 + oIndex)}">` : ''}
+                                    ${opt ? `<span class="text-sm text-gray-700">${opt}</span>` : ''}
                                 </label>
-                            ` : '').join('')}
+                            `;
+                            }).join('')}
                         </div>
                     </div>`;
                 });
@@ -2071,6 +2083,7 @@
                         text: q.text || '',
                         image: q.image || null,
                         options: [...(q.options || ['', '', '', ''])],
+                        optionImages: [...(q.optionImages || [null, null, null, null])],
                         correct: q.correct || 0
                     }));
                 } else {
@@ -2215,7 +2228,7 @@
 
             addQuizQuestion() {
                 this.syncQuizQuestionsFromDOM();
-                this.state.tempQuizQuestions.push({ text: '', image: null, options: ['', '', '', ''], correct: 0 });
+                this.state.tempQuizQuestions.push({ text: '', image: null, options: ['', '', '', ''], optionImages: [null, null, null, null], correct: 0 });
                 this.renderQuizQuestionsEditor();
             },
 
@@ -2250,6 +2263,38 @@
                 this.syncQuizQuestionsFromDOM();
                 if (this.state.tempQuizQuestions[index]) {
                     this.state.tempQuizQuestions[index].image = null;
+                }
+                this.renderQuizQuestionsEditor();
+            },
+
+            handleQuizOptionImage(qIndex, oIndex, event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                if (file.size > 1 * 1024 * 1024) {
+                    this.showToast('Ukuran gambar pilihan maksimal 1MB.', true);
+                    event.target.value = '';
+                    return;
+                }
+
+                this.syncQuizQuestionsFromDOM();
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const q = this.state.tempQuizQuestions[qIndex];
+                    if (!q) return;
+                    if (!q.optionImages) q.optionImages = [null, null, null, null];
+                    q.optionImages[oIndex] = e.target.result;
+                    this.renderQuizQuestionsEditor();
+                };
+                reader.readAsDataURL(file);
+            },
+
+            removeQuizOptionImage(qIndex, oIndex) {
+                this.syncQuizQuestionsFromDOM();
+                const q = this.state.tempQuizQuestions[qIndex];
+                if (q && q.optionImages) {
+                    q.optionImages[oIndex] = null;
                 }
                 this.renderQuizQuestionsEditor();
             },
@@ -2293,11 +2338,26 @@
                             `}
                             <p class="text-[10px] text-gray-400 mt-1">Cocok untuk soal berisi rumus/simbol matematika yang sulit diketik - foto atau screenshot soalnya saja.</p>
                         </div>
-                        <div class="space-y-1">
+                        <div class="space-y-2">
                             ${[0, 1, 2, 3].map(i => `
-                                <div class="flex items-center gap-2">
-                                    <input type="radio" name="quiz-correct-${index}" value="${i}" ${(q.correct || 0) === i ? 'checked' : ''} class="quiz-q-correct">
-                                    <input type="text" class="flex-1 border border-gray-300 rounded-md p-1.5 text-sm quiz-q-option" placeholder="Pilihan ${String.fromCharCode(65 + i)}" value="${(q.options && q.options[i] || '').replace(/"/g, '&quot;')}">
+                                <div class="border border-gray-200 rounded-md p-2">
+                                    <div class="flex items-center gap-2">
+                                        <input type="radio" name="quiz-correct-${index}" value="${i}" ${(q.correct || 0) === i ? 'checked' : ''} class="quiz-q-correct">
+                                        <input type="text" class="flex-1 border border-gray-300 rounded-md p-1.5 text-sm quiz-q-option" placeholder="Pilihan ${String.fromCharCode(65 + i)}" value="${(q.options && q.options[i] || '').replace(/"/g, '&quot;')}">
+                                    </div>
+                                    <div class="ml-6 mt-1">
+                                        ${q.optionImages && q.optionImages[i] ? `
+                                            <div class="relative inline-block">
+                                                <img src="${q.optionImages[i]}" class="max-h-16 rounded border border-gray-300" alt="Gambar pilihan ${String.fromCharCode(65 + i)}">
+                                                <button type="button" onclick="app.removeQuizOptionImage(${index}, ${i})" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] hover:bg-red-600"><i class="fa-solid fa-times"></i></button>
+                                            </div>
+                                        ` : `
+                                            <label class="inline-flex items-center gap-1 text-[10px] font-medium text-teal-700 border border-dashed border-teal-300 rounded px-2 py-1 cursor-pointer hover:bg-teal-50">
+                                                <i class="fa-solid fa-image"></i> Gambar Pilihan
+                                                <input type="file" accept="image/*" class="hidden" onchange="app.handleQuizOptionImage(${index}, ${i}, event)">
+                                            </label>
+                                        `}
+                                    </div>
                                 </div>
                             `).join('')}
                         </div>
@@ -2343,9 +2403,10 @@
                             text: (q.text || '').trim(),
                             image: q.image || null,
                             options: (q.options || []).map(o => (o || '').trim()),
+                            optionImages: q.optionImages ? [...q.optionImages] : [null, null, null, null],
                             correct: q.correct || 0
                         }))
-                        .filter(q => (q.text || q.image) && q.options.filter(o => o).length >= 2);
+                        .filter(q => (q.text || q.image) && q.options.filter((o, i) => o || q.optionImages[i]).length >= 2);
 
                     if (validQuestions.length === 0) {
                         this.showToast('Kuis diaktifkan tapi belum ada soal valid (butuh pertanyaan/gambar + minimal 2 pilihan jawaban).', true);
