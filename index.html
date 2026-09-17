@@ -51,6 +51,25 @@
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
 
+    <!-- Layar Loading Bertema Matematika (tampil saat data awal dari Firebase masih dimuat) -->
+    <div id="app-loading-screen" class="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center transition-opacity duration-500">
+        <svg width="180" height="110" viewBox="-100 -55 200 110" xmlns:xlink="http://www.w3.org/1999/xlink">
+            <path id="infinity-track" fill="none" stroke="#dbeafe" stroke-width="7" stroke-linecap="round"
+                d="M 80.0,0.0 L 79.5,5.0 L 78.1,9.8 L 75.9,14.2 L 73.0,18.1 L 69.5,21.5 L 65.5,24.1 L 61.3,26.1 L 56.9,27.4 L 52.5,28.1 L 48.1,28.3 L 43.8,27.9 L 39.7,27.2 L 35.8,26.1 L 32.0,24.7 L 28.4,23.0 L 25.0,21.1 L 21.8,19.1 L 18.7,16.9 L 15.8,14.7 L 13.0,12.3 L 10.3,9.9 L 7.6,7.5 L 5.1,5.0 L 2.5,2.5 L 0.0,0.0 L -2.5,-2.5 L -5.1,-5.0 L -7.6,-7.5 L -10.3,-9.9 L -13.0,-12.3 L -15.8,-14.7 L -18.7,-16.9 L -21.8,-19.1 L -25.0,-21.1 L -28.4,-23.0 L -32.0,-24.7 L -35.8,-26.1 L -39.7,-27.2 L -43.8,-27.9 L -48.1,-28.3 L -52.5,-28.1 L -56.9,-27.4 L -61.3,-26.1 L -65.5,-24.1 L -69.5,-21.5 L -73.0,-18.1 L -75.9,-14.2 L -78.1,-9.8 L -79.5,-5.0 L -80.0,-0.0 L -79.5,5.0 L -78.1,9.8 L -75.9,14.2 L -73.0,18.1 L -69.5,21.5 L -65.5,24.1 L -61.3,26.1 L -56.9,27.4 L -52.5,28.1 L -48.1,28.3 L -43.8,27.9 L -39.7,27.2 L -35.8,26.1 L -32.0,24.7 L -28.4,23.0 L -25.0,21.1 L -21.8,19.1 L -18.7,16.9 L -15.8,14.7 L -13.0,12.3 L -10.3,9.9 L -7.6,7.5 L -5.1,5.0 L -2.5,2.5 L -0.0,0.0 L 2.5,-2.5 L 5.1,-5.0 L 7.6,-7.5 L 10.3,-9.9 L 13.0,-12.3 L 15.8,-14.7 L 18.7,-16.9 L 21.8,-19.1 L 25.0,-21.1 L 28.4,-23.0 L 32.0,-24.7 L 35.8,-26.1 L 39.7,-27.2 L 43.8,-27.9 L 48.1,-28.3 L 52.5,-28.1 L 56.9,-27.4 L 61.3,-26.1 L 65.5,-24.1 L 69.5,-21.5 L 73.0,-18.1 L 75.9,-14.2 L 78.1,-9.8 L 79.5,-5.0 L 80.0,-0.0 Z" />
+            <circle r="6" fill="#2563eb">
+                <animateMotion dur="2.6s" repeatCount="indefinite" rotate="auto">
+                    <mpath href="#infinity-track" xlink:href="#infinity-track"/>
+                </animateMotion>
+            </circle>
+            <circle r="4.5" fill="#f97316">
+                <animateMotion dur="2.6s" repeatCount="indefinite" begin="-1.3s" rotate="auto">
+                    <mpath href="#infinity-track" xlink:href="#infinity-track"/>
+                </animateMotion>
+            </circle>
+        </svg>
+        <p class="mt-3 text-sm font-bold text-gray-400 tracking-wide animate-pulse">Memuat MathEdu...</p>
+    </div>
+
     <!-- Tombol Install PWA (muncul otomatis kalau browser mendukung) -->
     <button id="btn-install-pwa" onclick="app.installPwa()" class="hidden fixed bottom-20 right-5 z-50 bg-brand-blue text-white px-4 py-3 rounded-full shadow-lg hover:bg-blue-800 transition items-center gap-2 text-sm font-bold">
         <i class="fa-solid fa-download"></i> Install Aplikasi
@@ -758,7 +777,9 @@
                 isExerciseUploaded: false,
                 sessionChecked: false,
                 announcements: [],
-                discussions: {}
+                discussions: {},
+                initialCoursesLoaded: false,
+                initialUsersLoaded: false
             },
 
             adminCreds: {
@@ -779,6 +800,8 @@
                         this.state.courses = [];
                     }
                     this.renderCourses();
+                    this.state.initialCoursesLoaded = true;
+                    this.checkInitialLoadComplete();
                 });
 
                 database.ref('users').on('value', (snapshot) => {
@@ -797,6 +820,9 @@
                     if (!document.getElementById('modal-students').classList.contains('hidden')) {
                         this.renderStudentList();
                     }
+
+                    this.state.initialUsersLoaded = true;
+                    this.checkInitialLoadComplete();
                 });
 
                 database.ref('announcements').on('value', (snapshot) => {
@@ -822,6 +848,24 @@
                         this.renderDiscussion(this.state.activeCourseId);
                     }
                 });
+
+                // Jaga-jaga: kalau koneksi ke Firebase lambat/gagal, jangan biarkan layar
+                // loading tertahan selamanya - paksa sembunyi setelah 8 detik.
+                setTimeout(() => this.hideLoadingScreen(), 8000);
+            },
+
+            checkInitialLoadComplete() {
+                if (this.state.initialCoursesLoaded && this.state.initialUsersLoaded) {
+                    this.hideLoadingScreen();
+                }
+            },
+
+            hideLoadingScreen() {
+                const el = document.getElementById('app-loading-screen');
+                if (!el) return;
+                el.style.opacity = '0';
+                el.style.pointerEvents = 'none';
+                setTimeout(() => el.remove(), 500);
             },
 
             checkSession() {
