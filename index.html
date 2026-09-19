@@ -496,7 +496,10 @@
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center p-5 border-b border-gray-100 flex-shrink-0">
                 <h3 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-chart-column text-teal-600 mr-2"></i> Rekap Nilai & Tugas</h3>
-                <button onclick="app.closeModals()" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-times text-xl"></i></button>
+                <div class="flex items-center gap-4">
+                    <button onclick="app.openGradeArchiveModal()" class="text-xs font-semibold text-gray-500 hover:text-brand-blue underline"><i class="fa-solid fa-box-archive mr-1"></i> Arsip Modul Terhapus</button>
+                    <button onclick="app.closeModals()" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-times text-xl"></i></button>
+                </div>
             </div>
 
             <div class="p-5 border-b border-gray-100 bg-gray-50 flex-shrink-0 flex flex-col md:flex-row gap-3 md:items-end md:justify-between">
@@ -529,6 +532,22 @@
                             <!-- Diisi JS -->
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Arsip Nilai Modul Terhapus -->
+    <div id="modal-grade-archive" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center fade-in">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center p-5 border-b border-gray-100 flex-shrink-0">
+                <h3 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-box-archive text-gray-600 mr-2"></i> Arsip Nilai Modul Terhapus</h3>
+                <button onclick="app.closeModals()" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            <div class="p-5 overflow-y-auto flex-grow">
+                <p class="text-xs text-gray-500 mb-3">Setiap kali modul dihapus, ringkasan nilai & status tuntasnya disimpan di sini walau modul dan filenya sudah tidak ada.</p>
+                <div id="grade-archive-list" class="space-y-3">
+                    <!-- Diisi JS -->
                 </div>
             </div>
         </div>
@@ -784,7 +803,7 @@
 
         // 🔗 URL APLIKASI WEB (APPS SCRIPT) 🔗
         // PASTE URL DARI DEPLOYMENT APPS SCRIPT ANDA DI SINI
-        const appsScriptUrl = 'https://script.google.com/macros/s/AKfycbxFsm_jicD1T91xZ5kwN4FatZZ4PZJkyw_PtGj6r9e--yjbuA9xNGRD7OYFus48-FZS/exec';
+        const appsScriptUrl = 'https://script.google.com/macros/s/AKfycbxPGCg1yuYRHxJ9VVsCF2ultABKzK3cF6cL9ghfDAiwUlZMhI7KpNqCxCe9wyByOrX1/exec';
 
         const app = {
             state: {
@@ -805,7 +824,8 @@
                 announcements: [],
                 discussions: {},
                 initialCoursesLoaded: false,
-                initialUsersLoaded: false
+                initialUsersLoaded: false,
+                gradeArchive: []
             },
 
             adminCreds: {
@@ -875,6 +895,16 @@
                     }
                 });
 
+                database.ref('gradeArchive').on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    this.state.gradeArchive = data
+                        ? Object.keys(data).map(key => ({ id: key, ...data[key] })).sort((a, b) => b.deletedAt.localeCompare(a.deletedAt))
+                        : [];
+                    if (!document.getElementById('modal-grade-archive').classList.contains('hidden')) {
+                        this.renderGradeArchive();
+                    }
+                });
+
                 // Jaga-jaga: kalau koneksi ke Firebase lambat/gagal, jangan biarkan layar
                 // loading tertahan selamanya - paksa sembunyi setelah 8 detik.
                 setTimeout(() => this.hideLoadingScreen(), 8000);
@@ -917,7 +947,7 @@
 
             // 🗂️ Mencatat file rangkuman/tugas siswa ke dalam data modul, supaya guru
             // bisa melihatnya lagi lewat "Rekap Nilai & Tugas" tanpa buka Drive manual.
-            saveSubmissionRecord(courseId, type, fileName, fileUrl) {
+            saveSubmissionRecord(courseId, type, fileName, fileUrl, fileId) {
                 if (!this.state.currentUser) return;
                 const nisn = this.state.currentUser.nisn;
                 const courseIndex = this.state.courses.findIndex(c => c.id === courseId);
@@ -928,6 +958,7 @@
                 this.state.courses[courseIndex].submissions[nisn][type] = {
                     fileName: fileName,
                     fileUrl: fileUrl,
+                    fileId: fileId || null,
                     submittedAt: new Date().toISOString()
                 };
                 this.saveCoursesToStorage();
@@ -943,6 +974,42 @@
                 const enc = new TextEncoder().encode(password);
                 const hashBuffer = await crypto.subtle.digest('SHA-256', enc);
                 return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+            },
+
+            // 🗑️ Menghapus satu atau beberapa file dari Google Drive lewat Apps Script.
+            // File dipindah ke Trash (bisa dipulihkan 30 hari), bukan dihapus permanen langsung.
+            // Dipakai saat guru menghapus submission/siswa/modul supaya file tidak menumpuk di Drive.
+            async deleteFilesFromDrive(fileIds) {
+                const validIds = (fileIds || []).filter(id => !!id);
+                if (validIds.length === 0) return;
+                if (!appsScriptUrl || appsScriptUrl.includes('GANTI_DENGAN_URL') || appsScriptUrl.includes('URL_WEB_APP_APPS_SCRIPT')) return;
+
+                try {
+                    await fetch(appsScriptUrl, {
+                        method: 'POST',
+                        body: JSON.stringify({ action: 'deleteFiles', fileIds: validIds })
+                    });
+                } catch (err) {
+                    // Kalau gagal terhubung, jangan hentikan proses hapus data di LMS -
+                    // filenya mungkin tertinggal di Drive, tapi record di LMS tetap perlu bersih.
+                    console.log('Gagal menghapus file di Drive:', err);
+                }
+            },
+
+            // Fallback untuk submission lama yang belum menyimpan fileId secara eksplisit -
+            // ambil ID-nya dari URL Drive (format .../d/FILE_ID/... atau ?id=FILE_ID).
+            extractDriveFileId(url) {
+                if (!url) return null;
+                const m1 = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                if (m1) return m1[1];
+                const m2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+                if (m2) return m2[1];
+                return null;
+            },
+
+            getSubmissionFileId(submission) {
+                if (!submission) return null;
+                return submission.fileId || this.extractDriveFileId(submission.fileUrl);
             },
 
             openLoginModal() {
@@ -1062,6 +1129,7 @@
                     const sub = (course.submissions && course.submissions[u.nisn]) || {};
                     const quizResult = (course.quizResults && course.quizResults[u.nisn]) || null;
                     return {
+                        nisn: u.nisn,
                         nama: u.nama,
                         kelas: u.kelas || '-',
                         rangkuman: sub.rangkuman || null,
@@ -1091,12 +1159,36 @@
                     <tr>
                         <td class="px-3 py-2 font-medium text-gray-800">${r.nama}</td>
                         <td class="px-3 py-2 text-gray-500">${r.kelas}</td>
-                        <td class="px-3 py-2 text-center">${r.rangkuman ? `<a href="${r.rangkuman.fileUrl}" target="_blank" rel="noopener" class="text-brand-blue underline"><i class="fa-solid fa-check text-brand-green mr-1"></i>Lihat</a>` : '<span class="text-gray-300">-</span>'}</td>
-                        <td class="px-3 py-2 text-center">${r.tugas ? `<a href="${r.tugas.fileUrl}" target="_blank" rel="noopener" class="text-brand-blue underline"><i class="fa-solid fa-check text-brand-green mr-1"></i>Lihat</a>` : '<span class="text-gray-300">-</span>'}</td>
+                        <td class="px-3 py-2 text-center">${r.rangkuman ? `<span class="inline-flex items-center gap-1.5"><a href="${r.rangkuman.fileUrl}" target="_blank" rel="noopener" class="text-brand-blue underline"><i class="fa-solid fa-check text-brand-green mr-1"></i>Lihat</a><button onclick="app.confirmDeleteSubmission(${courseId}, '${r.nisn}', 'rangkuman')" class="text-red-400 hover:text-red-600" title="Hapus file rangkuman"><i class="fa-solid fa-trash text-xs"></i></button></span>` : '<span class="text-gray-300">-</span>'}</td>
+                        <td class="px-3 py-2 text-center">${r.tugas ? `<span class="inline-flex items-center gap-1.5"><a href="${r.tugas.fileUrl}" target="_blank" rel="noopener" class="text-brand-blue underline"><i class="fa-solid fa-check text-brand-green mr-1"></i>Lihat</a><button onclick="app.confirmDeleteSubmission(${courseId}, '${r.nisn}', 'tugas')" class="text-red-400 hover:text-red-600" title="Hapus file tugas"><i class="fa-solid fa-trash text-xs"></i></button></span>` : '<span class="text-gray-300">-</span>'}</td>
                         <td class="px-3 py-2 text-center">${r.quizScore !== null ? `<span class="font-bold ${r.quizPassed ? 'text-brand-green' : 'text-brand-orange'}">${r.quizScore}%</span>` : '<span class="text-gray-300">-</span>'}</td>
                         <td class="px-3 py-2 text-center">${r.selesai ? '<span class="bg-green-100 text-brand-green text-xs font-bold px-2 py-1 rounded">Tuntas</span>' : '<span class="bg-gray-100 text-gray-500 text-xs font-bold px-2 py-1 rounded">Belum</span>'}</td>
                     </tr>
                 `).join('');
+            },
+
+            confirmDeleteSubmission(courseId, nisn, type) {
+                const label = type === 'rangkuman' ? 'rangkuman' : 'tugas';
+                this.showConfirm(
+                    "Hapus File",
+                    `Hapus file ${label} siswa ini? File di Google Drive akan dipindah ke Trash (bisa dipulihkan 30 hari), dan tautannya akan hilang dari tabel ini. Nilai/status tuntas modul TIDAK ikut terhapus.`,
+                    async () => {
+                        const courseIndex = this.state.courses.findIndex(c => c.id === courseId);
+                        if (courseIndex === -1) return;
+                        const submission = this.state.courses[courseIndex].submissions &&
+                            this.state.courses[courseIndex].submissions[nisn] &&
+                            this.state.courses[courseIndex].submissions[nisn][type];
+                        if (!submission) return;
+
+                        const fileId = this.getSubmissionFileId(submission);
+                        if (fileId) await this.deleteFilesFromDrive([fileId]);
+
+                        delete this.state.courses[courseIndex].submissions[nisn][type];
+                        this.saveCoursesToStorage();
+                        this.renderReportTable();
+                        this.showToast('File dihapus dari Drive & tabel.');
+                    }
+                );
             },
 
             exportReportToExcel() {
@@ -1126,6 +1218,65 @@
                 XLSX.utils.book_append_sheet(wb, ws, 'Rekap');
                 const safeTitle = course.title.replace(/[\\/:*?"<>|]/g, '-').slice(0, 40);
                 XLSX.writeFile(wb, `Rekap_${safeTitle}.xlsx`);
+            },
+
+            openGradeArchiveModal() {
+                this.renderGradeArchive();
+                document.getElementById('modal-grade-archive').classList.remove('hidden');
+            },
+
+            renderGradeArchive() {
+                const container = document.getElementById('grade-archive-list');
+                if (this.state.gradeArchive.length === 0) {
+                    container.innerHTML = '<p class="text-xs text-gray-400 text-center py-6">Belum ada modul yang dihapus.</p>';
+                    return;
+                }
+
+                container.innerHTML = this.state.gradeArchive.map(entry => {
+                    const completedCount = (entry.completedBy || []).length;
+                    const quizCount = Object.keys(entry.quizResults || {}).length;
+                    const dateStr = new Date(entry.deletedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                    return `
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex justify-between items-start gap-2">
+                                <div>
+                                    <h4 class="font-bold text-gray-800">${entry.courseTitle}</h4>
+                                    <p class="text-xs text-gray-500">${entry.category || '-'} &middot; Dihapus ${dateStr}</p>
+                                </div>
+                                <button onclick="app.exportArchiveEntry('${entry.id}')" class="text-xs font-bold text-brand-green hover:underline flex-shrink-0 whitespace-nowrap"><i class="fa-solid fa-file-excel mr-1"></i> Excel</button>
+                            </div>
+                            <p class="text-xs text-gray-600 mt-2">${completedCount} siswa tuntas${quizCount > 0 ? ` &middot; ${quizCount} nilai kuis tercatat` : ''}</p>
+                        </div>
+                    `;
+                }).join('');
+            },
+
+            exportArchiveEntry(entryId) {
+                const entry = this.state.gradeArchive.find(e => e.id === entryId);
+                if (!entry) return;
+
+                const nisnSet = new Set([...(entry.completedBy || []), ...Object.keys(entry.quizResults || {})]);
+                const dataForExcel = Array.from(nisnSet).map(nisn => {
+                    const user = this.state.users.find(u => u.nisn === nisn);
+                    const quiz = (entry.quizResults || {})[nisn];
+                    return {
+                        'NISN': nisn,
+                        'Nama': user ? user.nama : '(Siswa tidak ditemukan/sudah dihapus)',
+                        'Status': (entry.completedBy || []).includes(nisn) ? 'Tuntas' : 'Belum Tuntas',
+                        'Skor Kuis (%)': quiz ? quiz.score : ''
+                    };
+                });
+
+                if (dataForExcel.length === 0) {
+                    this.showToast('Tidak ada data nilai untuk diekspor.', true);
+                    return;
+                }
+
+                const ws = XLSX.utils.json_to_sheet(dataForExcel);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Arsip Nilai');
+                const safeTitle = entry.courseTitle.replace(/[\\/:*?"<>|]/g, '-').slice(0, 40);
+                XLSX.writeFile(wb, `Arsip_${safeTitle}.xlsx`);
             },
 
             openAnnouncementsModal() {
@@ -1823,7 +1974,7 @@
                             document.getElementById('summary-upload-name').classList.remove('hidden');
                             document.getElementById('btn-summary-upload').classList.add('hidden');
                             this.showToast('Rangkuman berhasil terkirim ke Google Drive!');
-                            this.saveSubmissionRecord(this.state.activeCourseId, 'rangkuman', file.name, link);
+                            this.saveSubmissionRecord(this.state.activeCourseId, 'rangkuman', file.name, link, result.fileId);
                         } else {
                             this.showToast('Gagal upload: ' + (result.message || result.error || 'Tidak diketahui'), true);
                             fileInput.value = '';
@@ -2052,7 +2203,7 @@
                             document.getElementById('student-upload-name').classList.remove('hidden');
                             document.getElementById('btn-student-upload').classList.add('hidden');
                             this.showToast('Berhasil mengirim tugas ke Google Drive!');
-                            this.saveSubmissionRecord(this.state.activeCourseId, 'tugas', file.name, link);
+                            this.saveSubmissionRecord(this.state.activeCourseId, 'tugas', file.name, link, result.fileId);
                         } else {
                             this.showToast('Gagal upload: ' + (result.message || result.error || 'Tidak diketahui'), true);
                             fileInput.value = '';
@@ -2578,11 +2729,40 @@
             confirmDeleteCourse(id) {
                 this.showConfirm(
                     "Hapus Modul", 
-                    "Yakin menghapus modul ini secara permanen dari Cloud?", 
-                    () => {
+                    "Yakin menghapus modul ini secara permanen? Semua file tugas/rangkuman siswa di modul ini akan dihapus dari Drive. Riwayat nilai & status tuntas akan diarsipkan lebih dulu supaya tidak ikut hilang.", 
+                    async () => {
+                        const course = this.state.courses.find(c => c.id === id);
+                        if (!course) return;
+
+                        // Arsipkan ringkasan nilai SEBELUM modul & filenya dihapus.
+                        database.ref('gradeArchive').push({
+                            courseTitle: course.title,
+                            category: course.category || '',
+                            completedBy: course.completedBy || [],
+                            quizResults: course.quizResults || {},
+                            deletedAt: new Date().toISOString()
+                        });
+
+                        // Kumpulkan semua fileId dari submissions modul ini untuk dihapus dari Drive.
+                        const fileIdsToDelete = [];
+                        if (course.submissions) {
+                            Object.values(course.submissions).forEach(byType => {
+                                ['tugas', 'rangkuman'].forEach(type => {
+                                    const sub = byType[type];
+                                    if (sub) {
+                                        const fid = this.getSubmissionFileId(sub);
+                                        if (fid) fileIdsToDelete.push(fid);
+                                    }
+                                });
+                            });
+                        }
+                        if (fileIdsToDelete.length > 0) {
+                            await this.deleteFilesFromDrive(fileIdsToDelete);
+                        }
+
                         this.state.courses = this.state.courses.filter(c => c.id !== id);
                         this.saveCoursesToStorage();
-                        this.showToast('Modul dihapus dari Cloud.');
+                        this.showToast('Modul dihapus. Nilai diarsipkan, file di Drive dipindah ke Trash.');
                     }
                 );
             },
@@ -2590,11 +2770,41 @@
             confirmDeleteStudent(nisn) {
                 this.showConfirm(
                     "Hapus Siswa", 
-                    `Yakin menghapus siswa (${nisn}) dari Cloud?`, 
-                    () => {
+                    `Yakin menghapus siswa (${nisn})? Seluruh riwayat modul, file tugas/rangkuman di Drive, dan nilai kuis siswa ini di SEMUA modul akan ikut terhapus permanen.`, 
+                    async () => {
+                        const fileIdsToDelete = [];
+
+                        this.state.courses.forEach(course => {
+                            if (course.submissions && course.submissions[nisn]) {
+                                ['tugas', 'rangkuman'].forEach(type => {
+                                    const sub = course.submissions[nisn][type];
+                                    if (sub) {
+                                        const fid = this.getSubmissionFileId(sub);
+                                        if (fid) fileIdsToDelete.push(fid);
+                                    }
+                                });
+                                delete course.submissions[nisn];
+                            }
+                            if (course.quizResults && course.quizResults[nisn]) {
+                                delete course.quizResults[nisn];
+                            }
+                            if (course.completedBy) {
+                                course.completedBy = course.completedBy.filter(n => n !== nisn);
+                            }
+                            if (course.visibility && course.visibility.studentNisns) {
+                                course.visibility.studentNisns = course.visibility.studentNisns.filter(n => n !== nisn);
+                            }
+                        });
+
+                        if (fileIdsToDelete.length > 0) {
+                            await this.deleteFilesFromDrive(fileIdsToDelete);
+                        }
+                        this.saveCoursesToStorage();
+
                         this.state.users = this.state.users.filter(u => u.nisn !== nisn);
                         this.saveUsersToStorage();
-                        this.showToast('Siswa dihapus dari Cloud.');
+
+                        this.showToast('Siswa & seluruh riwayat datanya dihapus.');
                     }
                 );
             },
@@ -2621,6 +2831,7 @@
                 document.getElementById('modal-password').classList.add('hidden');
                 document.getElementById('modal-reports').classList.add('hidden');
                 document.getElementById('modal-announcements').classList.add('hidden');
+                document.getElementById('modal-grade-archive').classList.add('hidden');
                 this.closeConfirmModal();
             },
 
