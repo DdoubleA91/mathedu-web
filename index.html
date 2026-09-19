@@ -462,12 +462,28 @@
                 <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 flex flex-col md:flex-row items-center justify-between gap-4">
                     <div>
                         <h4 class="text-sm font-bold text-brand-blue mb-1"><i class="fa-solid fa-file-excel mr-1"></i> Upload Data Massal (Excel)</h4>
-                        <p class="text-xs text-gray-600">Format tabel: <strong>Kolom A (NISN), Kolom B (Nama Lengkap), Kolom C (Kelas)</strong>. Baris pertama akan diabaikan.</p>
+                        <p class="text-xs text-gray-600">Format tabel: <strong>Kolom A (NISN), Kolom B (Nama Lengkap), Kolom C (Kelas)</strong>. Baris pertama akan diabaikan. NISN yang sudah terdaftar akan diperbarui nama/kelasnya (bukan dilewati) - cocok dipakai ulang tiap tahun ajaran untuk update kelas tanpa kehilangan riwayat nilai.</p>
                     </div>
                     <div class="flex items-center gap-2 flex-shrink-0">
                         <input type="file" id="excel-upload" accept=".xlsx, .xls, .csv" class="hidden" onchange="app.processExcel(event)">
                         <button type="button" onclick="document.getElementById('excel-upload').click()" class="bg-white border border-brand-blue text-brand-blue hover:bg-brand-blue hover:text-white transition px-4 py-2 rounded-md text-sm font-semibold shadow-sm flex items-center gap-2">
                             <i class="fa-solid fa-upload"></i> Pilih File
+                        </button>
+                    </div>
+                </div>
+
+                <hr class="my-4 border-gray-200">
+                <div class="bg-red-50 border border-red-100 rounded-lg p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div>
+                        <h4 class="text-sm font-bold text-red-600 mb-1"><i class="fa-solid fa-trash mr-1"></i> Hapus Massal per Kelas</h4>
+                        <p class="text-xs text-gray-600">Untuk siswa yang sudah lulus/keluar sekolah. Menghapus akun sekaligus seluruh riwayat nilai & file mereka secara permanen.</p>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <select id="bulk-delete-kelas-select" class="border border-gray-300 rounded-md p-2 text-sm bg-white">
+                            <option value="">-- Pilih Kelas --</option>
+                        </select>
+                        <button type="button" onclick="app.confirmBulkDeleteByClass()" class="bg-red-500 text-white px-4 py-2 rounded-md text-sm font-semibold shadow-sm hover:bg-red-600 transition flex items-center gap-2">
+                            <i class="fa-solid fa-trash"></i> Hapus Kelas Ini
                         </button>
                     </div>
                 </div>
@@ -1424,6 +1440,7 @@
             renderStudentList() {
                 const tbody = document.getElementById('student-list');
                 tbody.innerHTML = '';
+                this.populateBulkDeleteClassDropdown();
                 
                 if (this.state.users.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-6 text-center text-gray-500">Belum ada data siswa.</td></tr>`;
@@ -1475,7 +1492,7 @@
                         const worksheet = workbook.Sheets[firstSheetName];
                         const json = XLSX.utils.sheet_to_json(worksheet, {header: 1});
                         
-                        let addedCount = 0; let duplicateCount = 0;
+                        let addedCount = 0; let updatedCount = 0; let unchangedCount = 0;
                         const hashedDefaultPassword = await this.hashPassword('123456');
 
                         for (let i = 1; i < json.length; i++) {
@@ -1486,22 +1503,36 @@
                                 const kelas = String(row[2]).trim();
 
                                 if (nisn && nama && kelas) {
-                                    if (!this.state.users.find(u => u.nisn === nisn)) {
+                                    const existingIndex = this.state.users.findIndex(u => u.nisn === nisn);
+                                    if (existingIndex === -1) {
                                         this.state.users.push({ nisn: nisn, nama: nama, kelas: kelas, password: hashedDefaultPassword });
                                         addedCount++;
                                     } else {
-                                        duplicateCount++;
+                                        // NISN sudah terdaftar - perbarui nama/kelasnya (mis. naik kelas/pindah jurusan)
+                                        // alih-alih dilewati begitu saja. Password & seluruh riwayat nilai TIDAK disentuh,
+                                        // karena tetap terhubung lewat NISN yang sama.
+                                        const existing = this.state.users[existingIndex];
+                                        if (existing.nama !== nama || existing.kelas !== kelas) {
+                                            existing.nama = nama;
+                                            existing.kelas = kelas;
+                                            updatedCount++;
+                                        } else {
+                                            unchangedCount++;
+                                        }
                                     }
                                 }
                             }
                         }
 
-                        if (addedCount > 0) {
+                        if (addedCount > 0 || updatedCount > 0) {
                             this.saveUsersToStorage();
-                            this.showToast(`Berhasil upload ${addedCount} siswa.`);
-                        } else if (duplicateCount > 0) {
-                            this.showToast(`Semua data (${duplicateCount} siswa) sudah terdaftar.`, true);
                         }
+
+                        const parts = [];
+                        if (addedCount > 0) parts.push(`${addedCount} siswa baru`);
+                        if (updatedCount > 0) parts.push(`${updatedCount} siswa diperbarui`);
+                        if (unchangedCount > 0) parts.push(`${unchangedCount} tidak berubah`);
+                        this.showToast(parts.length > 0 ? parts.join(', ') + '.' : 'Tidak ada data valid ditemukan di file.', parts.length === 0);
                     } catch (error) {
                         this.showToast('Gagal membaca file.', true);
                     } finally {
@@ -2767,34 +2798,42 @@
                 );
             },
 
+            // Membersihkan seluruh jejak satu NISN dari semua modul (submissions, quizResults,
+            // completedBy, daftar visibility) TANPA menyentuh Firebase - hanya memodifikasi
+            // this.state.courses di memori. Mengembalikan daftar fileId Drive yang perlu dihapus.
+            // Dipakai baik untuk hapus satu siswa maupun hapus massal per kelas.
+            purgeStudentDataFromCourses(nisn) {
+                const fileIdsToDelete = [];
+                this.state.courses.forEach(course => {
+                    if (course.submissions && course.submissions[nisn]) {
+                        ['tugas', 'rangkuman'].forEach(type => {
+                            const sub = course.submissions[nisn][type];
+                            if (sub) {
+                                const fid = this.getSubmissionFileId(sub);
+                                if (fid) fileIdsToDelete.push(fid);
+                            }
+                        });
+                        delete course.submissions[nisn];
+                    }
+                    if (course.quizResults && course.quizResults[nisn]) {
+                        delete course.quizResults[nisn];
+                    }
+                    if (course.completedBy) {
+                        course.completedBy = course.completedBy.filter(n => n !== nisn);
+                    }
+                    if (course.visibility && course.visibility.studentNisns) {
+                        course.visibility.studentNisns = course.visibility.studentNisns.filter(n => n !== nisn);
+                    }
+                });
+                return fileIdsToDelete;
+            },
+
             confirmDeleteStudent(nisn) {
                 this.showConfirm(
                     "Hapus Siswa", 
                     `Yakin menghapus siswa (${nisn})? Seluruh riwayat modul, file tugas/rangkuman di Drive, dan nilai kuis siswa ini di SEMUA modul akan ikut terhapus permanen.`, 
                     async () => {
-                        const fileIdsToDelete = [];
-
-                        this.state.courses.forEach(course => {
-                            if (course.submissions && course.submissions[nisn]) {
-                                ['tugas', 'rangkuman'].forEach(type => {
-                                    const sub = course.submissions[nisn][type];
-                                    if (sub) {
-                                        const fid = this.getSubmissionFileId(sub);
-                                        if (fid) fileIdsToDelete.push(fid);
-                                    }
-                                });
-                                delete course.submissions[nisn];
-                            }
-                            if (course.quizResults && course.quizResults[nisn]) {
-                                delete course.quizResults[nisn];
-                            }
-                            if (course.completedBy) {
-                                course.completedBy = course.completedBy.filter(n => n !== nisn);
-                            }
-                            if (course.visibility && course.visibility.studentNisns) {
-                                course.visibility.studentNisns = course.visibility.studentNisns.filter(n => n !== nisn);
-                            }
-                        });
+                        const fileIdsToDelete = this.purgeStudentDataFromCourses(nisn);
 
                         if (fileIdsToDelete.length > 0) {
                             await this.deleteFilesFromDrive(fileIdsToDelete);
@@ -2805,6 +2844,51 @@
                         this.saveUsersToStorage();
 
                         this.showToast('Siswa & seluruh riwayat datanya dihapus.');
+                    }
+                );
+            },
+
+            populateBulkDeleteClassDropdown() {
+                const select = document.getElementById('bulk-delete-kelas-select');
+                if (!select) return;
+                const classes = [...new Set(this.state.users.map(u => u.kelas).filter(k => k))].sort();
+                const currentVal = select.value;
+                select.innerHTML = '<option value="">-- Pilih Kelas --</option>' + classes.map(k => `<option value="${k.replace(/"/g, '&quot;')}">${k}</option>`).join('');
+                if (classes.includes(currentVal)) select.value = currentVal;
+            },
+
+            confirmBulkDeleteByClass() {
+                const kelas = document.getElementById('bulk-delete-kelas-select').value;
+                if (!kelas) {
+                    this.showToast('Pilih kelas yang ingin dihapus dulu.', true);
+                    return;
+                }
+
+                const studentsInClass = this.state.users.filter(u => u.kelas === kelas);
+                if (studentsInClass.length === 0) {
+                    this.showToast('Tidak ada siswa di kelas ini.', true);
+                    return;
+                }
+
+                this.showConfirm(
+                    "Hapus Semua Siswa di Kelas Ini",
+                    `Yakin menghapus SEMUA ${studentsInClass.length} siswa di kelas "${kelas}"? Seluruh riwayat modul, file di Drive, dan nilai kuis mereka di SEMUA modul akan ikut terhapus permanen. Tindakan ini tidak bisa dibatalkan.`,
+                    async () => {
+                        let allFileIds = [];
+                        studentsInClass.forEach(u => {
+                            allFileIds = allFileIds.concat(this.purgeStudentDataFromCourses(u.nisn));
+                        });
+
+                        if (allFileIds.length > 0) {
+                            await this.deleteFilesFromDrive(allFileIds);
+                        }
+                        this.saveCoursesToStorage();
+
+                        const nisnsToRemove = new Set(studentsInClass.map(u => u.nisn));
+                        this.state.users = this.state.users.filter(u => !nisnsToRemove.has(u.nisn));
+                        this.saveUsersToStorage();
+
+                        this.showToast(`${studentsInClass.length} siswa di kelas "${kelas}" berhasil dihapus.`);
                     }
                 );
             },
