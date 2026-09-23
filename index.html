@@ -956,6 +956,11 @@
                     this.renderQuizzes();
                     this.state.initialQuizzesLoaded = true;
                     this.checkInitialLoadComplete();
+                }, (error) => {
+                    console.error('Gagal membaca node "quizzes" dari Firebase:', error);
+                    this.showToast('Gagal memuat data Kuis dari Cloud (kemungkinan Firebase Rules belum mengizinkan node "quizzes"). Hubungi admin sistem.', true);
+                    this.state.initialQuizzesLoaded = true;
+                    this.checkInitialLoadComplete();
                 });
 
                 database.ref('users').on('value', (snapshot) => {
@@ -1025,7 +1030,10 @@
             },
 
             saveQuizzesToStorage() {
-                database.ref('quizzes').set(this.state.quizzes);
+                database.ref('quizzes').set(this.state.quizzes).catch((error) => {
+                    console.error('Gagal menyimpan node "quizzes" ke Firebase:', error);
+                    this.showToast('GAGAL menyimpan Kuis ke Cloud! (kemungkinan Firebase Rules belum mengizinkan node "quizzes"). Perubahan ini TIDAK tersimpan - hubungi admin sistem.', true);
+                });
             },
 
             hideLoadingScreen() {
@@ -2682,6 +2690,8 @@
             },
 
             nextStep() {
+              try {
+                const course = this.state.courses.find(c => c.id === this.state.activeCourseId);
                 const totalSteps = 4;
 
                 if (this.state.activeStep === 2) {
@@ -2706,6 +2716,10 @@
                     this.state.activeStep++;
                     this.updateStepUI();
                 }
+              } catch (err) {
+                console.error('Error di nextStep():', err);
+                this.showToast('Terjadi error saat pindah tahap: ' + err.message + ' (cek Console F12 untuk detail, laporkan ke admin).', true);
+              }
             },
             
             // ✨ Fungsi Upload Real ke Google Drive via fetch() ✨
