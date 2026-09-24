@@ -891,7 +891,7 @@
 
         // 🔗 URL APLIKASI WEB (APPS SCRIPT) 🔗
         // PASTE URL DARI DEPLOYMENT APPS SCRIPT ANDA DI SINI
-        const appsScriptUrl = 'https://script.google.com/macros/s/AKfycbxFsm_jicD1T91xZ5kwN4FatZZ4PZJkyw_PtGj6r9e--yjbuA9xNGRD7OYFus48-FZS/exec';
+        const appsScriptUrl = 'https://script.google.com/macros/s/AKfycbxPGCg1yuYRHxJ9VVsCF2ultABKzK3cF6cL9ghfDAiwUlZMhI7KpNqCxCe9wyByOrX1/exec';
 
         const app = {
             state: {
@@ -2773,7 +2773,7 @@
                         console.error(error);
                         // Upload benar-benar gagal terkirim ke Drive - JANGAN tandai sebagai selesai,
                         // supaya siswa tahu harus coba lagi dan tidak ada tugas yang "hilang diam-diam".
-                        this.showToast('Gagal terhubung ke Google Drive. Cek koneksi internet lalu coba lagi.', true);
+                        this.showToast('Gagal terhubung ke Google Drive (' + (error && error.message ? error.message : error) + '). Cek koneksi internet lalu coba lagi.', true);
                         fileInput.value = '';
                     } finally {
                         document.getElementById('summary-upload-overlay').classList.add('hidden');
@@ -2868,7 +2868,7 @@
                          console.error(error);
                          // Upload benar-benar gagal terkirim ke Drive - JANGAN tandai sebagai selesai,
                          // supaya tidak ada tugas yang "hilang diam-diam" tanpa sepengetahuan siswa/guru.
-                         this.showToast('Gagal terhubung ke Google Drive. Cek koneksi internet lalu coba lagi.', true);
+                         this.showToast('Gagal terhubung ke Google Drive (' + (error && error.message ? error.message : error) + '). Cek koneksi internet lalu coba lagi.', true);
                          fileInput.value = '';
                     } finally {
                         document.getElementById('upload-overlay').classList.add('hidden');
