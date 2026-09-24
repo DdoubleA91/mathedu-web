@@ -1789,8 +1789,14 @@
                 if (!course) return;
 
                 this.state.activeCourseId = id;
-                this.state.isSummaryUploaded = false;
-                this.state.isExerciseUploaded = false;
+
+                // Cek submission yang sudah pernah dikirim sebelumnya (rangkuman/tugas),
+                // supaya siswa yang sempat keluar sebelum modul selesai tidak dipaksa
+                // upload ulang atau mengulang dari step 1.
+                const nisnForResume = this.state.currentUser ? this.state.currentUser.nisn : null;
+                const existingSub = (nisnForResume && course.submissions && course.submissions[nisnForResume]) || {};
+                this.state.isSummaryUploaded = !!existingSub.rangkuman;
+                this.state.isExerciseUploaded = !!existingSub.tugas;
                 
                 // Cek status tuntas siswa
                 let isCompleted = false;
@@ -1895,21 +1901,43 @@
                     this.state.activeStep = 4; // Langsung loncat ke Review
                     this.updateStepUI();
                 } else {
-                    // RESET UNTUK MODUL BELUM SELESAI
-                    this.state.activeStep = 1;
+                    // RESUME UNTUK MODUL BELUM SELESAI: lompat ke step sesuai submission yang sudah ada,
+                    // jangan selalu paksa mulai dari step 1.
+                    if (this.state.isExerciseUploaded) {
+                        this.state.activeStep = 4;
+                    } else if (!course.requireSummary || this.state.isSummaryUploaded) {
+                        this.state.activeStep = 3;
+                    } else {
+                        this.state.activeStep = 1;
+                    }
                     document.getElementById('learn-completed-banner').classList.add('hidden');
                     document.getElementById('learn-container').classList.replace('rounded-t-none', 'rounded-t-2xl');
                     
                     document.getElementById('learn-review-input').value = ''; 
                     document.getElementById('learn-review-input').disabled = false;
                     
-                    document.getElementById('summary-upload-name').classList.add('hidden');
-                    document.getElementById('summary-upload').value = '';
-                    document.getElementById('student-upload-name').classList.add('hidden');
-                    document.getElementById('student-upload').value = '';
-                    
-                    document.getElementById('btn-summary-upload').classList.remove('hidden');
-                    document.getElementById('btn-student-upload').classList.remove('hidden');
+                    // Rangkuman: tampilkan status "sudah terkirim" kalau memang sudah pernah upload.
+                    if (this.state.isSummaryUploaded && existingSub.rangkuman) {
+                        document.getElementById('summary-upload-name').innerHTML = `<i class="fa-solid fa-check mr-1"></i> Terkirim: <a href="${existingSub.rangkuman.fileUrl}" target="_blank" class="underline text-brand-blue">Lihat File</a>`;
+                        document.getElementById('summary-upload-name').classList.remove('hidden');
+                        document.getElementById('btn-summary-upload').classList.add('hidden');
+                    } else {
+                        document.getElementById('summary-upload-name').classList.add('hidden');
+                        document.getElementById('summary-upload').value = '';
+                        document.getElementById('btn-summary-upload').classList.remove('hidden');
+                    }
+
+                    // Tugas: tampilkan status "sudah terkirim" kalau memang sudah pernah upload.
+                    if (this.state.isExerciseUploaded && existingSub.tugas) {
+                        document.getElementById('student-upload-name').innerHTML = `<i class="fa-solid fa-check mr-1"></i> Berhasil Terkirim! <a href="${existingSub.tugas.fileUrl}" target="_blank" class="underline text-brand-blue">Lihat File</a>`;
+                        document.getElementById('student-upload-name').classList.remove('hidden');
+                        document.getElementById('btn-student-upload').classList.add('hidden');
+                    } else {
+                        document.getElementById('student-upload-name').classList.add('hidden');
+                        document.getElementById('student-upload').value = '';
+                        document.getElementById('btn-student-upload').classList.remove('hidden');
+                    }
+
                     document.getElementById('review-info-box').classList.remove('hidden');
                     
                     document.getElementById('btn-finish').innerHTML = '<i class="fa-solid fa-flag-checkered"></i> Selesaikan Materi';
