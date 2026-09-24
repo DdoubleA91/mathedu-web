@@ -2751,6 +2751,64 @@
             },
             
             // ✨ Fungsi Upload Real ke Google Drive via fetch() ✨
+            // Kompres foto sebelum dikirim ke Drive supaya lebih kecil & tahan di koneksi lemah.
+            // File non-gambar (PDF dll) dikirim apa adanya karena tidak bisa dikompres lewat Canvas.
+            compressImageForUpload(file, maxDimension = 1600, quality = 0.72) {
+                if (!file.type.startsWith('image/')) {
+                    return new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = (e) => resolve({ base64: e.target.result, mimeType: file.type, fileName: file.name });
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
+                }
+
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const originalDataUrl = e.target.result;
+                        const img = new Image();
+                        img.onload = () => {
+                            let width = img.width;
+                            let height = img.height;
+                            if (width > maxDimension || height > maxDimension) {
+                                if (width > height) {
+                                    height = Math.round(height * (maxDimension / width));
+                                    width = maxDimension;
+                                } else {
+                                    width = Math.round(width * (maxDimension / height));
+                                    height = maxDimension;
+                                }
+                            }
+                            try {
+                                const canvas = document.createElement('canvas');
+                                canvas.width = width;
+                                canvas.height = height;
+                                const ctx = canvas.getContext('2d');
+                                ctx.fillStyle = '#ffffff';
+                                ctx.fillRect(0, 0, width, height);
+                                ctx.drawImage(img, 0, 0, width, height);
+                                const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+
+                                if (compressedDataUrl.length >= originalDataUrl.length) {
+                                    resolve({ base64: originalDataUrl, mimeType: file.type, fileName: file.name });
+                                } else {
+                                    const newName = file.name.replace(/\.[^.]+$/, '') + '.jpg';
+                                    resolve({ base64: compressedDataUrl, mimeType: 'image/jpeg', fileName: newName });
+                                }
+                            } catch (err) {
+                                // Kalau kompresi gagal (mis. canvas diblokir), kirim file asli saja.
+                                resolve({ base64: originalDataUrl, mimeType: file.type, fileName: file.name });
+                            }
+                        };
+                        img.onerror = () => resolve({ base64: originalDataUrl, mimeType: file.type, fileName: file.name });
+                        img.src = originalDataUrl;
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            },
+
             handleSummaryUpload() {
                 const fileInput = document.getElementById('summary-upload');
                 const file = fileInput.files[0];
@@ -2761,20 +2819,24 @@
                     return;
                 }
 
+                if (file.size > 15 * 1024 * 1024) {
+                    this.showToast('Ukuran file terlalu besar (maks 15MB). Pilih foto/file yang lebih kecil.', true);
+                    fileInput.value = '';
+                    return;
+                }
+
                 document.getElementById('summary-upload-overlay').classList.remove('hidden');
                 document.getElementById('summary-upload-overlay').classList.add('flex');
                 document.getElementById('summary-upload-name').classList.add('hidden');
 
-                const reader = new FileReader();
-                reader.onload = async (e) => {
-                    const base64 = e.target.result;
+                this.compressImageForUpload(file).then(async ({ base64, mimeType, fileName }) => {
                     const userName = this.state.currentUser ? this.state.currentUser.nama.replace(/\s+/g, '_') : 'Guest';
                     const nisn = this.state.currentUser ? this.state.currentUser.nisn : '000';
                     const courseName = document.getElementById('learn-title').innerText.replace(/\s+/g, '_');
 
                     const payload = {
-                        fileName: `Rangkuman_${nisn}_${userName}_${courseName}_${file.name}`,
-                        mimeType: file.type,
+                        fileName: `Rangkuman_${nisn}_${userName}_${courseName}_${fileName}`,
+                        mimeType: mimeType,
                         base64Data: base64.split(',')[1]
                     };
 
@@ -2792,7 +2854,7 @@
                             document.getElementById('summary-upload-name').classList.remove('hidden');
                             document.getElementById('btn-summary-upload').classList.add('hidden');
                             this.showToast('Rangkuman berhasil terkirim ke Google Drive!');
-                            this.saveSubmissionRecord(this.state.activeCourseId, 'rangkuman', file.name, link, result.fileId);
+                            this.saveSubmissionRecord(this.state.activeCourseId, 'rangkuman', fileName, link, result.fileId);
                         } else {
                             this.showToast('Gagal upload: ' + (result.message || result.error || 'Tidak diketahui'), true);
                             fileInput.value = '';
@@ -2807,8 +2869,12 @@
                         document.getElementById('summary-upload-overlay').classList.add('hidden');
                         document.getElementById('summary-upload-overlay').classList.remove('flex');
                     }
-                };
-                reader.readAsDataURL(file);
+                }).catch((error) => {
+                    console.error(error);
+                    this.showToast('Gagal memproses file. Coba pilih file lain.', true);
+                    document.getElementById('summary-upload-overlay').classList.add('hidden');
+                    document.getElementById('summary-upload-overlay').classList.remove('flex');
+                });
             },
 
             finishCourse() {
@@ -2856,54 +2922,56 @@
                     return;
                 }
 
+                if (file.size > 15 * 1024 * 1024) {
+                    this.showToast('Ukuran file terlalu besar (maks 15MB). Pilih file yang lebih kecil.', true);
+                    fileInput.value = '';
+                    return;
+                }
+
                 // Tampilkan overlay loading
                 document.getElementById('upload-overlay').classList.remove('hidden');
                 document.getElementById('upload-overlay').classList.add('flex');
 
-                const reader = new FileReader();
-                reader.onload = async (e) => {
-                    const base64 = e.target.result; // Format: data:image/png;base64,iVBOR...
+                try {
+                    const { base64, mimeType, fileName } = await this.compressImageForUpload(file);
                     const userName = this.state.currentUser ? this.state.currentUser.nama.replace(/\s+/g, '_') : 'Guest';
                     const nisn = this.state.currentUser ? this.state.currentUser.nisn : '000';
                     const courseName = document.getElementById('learn-title').innerText.replace(/\s+/g, '_');
-                    
+
                     const payload = {
-                        fileName: `Tugas_${nisn}_${userName}_${courseName}_${file.name}`,
-                        mimeType: file.type,
+                        fileName: `Tugas_${nisn}_${userName}_${courseName}_${fileName}`,
+                        mimeType: mimeType,
                         base64Data: base64.split(',')[1] // Ambil murni kode base64 nya saja
                     };
 
-                    try {
-                        const response = await fetch(appsScriptUrl, {
-                            method: 'POST',
-                            body: JSON.stringify(payload)
-                        });
-                        const result = await response.json();
-                        
-                        if(result.status === 'success') {
-                            const link = result.fileUrl || result.url;
-                            this.state.isExerciseUploaded = true;
-                            document.getElementById('student-upload-name').innerHTML = `<i class="fa-solid fa-check mr-1"></i> Terkirim: <a href="${link}" target="_blank" class="underline text-brand-blue">Lihat File</a>`;
-                            document.getElementById('student-upload-name').classList.remove('hidden');
-                            document.getElementById('btn-student-upload').classList.add('hidden');
-                            this.showToast('Berhasil mengirim tugas ke Google Drive!');
-                            this.saveSubmissionRecord(this.state.activeCourseId, 'tugas', file.name, link, result.fileId);
-                        } else {
-                            this.showToast('Gagal upload: ' + (result.message || result.error || 'Tidak diketahui'), true);
-                            fileInput.value = '';
-                        }
-                    } catch(error) {
-                         console.error(error);
-                         // Upload benar-benar gagal terkirim ke Drive - JANGAN tandai sebagai selesai,
-                         // supaya tidak ada tugas yang "hilang diam-diam" tanpa sepengetahuan siswa/guru.
-                         this.showToast('Gagal terhubung ke Google Drive (' + (error && error.message ? error.message : error) + '). Cek koneksi internet lalu coba lagi.', true);
-                         fileInput.value = '';
-                    } finally {
-                        document.getElementById('upload-overlay').classList.add('hidden');
-                        document.getElementById('upload-overlay').classList.remove('flex');
+                    const response = await fetch(appsScriptUrl, {
+                        method: 'POST',
+                        body: JSON.stringify(payload)
+                    });
+                    const result = await response.json();
+
+                    if(result.status === 'success') {
+                        const link = result.fileUrl || result.url;
+                        this.state.isExerciseUploaded = true;
+                        document.getElementById('student-upload-name').innerHTML = `<i class="fa-solid fa-check mr-1"></i> Terkirim: <a href="${link}" target="_blank" class="underline text-brand-blue">Lihat File</a>`;
+                        document.getElementById('student-upload-name').classList.remove('hidden');
+                        document.getElementById('btn-student-upload').classList.add('hidden');
+                        this.showToast('Berhasil mengirim tugas ke Google Drive!');
+                        this.saveSubmissionRecord(this.state.activeCourseId, 'tugas', fileName, link, result.fileId);
+                    } else {
+                        this.showToast('Gagal upload: ' + (result.message || result.error || 'Tidak diketahui'), true);
+                        fileInput.value = '';
                     }
-                };
-                reader.readAsDataURL(file);
+                } catch(error) {
+                     console.error(error);
+                     // Upload benar-benar gagal terkirim ke Drive - JANGAN tandai sebagai selesai,
+                     // supaya tidak ada tugas yang "hilang diam-diam" tanpa sepengetahuan siswa/guru.
+                     this.showToast('Gagal terhubung ke Google Drive (' + (error && error.message ? error.message : error) + '). Cek koneksi internet lalu coba lagi.', true);
+                     fileInput.value = '';
+                } finally {
+                    document.getElementById('upload-overlay').classList.add('hidden');
+                    document.getElementById('upload-overlay').classList.remove('flex');
+                }
             },
 
             //... (Fungsi Form Course Admin dst sama) ...
