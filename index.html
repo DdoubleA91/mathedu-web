@@ -290,6 +290,28 @@
                             <iframe id="learn-video" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen class="w-full h-full min-h-[300px] md:min-h-[450px]"></iframe>
                         </div>
 
+                        <!-- Video Interaktif (YouTube + soal di tengah video, tanpa skip) -->
+                        <div id="iv-wrap" class="hidden max-w-4xl mx-auto">
+                            <div class="relative bg-black rounded-lg overflow-hidden shadow-md" style="aspect-ratio:16/9">
+                                <div id="iv-player" class="absolute inset-0 w-full h-full"></div>
+                                <div id="iv-shield" class="absolute inset-0 z-10 cursor-pointer" onclick="app.ivToggle()"></div>
+                                <div id="iv-question" class="absolute inset-0 z-20 hidden bg-white/95 overflow-y-auto p-4 md:p-8">
+                                    <div class="max-w-xl mx-auto">
+                                        <p class="text-xs font-bold text-brand-orange mb-1"><i class="fa-solid fa-circle-question mr-1"></i> Soal <span id="iv-q-num"></span> - jawab untuk melanjutkan video</p>
+                                        <h3 id="iv-q-text" class="text-lg font-bold text-gray-800 mb-4 whitespace-pre-line"></h3>
+                                        <div id="iv-q-options" class="space-y-2"></div>
+                                        <p id="iv-q-feedback" class="mt-4 text-sm font-bold hidden"></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-2 flex items-center gap-3 bg-gray-100 rounded-lg px-3 py-2">
+                                <button type="button" id="iv-btn" onclick="app.ivToggle()" class="w-9 h-9 rounded-full bg-brand-blue text-white"><i class="fa-solid fa-play"></i></button>
+                                <div class="flex-1 h-2 bg-gray-300 rounded-full overflow-hidden"><div id="iv-bar" class="h-full bg-brand-green" style="width:0%"></div></div>
+                                <span id="iv-time" class="text-xs text-gray-600 font-mono">0:00</span>
+                            </div>
+                            <p id="iv-status" class="mt-2 text-sm text-gray-600 text-center"></p>
+                        </div>
+
                         <!-- Form Upload Rangkuman -->
                         <div id="summary-upload-section" class="mt-8 border-2 border-dashed border-brand-orange rounded-lg p-6 text-center bg-orange-50 hidden relative">
                             <div id="summary-upload-overlay" class="absolute inset-0 bg-white/80 z-10 hidden flex-col items-center justify-center rounded-lg">
@@ -666,7 +688,22 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">URL Video YouTube (Checkpoint 2) <span class="text-red-500">*</span></label>
-                        <input type="url" id="f-video" required class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="https://www.youtube.com/watch?v=...">
+                        <input type="url" id="f-video" required class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="https://www.youtube.com/watch?v=... atau https://edpuzzle.com/media/...">
+                        <p class="text-[10px] text-gray-500 mt-1">Mendukung YouTube dan Edpuzzle (link /media/ otomatis diubah ke link embed).</p>
+                    </div>
+
+                    <div class="bg-green-50 border border-green-200 p-3 rounded-md">
+                        <p class="text-sm font-bold text-green-800 mb-1"><i class="fa-solid fa-circle-question mr-1"></i> Soal Interaktif di Dalam Video (khusus YouTube)</p>
+                        <p class="text-[10px] text-gray-600 mb-2">Video berhenti otomatis di menit yang Anda tentukan, siswa tidak bisa skip/tarik maju, dan jawaban salah = video diulang. Kosongkan jika tidak dipakai.</p>
+                        <div class="mb-2">
+                            <label class="text-xs font-medium text-gray-700">Jika siswa salah menjawab:</label>
+                            <select id="f-vq-mode" class="border border-gray-300 rounded-md p-1 text-xs ml-1">
+                                <option value="start">Ulang video dari awal</option>
+                                <option value="segment">Ulang dari soal sebelumnya</option>
+                            </select>
+                        </div>
+                        <div id="f-vq-list" class="space-y-3"></div>
+                        <button type="button" onclick="app.addVQ()" class="mt-2 text-xs bg-brand-green text-white px-3 py-1.5 rounded-md font-bold"><i class="fa-solid fa-plus mr-1"></i> Tambah Soal</button>
                     </div>
                     
                     <div class="bg-orange-50 border border-orange-100 p-3 rounded-md mt-2">
@@ -903,6 +940,9 @@
                 activeStep: 1,
                 editingCourseId: null,
                 tempAttachment: null, 
+                tempVQ: [],
+                iv: null,
+                videoDone: true,
                 tempTargetNisns: [],
                 confirmAction: null,
                 isSummaryUploaded: false,
@@ -1829,7 +1869,18 @@
                 
                 let vidUrl = course.videoUrl;
                 if (vidUrl.includes('watch?v=')) vidUrl = vidUrl.replace('watch?v=', 'embed/');
-                document.getElementById('learn-video').src = vidUrl;
+                const hasIV = course.videoQuestions && course.videoQuestions.length && this.ytId(vidUrl);
+                const frameBox = document.getElementById('learn-video').parentElement;
+                this.ivDestroy();
+                this.state.videoDone = true;
+                if (hasIV) {
+                    frameBox.classList.add('hidden');
+                    document.getElementById('learn-video').src = '';
+                    this.ivStart(course);
+                } else {
+                    frameBox.classList.remove('hidden');
+                    document.getElementById('learn-video').src = vidUrl;
+                }
 
                 const summarySection = document.getElementById('summary-upload-section');
                 if (course.requireSummary) summarySection.classList.remove('hidden');
@@ -1903,7 +1954,10 @@
                 } else {
                     // RESUME UNTUK MODUL BELUM SELESAI: lompat ke step sesuai submission yang sudah ada,
                     // jangan selalu paksa mulai dari step 1.
-                    if (this.state.isExerciseUploaded) {
+                    const vdone = !(course.videoQuestions && course.videoQuestions.length) || (nisnForResume && course.videoProgress && course.videoProgress[nisnForResume]);
+                    if (!vdone) {
+                        this.state.activeStep = 1;
+                    } else if (this.state.isExerciseUploaded) {
                         this.state.activeStep = 4;
                     } else if (!course.requireSummary || this.state.isSummaryUploaded) {
                         this.state.activeStep = 3;
@@ -1949,11 +2003,162 @@
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             },
 
+            // ===== VIDEO INTERAKTIF =====
+            ytId(url) {
+                const m = String(url || '').match(/(?:embed\/|watch\?v=|youtu\.be\/)([\w-]{11})/);
+                return m ? m[1] : null;
+            },
+            normalizeVideoUrl(v) {
+                v = v.trim();
+                const ed = v.match(/edpuzzle\.com\/(?:embed\/)?(?:media|assignments)\/([\w-]+)/i);
+                if (ed && /media\//i.test(v)) return 'https://edpuzzle.com/embed/media/' + ed[1];
+                if (v.includes('youtube.com/watch?v=')) return v.replace('watch?v=', 'embed/').split('&')[0];
+                if (v.includes('youtu.be/')) return v.replace('youtu.be/', 'youtube.com/embed/').split('?')[0];
+                return v;
+            },
+            addVQ() { this.readVQ(); this.state.tempVQ.push({ time: 30, q: '', options: ['', '', '', ''], answer: 0 }); this.renderVQ(); },
+            delVQ(i) { this.readVQ(); this.state.tempVQ.splice(i, 1); this.renderVQ(); },
+            readVQ() {
+                const box = document.getElementById('f-vq-list');
+                if (!box) return;
+                this.state.tempVQ = [...box.querySelectorAll('[data-vq]')].map(el => ({
+                    time: parseInt(el.querySelector('.vq-t').value) || 0,
+                    q: el.querySelector('.vq-q').value,
+                    options: [...el.querySelectorAll('.vq-o')].map(o => o.value),
+                    answer: parseInt(el.querySelector('.vq-a').value) || 0
+                }));
+            },
+            renderVQ() {
+                const esc = t => String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                document.getElementById('f-vq-list').innerHTML = this.state.tempVQ.map((x, i) => `
+                    <div data-vq class="bg-white border border-green-200 rounded-md p-2 space-y-1">
+                        <div class="flex items-center gap-2 text-xs">
+                            <b>Soal ${i + 1}</b> muncul di detik ke-
+                            <input type="number" min="1" class="vq-t border rounded p-1 w-20" value="${x.time}">
+                            <button type="button" onclick="app.delVQ(${i})" class="ml-auto text-red-500"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                        <textarea class="vq-q w-full border rounded p-1 text-sm" rows="2" placeholder="Pertanyaan...">${esc(x.q)}</textarea>
+                        ${x.options.map((o, k) => `<input class="vq-o w-full border rounded p-1 text-sm" placeholder="Pilihan ${'ABCD'[k]}" value="${esc(o)}">`).join('')}
+                        <label class="text-xs">Jawaban benar:
+                            <select class="vq-a border rounded p-1">${['A', 'B', 'C', 'D'].map((l, k) => `<option value="${k}" ${x.answer === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+                        </label>
+                    </div>`).join('');
+            },
+
+            ivLoadAPI() {
+                return new Promise(res => {
+                    if (window.YT && YT.Player) return res();
+                    const prev = window.onYouTubeIframeAPIReady;
+                    window.onYouTubeIframeAPIReady = () => { if (prev) prev(); res(); };
+                    if (!document.getElementById('yt-api')) {
+                        const t = document.createElement('script');
+                        t.id = 'yt-api'; t.src = 'https://www.youtube.com/iframe_api';
+                        document.head.appendChild(t);
+                    }
+                });
+            },
+            ivDestroy() {
+                const iv = this.state.iv;
+                if (iv) { clearInterval(iv.timer); try { iv.player.destroy(); } catch (e) {} }
+                this.state.iv = null;
+                const w = document.getElementById('iv-wrap');
+                if (w) {
+                    w.classList.add('hidden');
+                    const old = document.getElementById('iv-player');
+                    if (!old) { const d = document.createElement('div'); d.id = 'iv-player'; d.className = 'absolute inset-0 w-full h-full'; document.getElementById('iv-shield').before(d); }
+                }
+            },
+            async ivStart(course) {
+                this.ivDestroy();
+                const nisn = this.state.currentUser ? this.state.currentUser.nisn : null;
+                const done = !!(nisn && course.videoProgress && course.videoProgress[nisn]);
+                this.state.videoDone = done || this.state.role === 'admin';
+                const qs = [...course.videoQuestions].sort((a, b) => a.time - b.time);
+                const iv = this.state.iv = { qs, idx: 0, max: 0, wait: false, course, mode: course.videoFailMode || 'start', player: null, timer: null };
+                document.getElementById('iv-wrap').classList.remove('hidden');
+                document.getElementById('iv-q-text').parentElement.parentElement.classList.add('hidden');
+                this.ivStatus(done ? 'Video sudah tuntas. Kamu boleh menonton ulang.' : 'Tonton video sampai selesai dan jawab semua soal dengan benar. Video tidak bisa dipercepat/dilewati.');
+                await this.ivLoadAPI();
+                if (this.state.iv !== iv) return;
+                iv.player = new YT.Player('iv-player', {
+                    videoId: this.ytId(course.videoUrl),
+                    playerVars: { controls: 0, disablekb: 1, rel: 0, modestbranding: 1, fs: 0, playsinline: 1 },
+                    events: { onStateChange: e => this.ivState(e) }
+                });
+                iv.timer = setInterval(() => this.ivTick(), 250);
+            },
+            ivStatus(t) { document.getElementById('iv-status').innerText = t; },
+            ivToggle() {
+                const iv = this.state.iv; if (!iv || !iv.player || iv.wait) return;
+                try { iv.player.getPlayerState() === 1 ? iv.player.pauseVideo() : iv.player.playVideo(); } catch (e) {}
+            },
+            ivState(e) {
+                const iv = this.state.iv; if (!iv) return;
+                document.getElementById('iv-btn').innerHTML = `<i class="fa-solid fa-${e.data === 1 ? 'pause' : 'play'}"></i>`;
+                if (e.data === 0 && !iv.wait) this.ivFinish();
+            },
+            ivTick() {
+                const iv = this.state.iv; if (!iv || !iv.player || !iv.player.getCurrentTime || iv.wait) return;
+                const t = iv.player.getCurrentTime(), dur = iv.player.getDuration() || 1;
+                const done = this.state.videoDone;
+                if (!done && t > iv.max + 1.2) { iv.player.seekTo(iv.max, true); return; }   // anti-skip
+                if (t > iv.max) iv.max = t;
+                if (iv.player.getPlaybackRate() !== 1) iv.player.setPlaybackRate(1);          // anti-speedup
+                document.getElementById('iv-bar').style.width = (t / dur * 100) + '%';
+                const f = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+                document.getElementById('iv-time').innerText = f(t) + ' / ' + f(dur);
+                if (!done && iv.idx < iv.qs.length && t >= iv.qs[iv.idx].time) this.ivAsk(iv.qs[iv.idx]);
+            },
+            ivAsk(q) {
+                const iv = this.state.iv; iv.wait = true; iv.player.pauseVideo();
+                const box = document.getElementById('iv-question');
+                document.getElementById('iv-q-num').innerText = (iv.idx + 1) + '/' + iv.qs.length;
+                document.getElementById('iv-q-text').innerText = q.q;
+                document.getElementById('iv-q-feedback').classList.add('hidden');
+                document.getElementById('iv-q-options').innerHTML = q.options.map((o, k) => o ? `<button type="button" onclick="app.ivAnswer(${k})" class="w-full text-left border-2 border-gray-200 hover:border-brand-blue rounded-lg p-3 text-sm font-medium"><b>${'ABCD'[k]}.</b> ${String(o).replace(/</g, '&lt;')}</button>` : '').join('');
+                box.classList.remove('hidden');
+            },
+            ivAnswer(k) {
+                const iv = this.state.iv; if (!iv) return;
+                const q = iv.qs[iv.idx], fb = document.getElementById('iv-q-feedback');
+                document.querySelectorAll('#iv-q-options button').forEach(b => b.disabled = true);
+                fb.classList.remove('hidden');
+                if (k === q.answer) {
+                    fb.className = 'mt-4 text-sm font-bold text-brand-green';
+                    fb.innerText = 'Benar! Video dilanjutkan...';
+                    setTimeout(() => { iv.idx++; iv.wait = false; document.getElementById('iv-question').classList.add('hidden'); iv.player.playVideo(); }, 1000);
+                } else {
+                    fb.className = 'mt-4 text-sm font-bold text-red-600';
+                    fb.innerText = iv.mode === 'segment' ? 'Jawaban salah. Kamu harus mengulang bagian video sebelumnya.' : 'Jawaban salah. Video belum tuntas, kamu harus mengulang dari awal.';
+                    setTimeout(() => {
+                        const back = iv.mode === 'segment' && iv.idx > 0 ? iv.qs[iv.idx - 1].time : 0;
+                        iv.idx = iv.mode === 'segment' ? Math.max(0, iv.idx) : 0;
+                        iv.max = back; iv.wait = false;
+                        iv.player.seekTo(back, true); iv.player.playVideo();
+                        document.getElementById('iv-question').classList.add('hidden');
+                    }, 2200);
+                }
+            },
+            ivFinish() {
+                const iv = this.state.iv; if (!iv || this.state.videoDone) return;
+                if (iv.idx < iv.qs.length) { iv.player.seekTo(iv.max, true); return; }
+                this.state.videoDone = true;
+                const course = iv.course, nisn = this.state.currentUser && this.state.currentUser.nisn;
+                if (nisn && this.state.role !== 'admin') {
+                    if (!course.videoProgress) course.videoProgress = {};
+                    course.videoProgress[nisn] = { completedAt: new Date().toISOString() };
+                    this.saveCoursesToStorage();
+                }
+                this.ivStatus('Video tuntas! Kamu bisa lanjut ke tahap berikutnya.');
+                this.showToast('Video tuntas!');
+            },
+
             goHome() {
                 document.getElementById('view-learning').classList.add('hidden');
                 document.getElementById('view-quiz-attempt').classList.add('hidden');
                 document.getElementById('view-dashboard').classList.remove('hidden');
                 document.getElementById('learn-video').src = ''; 
+                this.ivDestroy();
                 this.renderCourses();
                 this.renderQuizzes();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2723,6 +2928,10 @@
                 const totalSteps = 4;
 
                 if (this.state.activeStep === 2) {
+                    if (!this.state.videoDone) {
+                        this.showToast('Selesaikan video interaktif dulu (tonton sampai habis & jawab semua soal dengan benar).', true);
+                        return;
+                    }
                     if (course && course.requireSummary && !this.state.isSummaryUploaded) {
                         this.showToast('Wajib upload foto rangkuman!', true);
                         const summaryForm = document.getElementById('summary-upload-section');
@@ -2979,10 +3188,12 @@
                 this.state.editingCourseId = null;
                 this.state.tempAttachment = null;
                 this.state.tempTargetNisns = [];
+                this.state.tempVQ = [];
                 document.getElementById('modal-title-text').innerHTML = '<i class="fa-solid fa-plus-circle text-brand-orange mr-2"></i> Tambah Modul Baru';
                 document.getElementById('btn-save-course').innerHTML = '<i class="fa-solid fa-save mr-2"></i> Simpan Modul';
                 document.getElementById('course-form').reset();
                 document.getElementById('f-deadline').value = '';
+                this.renderVQ();
                 document.getElementById('f-require-summary').checked = false;
                 document.getElementById('f-visibility-all').checked = true;
                 document.getElementById('f-student-target-wrapper').classList.add('hidden');
@@ -3015,7 +3226,10 @@
                 document.getElementById('f-image').value = imgVal;
                 
                 let normalUrl = course.videoUrl;
-                if(normalUrl.includes('embed/')) normalUrl = normalUrl.replace('embed/', 'watch?v=');
+                if(normalUrl.includes('youtube.com/embed/')) normalUrl = normalUrl.replace('embed/', 'watch?v=');
+                this.state.tempVQ = JSON.parse(JSON.stringify(course.videoQuestions || []));
+                this.renderVQ();
+                document.getElementById('f-vq-mode').value = course.videoFailMode || 'start';
                 document.getElementById('f-video').value = normalUrl;
                 
                 document.getElementById('f-guide').value = course.guide;
@@ -3174,12 +3388,18 @@
                     visibility = { mode: 'selected', studentNisns: [...this.state.tempTargetNisns] };
                 }
 
-                let embedUrl = video;
-                if (video.includes('youtube.com/watch?v=')) {
-                    embedUrl = video.replace('watch?v=', 'embed/').split('&')[0];
-                } else if (video.includes('youtu.be/')) {
-                    embedUrl = video.replace('youtu.be/', 'youtube.com/embed/').split('?')[0];
+                const embedUrl = this.normalizeVideoUrl(video);
+                this.readVQ();
+                const videoQuestions = this.state.tempVQ.filter(x => x.q.trim() && x.options.filter(o => o.trim()).length >= 2);
+                if (videoQuestions.length && !this.ytId(embedUrl)) {
+                    this.showToast('Soal interaktif di dalam video hanya bisa untuk link YouTube.', true);
+                    return;
                 }
+                if (videoQuestions.some(x => !x.options[x.answer].trim())) {
+                    this.showToast('Jawaban benar pada salah satu soal video menunjuk pilihan yang kosong.', true);
+                    return;
+                }
+                const videoFailMode = document.getElementById('f-vq-mode').value;
 
                 if (this.state.editingCourseId) {
                     const index = this.state.courses.findIndex(c => c.id === this.state.editingCourseId);
@@ -3195,6 +3415,8 @@
                             guide: guide,
                             interactiveUrl: interactiveUrl,
                             videoUrl: embedUrl,
+                            videoQuestions: videoQuestions,
+                            videoFailMode: videoFailMode,
                             requireSummary: requireSummary,
                             exercise: exercise,
                             attachment: this.state.tempAttachment,
@@ -3215,6 +3437,8 @@
                         guide: guide,
                         interactiveUrl: interactiveUrl,
                         videoUrl: embedUrl,
+                        videoQuestions: videoQuestions,
+                        videoFailMode: videoFailMode,
                         requireSummary: requireSummary,
                         exercise: exercise,
                         attachment: this.state.tempAttachment,
