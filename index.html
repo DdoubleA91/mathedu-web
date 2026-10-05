@@ -48,6 +48,9 @@
             }
         }
     </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
 
@@ -941,6 +944,7 @@
                 editingCourseId: null,
                 tempAttachment: null, 
                 tempVQ: [],
+                vqFocus: null,
                 iv: null,
                 videoDone: true,
                 tempTargetNisns: [],
@@ -2017,33 +2021,107 @@
                 if (v.includes('youtu.be/')) return v.replace('youtu.be/', 'youtube.com/embed/').split('?')[0];
                 return v;
             },
-            addVQ() { this.readVQ(); this.state.tempVQ.push({ time: 30, q: '', options: ['', '', '', ''], answer: 0 }); this.renderVQ(); },
+            addVQ() { this.readVQ(); this.state.tempVQ.push({ time: 30, q: '', qImg: null, options: ['', '', '', ''], optImgs: [null, null, null, null], answer: 0 }); this.renderVQ(); },
             delVQ(i) { this.readVQ(); this.state.tempVQ.splice(i, 1); this.renderVQ(); },
             readVQ() {
                 const box = document.getElementById('f-vq-list');
                 if (!box) return;
-                this.state.tempVQ = [...box.querySelectorAll('[data-vq]')].map(el => ({
+                const prev = this.state.tempVQ || [];
+                this.state.tempVQ = [...box.querySelectorAll('[data-vq]')].map((el, i) => ({
                     time: parseInt(el.querySelector('.vq-t').value) || 0,
                     q: el.querySelector('.vq-q').value,
+                    qImg: (prev[i] && prev[i].qImg) || null,
                     options: [...el.querySelectorAll('.vq-o')].map(o => o.value),
+                    optImgs: (prev[i] && prev[i].optImgs) || [null, null, null, null],
                     answer: parseInt(el.querySelector('.vq-a').value) || 0
                 }));
             },
+            vqImgUrl(img) { return img && img.fileId ? 'https://drive.google.com/thumbnail?id=' + img.fileId + '&sz=w1000' : ''; },
+            mathText(t) {
+                // Teks aman (di-escape) + baris baru. Rumus ditulis dengan $...$ lalu dirender KaTeX.
+                return String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+            },
+            renderMath(el) {
+                if (!el) return;
+                if (window.renderMathInElement) {
+                    try { renderMathInElement(el, { delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }], throwOnError: false }); } catch (e) {}
+                } else {
+                    setTimeout(() => this.renderMath(el), 400);   // KaTeX belum selesai dimuat
+                }
+            },
+            vqInsert(i, snippet) {
+                const el = this.state.vqFocus && this.state.vqFocus.i === i ? this.state.vqFocus.el : document.querySelector(`[data-vq="${i}"] .vq-q`);
+                if (!el) return;
+                const st = el.selectionStart || 0, en = el.selectionEnd || 0;
+                el.value = el.value.slice(0, st) + snippet + el.value.slice(en);
+                const cur = el.value.indexOf('{}', st);
+                el.focus();
+                el.setSelectionRange(st + snippet.length, st + snippet.length);
+                this.vqPreview(i);
+            },
+            vqPreview(i) {
+                const root = document.querySelector(`[data-vq="${i}"]`); if (!root) return;
+                const rows = [this.mathText(root.querySelector('.vq-q').value)];
+                root.querySelectorAll('.vq-o').forEach((o, k) => { if (o.value) rows.push('<b>' + 'ABCD'[k] + '.</b> ' + this.mathText(o.value)); });
+                const pv = root.querySelector('.vq-pv');
+                pv.innerHTML = rows.filter(r => r).map(r => `<div>${r}</div>`).join('');
+                this.renderMath(pv);
+            },
+            async vqUpload(i, slot, input) {
+                const file = input.files[0]; input.value = '';
+                if (!file) return;
+                this.readVQ();
+                this.showToast('Mengunggah gambar ke Google Drive...');
+                try {
+                    const { base64, mimeType, fileName } = await this.compressImageForUpload(file);
+                    const res = await fetch(appsScriptUrl, { method: 'POST', body: JSON.stringify({
+                        fileName: 'Soal_' + Date.now() + '_' + fileName, mimeType: mimeType, base64Data: base64.split(',')[1],
+                        courseTitle: (document.getElementById('f-title').value || 'Umum'), uploadType: 'soal-video'
+                    }) });
+                    const r = await res.json();
+                    if (r.status !== 'success') throw new Error(r.message || 'gagal');
+                    const q = this.state.tempVQ[i];
+                    if (slot === 'q') q.qImg = { fileId: r.fileId };
+                    else q.optImgs[slot] = { fileId: r.fileId };
+                    this.renderVQ();
+                    this.showToast('Gambar terpasang.');
+                } catch (err) {
+                    this.showToast('Gagal upload gambar: ' + (err.message || err), true);
+                }
+            },
+            vqRemoveImg(i, slot) {
+                this.readVQ();
+                const q = this.state.tempVQ[i];
+                const img = slot === 'q' ? q.qImg : q.optImgs[slot];
+                if (img && img.fileId) this.deleteFilesFromDrive([img.fileId]);
+                if (slot === 'q') q.qImg = null; else q.optImgs[slot] = null;
+                this.renderVQ();
+            },
             renderVQ() {
                 const esc = t => String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                const syms = [['a/b', '\\frac{a}{b}'], ['x²', '^{2}'], ['xₙ', '_{n}'], ['√', '\\sqrt{x}'], ['π', '\\pi '], ['×', '\\times '], ['÷', '\\div '], ['≤', '\\leq '], ['≥', '\\geq '], ['≠', '\\neq '], ['±', '\\pm '], ['∞', '\\infty '], ['°', '^{\\circ}'], ['θ', '\\theta '], ['Σ', '\\sum_{i=1}^{n}'], ['∫', '\\int_{a}^{b}'], ['sin', '\\sin ']];
+                const imgBox = (img, i, slot) => img
+                    ? `<span class="inline-flex items-center gap-1"><img src="${this.vqImgUrl(img)}" class="h-12 rounded border"><button type="button" onclick="app.vqRemoveImg(${i},'${slot}')" class="text-red-500 text-xs"><i class="fa-solid fa-xmark"></i></button></span>`
+                    : `<label class="text-[11px] text-brand-blue cursor-pointer whitespace-nowrap"><i class="fa-solid fa-image"></i> Gambar<input type="file" accept="image/*" class="hidden" onchange="app.vqUpload(${i},${typeof slot === 'number' ? slot : "'q'"},this)"></label>`;
+                this.state.tempVQ.forEach(x => { x.optImgs = x.optImgs || [null, null, null, null]; });
                 document.getElementById('f-vq-list').innerHTML = this.state.tempVQ.map((x, i) => `
-                    <div data-vq class="bg-white border border-green-200 rounded-md p-2 space-y-1">
+                    <div data-vq="${i}" class="bg-white border border-green-200 rounded-md p-2 space-y-1">
                         <div class="flex items-center gap-2 text-xs">
                             <b>Soal ${i + 1}</b> muncul di detik ke-
                             <input type="number" min="1" class="vq-t border rounded p-1 w-20" value="${x.time}">
                             <button type="button" onclick="app.delVQ(${i})" class="ml-auto text-red-500"><i class="fa-solid fa-trash"></i></button>
                         </div>
-                        <textarea class="vq-q w-full border rounded p-1 text-sm" rows="2" placeholder="Pertanyaan...">${esc(x.q)}</textarea>
-                        ${x.options.map((o, k) => `<input class="vq-o w-full border rounded p-1 text-sm" placeholder="Pilihan ${'ABCD'[k]}" value="${esc(o)}">`).join('')}
+                        <div class="flex flex-wrap gap-1">${syms.map(sy => `<button type="button" onclick='app.vqInsert(${i}, ${JSON.stringify(sy[1]).replace(/'/g, "&#39;")})' class="px-1.5 py-0.5 text-xs border rounded bg-gray-50 hover:bg-gray-200">${sy[0]}</button>`).join('')}</div>
+                        <p class="text-[10px] text-gray-500">Tulis rumus di antara tanda dolar, contoh: <code>$\\frac{x+1}{2}$</code>. Klik kolom, lalu klik tombol simbol untuk menyisipkan.</p>
+                        <textarea class="vq-q w-full border rounded p-1 text-sm" rows="2" placeholder="Pertanyaan... (boleh berisi rumus $x^2+1$)" onfocus="app.state.vqFocus={i:${i},el:this}" oninput="app.vqPreview(${i})">${esc(x.q)}</textarea>
+                        <div class="text-xs">Gambar soal: ${imgBox(x.qImg, i, 'q')}</div>
+                        ${x.options.map((o, k) => `<div class="flex items-center gap-2"><input class="vq-o flex-1 border rounded p-1 text-sm" placeholder="Pilihan ${'ABCD'[k]} (boleh rumus atau kosong jika hanya gambar)" value="${esc(o)}" onfocus="app.state.vqFocus={i:${i},el:this}" oninput="app.vqPreview(${i})">${imgBox(x.optImgs[k], i, k)}</div>`).join('')}
                         <label class="text-xs">Jawaban benar:
                             <select class="vq-a border rounded p-1">${['A', 'B', 'C', 'D'].map((l, k) => `<option value="${k}" ${x.answer === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
                         </label>
+                        <div class="vq-pv border-t border-dashed mt-1 pt-1 text-sm text-gray-700 bg-gray-50 rounded p-1" title="Pratinjau"></div>
                     </div>`).join('');
+                this.state.tempVQ.forEach((x, i) => this.vqPreview(i));
             },
 
             ivLoadAPI() {
@@ -2132,9 +2210,14 @@
                 const iv = this.state.iv; iv.wait = true; iv.player.pauseVideo();
                 const box = document.getElementById('iv-question');
                 document.getElementById('iv-q-num').innerText = (iv.idx + 1) + '/' + iv.qs.length;
-                document.getElementById('iv-q-text').innerText = q.q;
+                const qt = document.getElementById('iv-q-text');
+                qt.innerHTML = this.mathText(q.q) + (q.qImg ? `<img src="${this.vqImgUrl(q.qImg)}" class="mt-3 max-w-full max-h-64 rounded border mx-auto block">` : '');
+                this.renderMath(qt);
                 document.getElementById('iv-q-feedback').classList.add('hidden');
-                document.getElementById('iv-q-options').innerHTML = q.options.map((o, k) => o ? `<button type="button" onclick="app.ivAnswer(${k})" class="w-full text-left border-2 border-gray-200 hover:border-brand-blue rounded-lg p-3 text-sm font-medium"><b>${'ABCD'[k]}.</b> ${String(o).replace(/</g, '&lt;')}</button>` : '').join('');
+                const ob = document.getElementById('iv-q-options');
+                const oi = q.optImgs || [];
+                ob.innerHTML = q.options.map((o, k) => (o || oi[k]) ? `<button type="button" onclick="app.ivAnswer(${k})" class="w-full text-left border-2 border-gray-200 hover:border-brand-blue rounded-lg p-3 text-sm font-medium"><b>${'ABCD'[k]}.</b> ${this.mathText(o)}${oi[k] ? `<img src="${this.vqImgUrl(oi[k])}" class="mt-2 max-h-32 max-w-full rounded border">` : ''}</button>` : '').join('');
+                this.renderMath(ob);
                 box.classList.remove('hidden');
             },
             ivAnswer(k) {
@@ -3412,16 +3495,24 @@
 
                 const embedUrl = this.normalizeVideoUrl(video);
                 this.readVQ();
-                const videoQuestions = this.state.tempVQ.filter(x => x.q.trim() && x.options.filter(o => o.trim()).length >= 2);
+                const hasOpt = (x, k) => (x.options[k] || '').trim() || (x.optImgs && x.optImgs[k]);
+                const videoQuestions = this.state.tempVQ.filter(x => (x.q.trim() || x.qImg) && [0, 1, 2, 3].filter(k => hasOpt(x, k)).length >= 2);
                 if (videoQuestions.length && !this.ytId(embedUrl)) {
                     this.showToast('Soal interaktif di dalam video hanya bisa untuk link YouTube.', true);
                     return;
                 }
-                if (videoQuestions.some(x => !x.options[x.answer].trim())) {
+                if (videoQuestions.some(x => !hasOpt(x, x.answer))) {
                     this.showToast('Jawaban benar pada salah satu soal video menunjuk pilihan yang kosong.', true);
                     return;
                 }
                 const videoFailMode = document.getElementById('f-vq-mode').value;
+                const vqIds = list => (list || []).flatMap(x => [x.qImg, ...(x.optImgs || [])]).filter(Boolean).map(i => i.fileId);
+                if (this.state.editingCourseId) {
+                    const old = this.state.courses.find(c => c.id === this.state.editingCourseId);
+                    const keep = new Set(vqIds(videoQuestions));
+                    const orphan = vqIds(old && old.videoQuestions).filter(id => !keep.has(id));
+                    if (orphan.length) this.deleteFilesFromDrive(orphan);
+                }
 
                 if (this.state.editingCourseId) {
                     const index = this.state.courses.findIndex(c => c.id === this.state.editingCourseId);
@@ -3525,6 +3616,7 @@
                                 });
                             });
                         }
+                        (course.videoQuestions || []).forEach(x => [x.qImg, ...(x.optImgs || [])].forEach(im => { if (im && im.fileId) fileIdsToDelete.push(im.fileId); }));
                         if (fileIdsToDelete.length > 0) {
                             await this.deleteFilesFromDrive(fileIdsToDelete);
                         }
