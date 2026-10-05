@@ -1955,15 +1955,15 @@
                     // RESUME UNTUK MODUL BELUM SELESAI: lompat ke step sesuai submission yang sudah ada,
                     // jangan selalu paksa mulai dari step 1.
                     const vdone = !(course.videoQuestions && course.videoQuestions.length) || (nisnForResume && course.videoProgress && course.videoProgress[nisnForResume]);
-                    if (!vdone) {
-                        this.state.activeStep = 1;
-                    } else if (this.state.isExerciseUploaded) {
-                        this.state.activeStep = 4;
-                    } else if (!course.requireSummary || this.state.isSummaryUploaded) {
-                        this.state.activeStep = 3;
-                    } else {
-                        this.state.activeStep = 1;
-                    }
+                    let resumeStep = 1;
+                    if (this.state.isExerciseUploaded) resumeStep = 4;
+                    else if (!course.requireSummary || this.state.isSummaryUploaded) resumeStep = 3;
+                    // Step terjauh yang pernah dicapai siswa (tersimpan di Firebase).
+                    const savedStep = (nisnForResume && course.stepProgress && parseInt(course.stepProgress[nisnForResume])) || 1;
+                    resumeStep = Math.max(resumeStep, savedStep);
+                    // Video interaktif belum tuntas -> tidak boleh melewati Checkpoint 2.
+                    if (!vdone) resumeStep = Math.min(resumeStep, 2);
+                    this.state.activeStep = Math.min(Math.max(resumeStep, 1), 4);
                     document.getElementById('learn-completed-banner').classList.add('hidden');
                     document.getElementById('learn-container').classList.replace('rounded-t-none', 'rounded-t-2xl');
                     
@@ -2074,18 +2074,36 @@
                 const done = !!(nisn && course.videoProgress && course.videoProgress[nisn]);
                 this.state.videoDone = done || this.state.role === 'admin';
                 const qs = [...course.videoQuestions].sort((a, b) => a.time - b.time);
-                const iv = this.state.iv = { qs, idx: 0, max: 0, wait: false, course, mode: course.videoFailMode || 'start', player: null, timer: null };
+                const part = (!done && nisn && course.videoPartial && course.videoPartial[nisn]) || null;
+                const startIdx = part ? Math.min(part.idx || 0, qs.length) : 0;
+                const startTime = part ? (part.time || 0) : 0;
+                const iv = this.state.iv = { qs, idx: startIdx, max: startTime, wait: false, course, mode: course.videoFailMode || 'start', player: null, timer: null };
                 document.getElementById('iv-wrap').classList.remove('hidden');
                 document.getElementById('iv-q-text').parentElement.parentElement.classList.add('hidden');
-                this.ivStatus(done ? 'Video sudah tuntas. Kamu boleh menonton ulang.' : 'Tonton video sampai selesai dan jawab semua soal dengan benar. Video tidak bisa dipercepat/dilewati.');
+                this.ivStatus(done ? 'Video sudah tuntas. Kamu boleh menonton ulang.' : (part ? 'Progres tersimpan: video dilanjutkan dari soal terakhir yang sudah kamu jawab benar.' : 'Tonton video sampai selesai dan jawab semua soal dengan benar. Video tidak bisa dipercepat/dilewati.'));
                 await this.ivLoadAPI();
                 if (this.state.iv !== iv) return;
                 iv.player = new YT.Player('iv-player', {
                     videoId: this.ytId(course.videoUrl),
-                    playerVars: { controls: 0, disablekb: 1, rel: 0, modestbranding: 1, fs: 0, playsinline: 1 },
+                    playerVars: { start: Math.floor(startTime), controls: 0, disablekb: 1, rel: 0, modestbranding: 1, fs: 0, playsinline: 1 },
                     events: { onStateChange: e => this.ivState(e) }
                 });
                 iv.timer = setInterval(() => this.ivTick(), 250);
+            },
+            saveStepProgress(course, step) {
+                const nisn = this.state.currentUser && this.state.currentUser.nisn;
+                if (!course || !nisn || this.state.role === 'admin') return;
+                if (!course.stepProgress) course.stepProgress = {};
+                if ((parseInt(course.stepProgress[nisn]) || 1) >= step) return;
+                course.stepProgress[nisn] = step;
+                this.saveCoursesToStorage();
+            },
+            saveVideoPartial(idx, time) {
+                const iv = this.state.iv, nisn = this.state.currentUser && this.state.currentUser.nisn;
+                if (!iv || !nisn || this.state.role === 'admin') return;
+                if (!iv.course.videoPartial) iv.course.videoPartial = {};
+                iv.course.videoPartial[nisn] = { idx: idx, time: time };
+                this.saveCoursesToStorage();
             },
             ivStatus(t) { document.getElementById('iv-status').innerText = t; },
             ivToggle() {
@@ -2126,6 +2144,7 @@
                 if (k === q.answer) {
                     fb.className = 'mt-4 text-sm font-bold text-brand-green';
                     fb.innerText = 'Benar! Video dilanjutkan...';
+                    this.saveVideoPartial(iv.idx + 1, q.time);
                     setTimeout(() => { iv.idx++; iv.wait = false; document.getElementById('iv-question').classList.add('hidden'); iv.player.playVideo(); }, 1000);
                 } else {
                     fb.className = 'mt-4 text-sm font-bold text-red-600';
@@ -2134,6 +2153,7 @@
                         const back = iv.mode === 'segment' && iv.idx > 0 ? iv.qs[iv.idx - 1].time : 0;
                         iv.idx = iv.mode === 'segment' ? Math.max(0, iv.idx) : 0;
                         iv.max = back; iv.wait = false;
+                        this.saveVideoPartial(iv.idx, back);
                         iv.player.seekTo(back, true); iv.player.playVideo();
                         document.getElementById('iv-question').classList.add('hidden');
                     }, 2200);
@@ -2952,6 +2972,7 @@
                 if (this.state.activeStep < totalSteps) {
                     this.state.activeStep++;
                     this.updateStepUI();
+                    this.saveStepProgress(course, this.state.activeStep);
                 }
               } catch (err) {
                 console.error('Error di nextStep():', err);
