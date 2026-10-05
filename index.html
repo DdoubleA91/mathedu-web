@@ -1610,6 +1610,7 @@
                 }
 
                 const hashedPassword = await this.hashPassword('123456');
+                this.clearProgressForNisn(nisn);
                 this.state.users.push({ nisn: nisn, nama: nama, kelas: kelas, password: hashedPassword });
                 this.saveUsersToStorage();
                 document.getElementById('form-add-student').reset();
@@ -1642,6 +1643,7 @@
                                 if (nisn && nama && kelas) {
                                     const existingIndex = this.state.users.findIndex(u => u.nisn === nisn);
                                     if (existingIndex === -1) {
+                                        this.clearProgressForNisn(nisn);
                                         this.state.users.push({ nisn: nisn, nama: nama, kelas: kelas, password: hashedDefaultPassword });
                                         addedCount++;
                                     } else {
@@ -3558,8 +3560,22 @@
                     if (course.visibility && course.visibility.studentNisns) {
                         course.visibility.studentNisns = course.visibility.studentNisns.filter(n => n !== nisn);
                     }
+                    ['stepProgress', 'videoProgress', 'videoPartial'].forEach(k => {
+                        if (course[k] && course[k][nisn] !== undefined) delete course[k][nisn];
+                    });
                 });
                 return fileIdsToDelete;
+            },
+
+            // Hapus sisa progres (checkpoint & video) milik NISN tertentu, tanpa menyentuh data lain.
+            clearProgressForNisn(nisn) {
+                let changed = false;
+                this.state.courses.forEach(course => {
+                    ['stepProgress', 'videoProgress', 'videoPartial'].forEach(k => {
+                        if (course[k] && course[k][nisn] !== undefined) { delete course[k][nisn]; changed = true; }
+                    });
+                });
+                if (changed) this.saveCoursesToStorage();
             },
 
             // Sama seperti purgeStudentDataFromCourses tapi untuk node 'quizzes' yang terpisah:
