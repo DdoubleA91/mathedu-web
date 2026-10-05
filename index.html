@@ -1957,12 +1957,11 @@
                     // RESUME UNTUK MODUL BELUM SELESAI: lompat ke step sesuai submission yang sudah ada,
                     // jangan selalu paksa mulai dari step 1.
                     const vdone = !(course.videoQuestions && course.videoQuestions.length) || (nisnForResume && course.videoProgress && course.videoProgress[nisnForResume]);
-                    let resumeStep = 1;
-                    if (this.state.isExerciseUploaded) resumeStep = 4;
-                    else if (!course.requireSummary || this.state.isSummaryUploaded) resumeStep = 3;
-                    // Step terjauh yang pernah dicapai siswa (tersimpan di Firebase).
-                    const savedStep = (nisnForResume && course.stepProgress && parseInt(course.stepProgress[nisnForResume])) || 1;
-                    resumeStep = Math.max(resumeStep, savedStep);
+                    // Mulai dari Checkpoint 1. Naik hanya berdasarkan progres milik siswa ini sendiri
+                    // (stepProgress di Firebase) atau bukti nyata berupa file yang sudah ia kumpulkan.
+                    let resumeStep = (nisnForResume && course.stepProgress && parseInt(course.stepProgress[nisnForResume])) || 1;
+                    if (this.state.isExerciseUploaded) resumeStep = Math.max(resumeStep, 4);
+                    else if (this.state.isSummaryUploaded) resumeStep = Math.max(resumeStep, 2);
                     // Video interaktif belum tuntas -> tidak boleh melewati Checkpoint 2.
                     if (!vdone) resumeStep = Math.min(resumeStep, 2);
                     this.state.activeStep = Math.min(Math.max(resumeStep, 1), 4);
