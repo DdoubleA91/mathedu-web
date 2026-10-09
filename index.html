@@ -338,7 +338,7 @@
                             <h4 class="font-bold text-gray-800 mb-1">Tugas Rangkuman Video</h4>
                             <p class="text-sm text-gray-600 mb-4">Guru mewajibkan kamu mencatat rangkuman dari video di atas ke dalam buku tulismu. <br><strong>Upload foto catatanmu di sini untuk bisa lanjut ke tahap berikutnya.</strong></p>
                             <input type="file" class="hidden" id="summary-upload" accept="image/*,.pdf" onchange="app.handleSummaryUpload()">
-                            <button id="btn-summary-upload" onclick="document.getElementById('summary-upload').click()" class="bg-brand-orange text-white px-5 py-2 rounded-md shadow-sm font-medium hover:bg-orange-600 transition">
+                            <button id="btn-summary-upload" onclick="app.pickUpload('summary')" class="bg-brand-orange text-white px-5 py-2 rounded-md shadow-sm font-medium hover:bg-orange-600 transition">
                                 <i class="fa-solid fa-camera mr-1"></i> Pilih Foto / File
                             </button>
                             <p id="summary-upload-name" class="mt-3 text-sm text-brand-green font-bold hidden bg-white inline-block px-3 py-1 rounded-full shadow-sm"><i class="fa-solid fa-check mr-1"></i> Rangkuman siap dikirim</p>
@@ -382,9 +382,9 @@
 
                             <i class="fa-brands fa-google-drive text-4xl text-gray-400 mb-3"></i>
                             <h4 class="font-bold text-gray-700 mb-1">Kumpulkan Tugas</h4>
-                            <p class="text-xs text-gray-500 mb-4">Pilih file untuk dikirim ke Google Drive Guru.</p>
+                            <p id="student-upload-hint" class="text-xs text-gray-500 mb-4">Pilih file untuk dikirim ke Google Drive Guru.</p>
                             <input type="file" class="hidden" id="student-upload" onchange="app.handleStudentUpload()">
-                            <button id="btn-student-upload" onclick="document.getElementById('student-upload').click()" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md shadow-sm font-medium hover:bg-gray-50">
+                            <button id="btn-student-upload" onclick="app.pickUpload('task')" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md shadow-sm font-medium hover:bg-gray-50">
                                 <i class="fa-solid fa-upload mr-1"></i> Pilih File Pekerjaan
                             </button>
                             <p id="student-upload-name" class="mt-2 text-sm text-brand-green font-semibold hidden"><i class="fa-solid fa-check mr-1"></i> Berhasil Terkirim!</p>
@@ -719,6 +719,27 @@
                         </label>
                     </div>
 
+                    <div class="bg-sky-50 border border-sky-200 p-3 rounded-md mt-2">
+                        <p class="text-sm font-bold text-sky-900 mb-2"><i class="fa-solid fa-upload mr-1"></i> Jenis Unggahan Siswa</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Unggah Rangkuman Video</label>
+                                <select id="f-upload-summary" class="w-full border border-gray-300 rounded-md p-2 text-sm">
+                                    <option value="file">Pilih file dari komputer / HP</option>
+                                    <option value="camera">Wajib foto langsung dari kamera</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Unggah Tugas (Checkpoint 3)</label>
+                                <select id="f-upload-task" class="w-full border border-gray-300 rounded-md p-2 text-sm">
+                                    <option value="file">Pilih file dari komputer / HP</option>
+                                    <option value="camera">Wajib foto langsung dari kamera</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-gray-600 mt-1">Mode kamera: siswa tidak bisa memilih dari galeri/file, hanya foto yang diambil saat itu juga.</p>
+                    </div>
+
                     <div class="bg-purple-50 border border-purple-100 p-4 rounded-lg mt-2">
                         <label class="block text-sm font-bold text-purple-800 mb-2"><i class="fa-solid fa-user-group mr-1"></i> Tampilkan Modul Untuk</label>
                         <div class="flex gap-4 mb-3">
@@ -945,6 +966,7 @@
                 tempAttachment: null, 
                 tempVQ: [],
                 vqFocus: null,
+                cam: null,
                 iv: null,
                 videoDone: true,
                 tempTargetNisns: [],
@@ -1888,6 +1910,7 @@
                     document.getElementById('learn-video').src = vidUrl;
                 }
 
+                this.applyUploadModes(course);
                 const summarySection = document.getElementById('summary-upload-section');
                 if (course.requireSummary) summarySection.classList.remove('hidden');
                 else summarySection.classList.add('hidden');
@@ -2021,7 +2044,7 @@
                 if (v.includes('youtu.be/')) return v.replace('youtu.be/', 'youtube.com/embed/').split('?')[0];
                 return v;
             },
-            addVQ() { this.readVQ(); this.state.tempVQ.push({ time: 30, type: 'mc', ans: '', q: '', qImg: null, options: ['', '', '', ''], optImgs: [null, null, null, null], answer: 0 }); this.renderVQ(); },
+            addVQ() { this.readVQ(); this.state.tempVQ.push({ time: 30, type: 'mc', ans: '', q: '', qImg: null, options: ['', '', '', '', ''], optImgs: [null, null, null, null, null], answer: 0 }); this.renderVQ(); },
             delVQ(i) { this.readVQ(); this.state.tempVQ.splice(i, 1); this.renderVQ(); },
             readVQ() {
                 const box = document.getElementById('f-vq-list');
@@ -2036,8 +2059,8 @@
                         type: el.querySelector('.vq-type').value,
                         q: el.querySelector('.vq-q').value,
                         qImg: p.qImg || null,
-                        options: opts.length ? opts : (p.options || ['', '', '', '']),
-                        optImgs: p.optImgs || [null, null, null, null],
+                        options: opts.length ? opts : (p.options || ['', '', '', '', '']),
+                        optImgs: p.optImgs || [null, null, null, null, null],
                         answer: ans ? (parseInt(ans.value) || 0) : (p.answer || 0),
                         ans: sa ? sa.value : (p.ans || '')
                     };
@@ -2095,7 +2118,7 @@
             vqPreview(i) {
                 const root = document.querySelector(`[data-vq="${i}"]`); if (!root) return;
                 const rows = [this.mathText(root.querySelector('.vq-q').value)];
-                root.querySelectorAll('.vq-o').forEach((o, k) => { if (o.value) rows.push('<b>' + 'ABCD'[k] + '.</b> ' + this.mathText(o.value)); });
+                root.querySelectorAll('.vq-o').forEach((o, k) => { if (o.value) rows.push('<b>' + 'ABCDE'[k] + '.</b> ' + this.mathText(o.value)); });
                 const pv = root.querySelector('.vq-pv');
                 pv.innerHTML = rows.filter(r => r).map(r => `<div>${r}</div>`).join('');
                 this.renderMath(pv);
@@ -2138,7 +2161,11 @@
                 const imgBox = (img, i, slot) => img
                     ? `<span class="inline-flex items-center gap-1"><img src="${this.vqImgUrl(img)}" class="h-12 rounded border"><button type="button" onclick="app.vqRemoveImg(${i},'${slot}')" class="text-red-500 text-xs"><i class="fa-solid fa-xmark"></i></button></span>`
                     : `<label class="text-[11px] text-brand-blue cursor-pointer whitespace-nowrap"><i class="fa-solid fa-image"></i> Gambar<input type="file" accept="image/*" class="hidden" onchange="app.vqUpload(${i},${typeof slot === 'number' ? slot : "'q'"},this)"></label>`;
-                this.state.tempVQ.forEach(x => { x.optImgs = x.optImgs || [null, null, null, null]; });
+                this.state.tempVQ.forEach(x => {
+                    x.optImgs = x.optImgs || [];
+                    while (x.options.length < 5) x.options.push('');
+                    while (x.optImgs.length < 5) x.optImgs.push(null);
+                });
                 document.getElementById('f-vq-list').innerHTML = this.state.tempVQ.map((x, i) => `
                     <div data-vq="${i}" class="bg-white border border-green-200 rounded-md p-2 space-y-1">
                         <div class="flex items-center gap-2 text-xs">
@@ -2153,9 +2180,9 @@
                         <p class="text-[10px] text-gray-500">Tip: salin gambar lalu tekan Ctrl+V di kolom ini untuk menempelkannya sebagai gambar soal.</p>
                         <div class="text-xs">Gambar soal: ${imgBox(x.qImg, i, 'q')}</div>
                         ${x.type === 'short' ? `<label class="text-xs block">Jawaban benar (pisahkan dengan <b>;</b> jika ada beberapa bentuk benar, mis. <code>1/2; 0,5</code>)
-                            <input class="vq-ans w-full border rounded p-1 text-sm mt-1" value="${esc(x.ans || '')}" placeholder="Contoh: 12"></label>` : `${x.options.map((o, k) => `<div class="flex items-center gap-2"><input class="vq-o flex-1 border rounded p-1 text-sm" placeholder="Pilihan ${'ABCD'[k]} (boleh rumus atau kosong jika hanya gambar)" value="${esc(o)}" onfocus="app.state.vqFocus={i:${i},el:this}" onpaste="app.vqPaste(event,${i},${k})" oninput="app.vqPreview(${i})">${imgBox(x.optImgs[k], i, k)}</div>`).join('')}
+                            <input class="vq-ans w-full border rounded p-1 text-sm mt-1" value="${esc(x.ans || '')}" placeholder="Contoh: 12"></label>` : `${x.options.map((o, k) => `<div class="flex items-center gap-2"><input class="vq-o flex-1 border rounded p-1 text-sm" placeholder="Pilihan ${'ABCDE'[k]} (boleh rumus atau kosong jika hanya gambar)" value="${esc(o)}" onfocus="app.state.vqFocus={i:${i},el:this}" onpaste="app.vqPaste(event,${i},${k})" oninput="app.vqPreview(${i})">${imgBox(x.optImgs[k], i, k)}</div>`).join('')}
                         <label class="text-xs">Jawaban benar:
-                            <select class="vq-a border rounded p-1">${['A', 'B', 'C', 'D'].map((l, k) => `<option value="${k}" ${x.answer === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+                            <select class="vq-a border rounded p-1">${['A', 'B', 'C', 'D', 'E'].map((l, k) => `<option value="${k}" ${x.answer === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
                         </label>`}
                         <div class="vq-pv border-t border-dashed mt-1 pt-1 text-sm text-gray-700 bg-gray-50 rounded p-1" title="Pratinjau"></div>
                     </div>`).join('');
@@ -2254,7 +2281,7 @@
                 document.getElementById('iv-q-feedback').classList.add('hidden');
                 const ob = document.getElementById('iv-q-options');
                 const oi = q.optImgs || [];
-                ob.innerHTML = q.options.map((o, k) => (o || oi[k]) ? `<button type="button" onclick="app.ivAnswer(${k})" class="w-full text-left border-2 border-gray-200 hover:border-brand-blue rounded-lg p-3 text-sm font-medium"><b>${'ABCD'[k]}.</b> ${this.mathText(o)}${oi[k] ? `<img src="${this.vqImgUrl(oi[k])}" class="mt-2 max-h-32 max-w-full rounded border">` : ''}</button>` : '').join('');
+                ob.innerHTML = q.options.map((o, k) => (o || oi[k]) ? `<button type="button" onclick="app.ivAnswer(${k})" class="w-full text-left border-2 border-gray-200 hover:border-brand-blue rounded-lg p-3 text-sm font-medium"><b>${'ABCDE'[k]}.</b> ${this.mathText(o)}${oi[k] ? `<img src="${this.vqImgUrl(oi[k])}" class="mt-2 max-h-32 max-w-full rounded border">` : ''}</button>` : '').join('');
                 this.renderMath(ob);
                 if (q.type === 'short') {
                     ob.innerHTML = `<input id="iv-short" type="text" autocomplete="off" class="w-full border-2 border-gray-300 focus:border-brand-blue rounded-lg p-3 text-sm outline-none" placeholder="Ketik jawabanmu di sini..." onkeydown="if(event.key==='Enter')app.ivSubmitShort()">
@@ -2309,6 +2336,89 @@
                 }
                 this.ivStatus('Video tuntas! Kamu bisa lanjut ke tahap berikutnya.');
                 this.showToast('Video tuntas!');
+            },
+
+            // ===== MODE UNGGAH: file / kamera =====
+            applyUploadModes(course) {
+                const sCam = course.uploadSummary === 'camera', tCam = course.uploadTask === 'camera';
+                document.getElementById('btn-summary-upload').innerHTML = sCam
+                    ? '<i class="fa-solid fa-camera mr-1"></i> Ambil Foto dengan Kamera'
+                    : '<i class="fa-solid fa-camera mr-1"></i> Pilih Foto / File';
+                document.getElementById('btn-student-upload').innerHTML = tCam
+                    ? '<i class="fa-solid fa-camera mr-1"></i> Ambil Foto Pekerjaan dengan Kamera'
+                    : '<i class="fa-solid fa-upload mr-1"></i> Pilih File Pekerjaan';
+                document.getElementById('student-upload-hint').innerText = tCam
+                    ? 'Foto pekerjaanmu langsung dengan kamera. Memilih dari galeri/file tidak diizinkan.'
+                    : 'Pilih file untuk dikirim ke Google Drive Guru.';
+            },
+            pickUpload(kind) {
+                const course = this.state.courses.find(c => c.id === this.state.activeCourseId) || {};
+                const cam = (kind === 'summary' ? course.uploadSummary : course.uploadTask) === 'camera';
+                const input = document.getElementById(kind === 'summary' ? 'summary-upload' : 'student-upload');
+                if (!cam) { input.click(); return; }
+                this.camOpen(input, kind === 'summary' ? 'handleSummaryUpload' : 'handleStudentUpload');
+            },
+            async camOpen(input, handler) {
+                this.state.cam = { input, handler, stream: null, blob: null };
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    // Perangkat/browser tanpa akses kamera langsung: minta kamera bawaan HP lewat atribut capture.
+                    const f = document.createElement('input');
+                    f.type = 'file'; f.accept = 'image/*'; f.setAttribute('capture', 'environment');
+                    f.onchange = () => { if (f.files[0]) this.camDeliver(f.files[0]); };
+                    f.click();
+                    return;
+                }
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+                    this.state.cam.stream = stream;
+                    const v = document.getElementById('cam-video');
+                    v.srcObject = stream; v.classList.remove('hidden');
+                    document.getElementById('cam-canvas').classList.add('hidden');
+                    ['cam-retake', 'cam-send'].forEach(id => document.getElementById(id).classList.add('hidden'));
+                    document.getElementById('cam-snap').classList.remove('hidden');
+                    const m = document.getElementById('cam-modal'); m.classList.remove('hidden'); m.classList.add('flex');
+                } catch (err) {
+                    this.showToast('Kamera tidak bisa dibuka. Izinkan akses kamera di browser lalu coba lagi.', true);
+                }
+            },
+            camSnap() {
+                const v = document.getElementById('cam-video'), c = document.getElementById('cam-canvas');
+                if (!v.videoWidth) return;
+                c.width = v.videoWidth; c.height = v.videoHeight;
+                c.getContext('2d').drawImage(v, 0, 0);
+                c.toBlob(b => { this.state.cam.blob = b; }, 'image/jpeg', 0.9);
+                v.classList.add('hidden'); c.classList.remove('hidden');
+                document.getElementById('cam-snap').classList.add('hidden');
+                ['cam-retake', 'cam-send'].forEach(id => document.getElementById(id).classList.remove('hidden'));
+            },
+            camRetake() {
+                this.state.cam.blob = null;
+                document.getElementById('cam-video').classList.remove('hidden');
+                document.getElementById('cam-canvas').classList.add('hidden');
+                document.getElementById('cam-snap').classList.remove('hidden');
+                ['cam-retake', 'cam-send'].forEach(id => document.getElementById(id).classList.add('hidden'));
+            },
+            camSend() {
+                const cam = this.state.cam;
+                if (!cam || !cam.blob) { this.showToast('Foto belum siap, coba lagi.', true); return; }
+                const file = new File([cam.blob], 'foto_kamera_' + Date.now() + '.jpg', { type: 'image/jpeg' });
+                this.camClose();
+                this.camDeliver(file, cam);
+            },
+            camDeliver(file, cam) {
+                cam = cam || this.state.cam;
+                if (!cam) return;
+                const dt = new DataTransfer(); dt.items.add(file);
+                cam.input.files = dt.files;
+                this[cam.handler]();
+            },
+            camClose() {
+                const cam = this.state.cam;
+                if (cam && cam.stream) cam.stream.getTracks().forEach(t => t.stop());
+                const keep = cam && { input: cam.input, handler: cam.handler };
+                const m = document.getElementById('cam-modal'); m.classList.add('hidden'); m.classList.remove('flex');
+                document.getElementById('cam-video').srcObject = null;
+                this.state.cam = keep || null;
             },
 
             goHome() {
@@ -2540,11 +2650,11 @@
 
             // === Builder Soal (4 tipe: mc_single, mc_complex, true_false, matching) ===
             qbDefaultQuestion(type) {
-                if (type === 'mc_single') return { type, text: '', image: null, options: ['', '', '', ''], correct: 0 };
+                if (type === 'mc_single') return { type, text: '', image: null, options: ['', '', '', '', ''], correct: 0 };
                 if (type === 'mc_complex') return { type, text: '', image: null, options: [{ text: '', isCorrect: false }, { text: '', isCorrect: false }, { text: '', isCorrect: false }, { text: '', isCorrect: false }] };
                 if (type === 'true_false') return { type, text: '', image: null, correctAnswer: true };
                 if (type === 'matching') return { type, text: '', image: null, pairs: [{ left: '', right: '' }, { left: '', right: '' }, { left: '', right: '' }] };
-                return { type: 'mc_single', text: '', image: null, options: ['', '', '', ''], correct: 0 };
+                return { type: 'mc_single', text: '', image: null, options: ['', '', '', '', ''], correct: 0 };
             },
 
             addQBQuestion(type) {
@@ -2677,7 +2787,7 @@
                     if (q.type === 'mc_single') {
                         bodyHtml = `
                             <div class="space-y-2">
-                                ${[0, 1, 2, 3].map(i => `
+                                ${[0, 1, 2, 3, 4].map(i => `
                                     <div class="flex items-center gap-2">
                                         <input type="radio" name="qb-correct-${index}" class="qb-correct" value="${i}" ${(q.correct || 0) === i ? 'checked' : ''}>
                                         <input type="text" class="flex-1 border border-gray-300 rounded-md p-1.5 text-sm qb-option" placeholder="Pilihan ${String.fromCharCode(65 + i)}" value="${((q.options && q.options[i]) || '').replace(/"/g, '&quot;')}">
@@ -2871,6 +2981,7 @@
                     if (q.type === 'mc_single') {
                         html += `<div class="space-y-2">`;
                         (q.options || []).forEach((opt, i) => {
+                            if (!opt) return;
                             html += `<label class="flex items-center gap-2 border border-gray-200 rounded-md p-2 cursor-pointer hover:bg-gray-50">
                                 <input type="radio" name="attempt-${qIndex}" class="attempt-mc-single" value="${i}">
                                 <span>${opt}</span>
@@ -3379,6 +3490,8 @@
                 document.getElementById('f-deadline').value = course.deadline || '';
                 
                 document.getElementById('f-require-summary').checked = course.requireSummary || false;
+                document.getElementById('f-upload-summary').value = course.uploadSummary || 'file';
+                document.getElementById('f-upload-task').value = course.uploadTask || 'file';
                 
                 let imgVal = course.thumbnail;
                 if(imgVal.includes('placehold.co')) imgVal = '';
@@ -3550,7 +3663,7 @@
                 const embedUrl = this.normalizeVideoUrl(video);
                 this.readVQ();
                 const hasOpt = (x, k) => (x.options[k] || '').trim() || (x.optImgs && x.optImgs[k]);
-                const videoQuestions = this.state.tempVQ.filter(x => (x.q.trim() || x.qImg) && (x.type === 'short' ? (x.ans || '').trim() : [0, 1, 2, 3].filter(k => hasOpt(x, k)).length >= 2));
+                const videoQuestions = this.state.tempVQ.filter(x => (x.q.trim() || x.qImg) && (x.type === 'short' ? (x.ans || '').trim() : [0, 1, 2, 3, 4].filter(k => hasOpt(x, k)).length >= 2));
                 if (videoQuestions.length && !this.ytId(embedUrl)) {
                     this.showToast('Soal interaktif di dalam video hanya bisa untuk link YouTube.', true);
                     return;
@@ -3585,6 +3698,8 @@
                             videoQuestions: videoQuestions,
                             videoFailMode: videoFailMode,
                             requireSummary: requireSummary,
+                            uploadSummary: document.getElementById('f-upload-summary').value,
+                            uploadTask: document.getElementById('f-upload-task').value,
                             exercise: exercise,
                             attachment: this.state.tempAttachment,
                             visibility: visibility
@@ -3607,6 +3722,8 @@
                         videoQuestions: videoQuestions,
                         videoFailMode: videoFailMode,
                         requireSummary: requireSummary,
+                            uploadSummary: document.getElementById('f-upload-summary').value,
+                            uploadTask: document.getElementById('f-upload-task').value,
                         exercise: exercise,
                         attachment: this.state.tempAttachment,
                         visibility: visibility
@@ -3890,5 +4007,20 @@
             app.init();
         };
     </script>
+    <div id="cam-modal" class="fixed inset-0 z-[100] bg-black/90 hidden flex-col items-center justify-center p-3">
+        <div class="w-full max-w-lg">
+            <p class="text-white text-sm font-bold mb-2 text-center"><i class="fa-solid fa-camera mr-1"></i> Foto langsung dari kamera</p>
+            <div class="relative bg-black rounded-lg overflow-hidden" style="aspect-ratio:4/3">
+                <video id="cam-video" class="w-full h-full object-contain" autoplay playsinline muted></video>
+                <canvas id="cam-canvas" class="w-full h-full object-contain hidden"></canvas>
+            </div>
+            <div class="flex gap-2 justify-center mt-3">
+                <button type="button" id="cam-snap" onclick="app.camSnap()" class="bg-white text-gray-900 font-bold px-5 py-2 rounded-lg"><i class="fa-solid fa-circle-dot mr-1"></i> Ambil Foto</button>
+                <button type="button" id="cam-retake" onclick="app.camRetake()" class="hidden bg-gray-600 text-white font-bold px-4 py-2 rounded-lg">Ulangi</button>
+                <button type="button" id="cam-send" onclick="app.camSend()" class="hidden bg-brand-green text-white font-bold px-5 py-2 rounded-lg">Kirim</button>
+                <button type="button" onclick="app.camClose()" class="bg-red-600 text-white font-bold px-4 py-2 rounded-lg">Batal</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
