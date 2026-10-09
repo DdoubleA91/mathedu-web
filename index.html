@@ -2021,20 +2021,53 @@
                 if (v.includes('youtu.be/')) return v.replace('youtu.be/', 'youtube.com/embed/').split('?')[0];
                 return v;
             },
-            addVQ() { this.readVQ(); this.state.tempVQ.push({ time: 30, q: '', qImg: null, options: ['', '', '', ''], optImgs: [null, null, null, null], answer: 0 }); this.renderVQ(); },
+            addVQ() { this.readVQ(); this.state.tempVQ.push({ time: 30, type: 'mc', ans: '', q: '', qImg: null, options: ['', '', '', ''], optImgs: [null, null, null, null], answer: 0 }); this.renderVQ(); },
             delVQ(i) { this.readVQ(); this.state.tempVQ.splice(i, 1); this.renderVQ(); },
             readVQ() {
                 const box = document.getElementById('f-vq-list');
                 if (!box) return;
                 const prev = this.state.tempVQ || [];
-                this.state.tempVQ = [...box.querySelectorAll('[data-vq]')].map((el, i) => ({
-                    time: parseInt(el.querySelector('.vq-t').value) || 0,
-                    q: el.querySelector('.vq-q').value,
-                    qImg: (prev[i] && prev[i].qImg) || null,
-                    options: [...el.querySelectorAll('.vq-o')].map(o => o.value),
-                    optImgs: (prev[i] && prev[i].optImgs) || [null, null, null, null],
-                    answer: parseInt(el.querySelector('.vq-a').value) || 0
-                }));
+                this.state.tempVQ = [...box.querySelectorAll('[data-vq]')].map((el, i) => {
+                    const p = prev[i] || {};
+                    const opts = [...el.querySelectorAll('.vq-o')].map(o => o.value);
+                    const ans = el.querySelector('.vq-a'), sa = el.querySelector('.vq-ans');
+                    return {
+                        time: parseInt(el.querySelector('.vq-t').value) || 0,
+                        type: el.querySelector('.vq-type').value,
+                        q: el.querySelector('.vq-q').value,
+                        qImg: p.qImg || null,
+                        options: opts.length ? opts : (p.options || ['', '', '', '']),
+                        optImgs: p.optImgs || [null, null, null, null],
+                        answer: ans ? (parseInt(ans.value) || 0) : (p.answer || 0),
+                        ans: sa ? sa.value : (p.ans || '')
+                    };
+                });
+            },
+            vqType(i, v) { this.readVQ(); this.state.tempVQ[i].type = v; this.renderVQ(); },
+            vqPaste(e, i, slot) {
+                const items = (e.clipboardData && e.clipboardData.items) || [];
+                for (const it of items) {
+                    if (it.type && it.type.indexOf('image') === 0) {
+                        const f = it.getAsFile();
+                        if (f) { e.preventDefault(); this.vqUploadFile(i, slot, f); return; }
+                    }
+                }
+            },
+            normAns(t) { return String(t || '').toLowerCase().replace(/\$/g, '').replace(/\s+/g, '').replace(/,/g, '.').replace(/\.$/, ''); },
+            numVal(t) {
+                const m = t.match(/^(-?\d+(?:\.\d+)?)\/(-?\d+(?:\.\d+)?)$/);
+                if (m) return parseFloat(m[2]) ? parseFloat(m[1]) / parseFloat(m[2]) : null;
+                return /^-?\d+(?:\.\d+)?$/.test(t) ? parseFloat(t) : null;
+            },
+            checkShort(q, val) {
+                const v = this.normAns(val); if (!v) return false;
+                const vn = this.numVal(v);
+                return String(q.ans || '').split(';').some(a => {
+                    const n = this.normAns(a); if (!n) return false;
+                    if (n === v) return true;
+                    const an = this.numVal(n);
+                    return an !== null && vn !== null && Math.abs(an - vn) < 1e-9;
+                });
             },
             vqImgUrl(img) { return img && img.fileId ? 'https://drive.google.com/thumbnail?id=' + img.fileId + '&sz=w1000' : ''; },
             mathText(t) {
@@ -2067,9 +2100,11 @@
                 pv.innerHTML = rows.filter(r => r).map(r => `<div>${r}</div>`).join('');
                 this.renderMath(pv);
             },
-            async vqUpload(i, slot, input) {
+            vqUpload(i, slot, input) {
                 const file = input.files[0]; input.value = '';
-                if (!file) return;
+                if (file) this.vqUploadFile(i, slot, file);
+            },
+            async vqUploadFile(i, slot, file) {
                 this.readVQ();
                 this.showToast('Mengunggah gambar ke Google Drive...');
                 try {
@@ -2109,16 +2144,19 @@
                         <div class="flex items-center gap-2 text-xs">
                             <b>Soal ${i + 1}</b> muncul di detik ke-
                             <input type="number" min="1" class="vq-t border rounded p-1 w-20" value="${x.time}">
+                            <select class="vq-type border rounded p-1" onchange="app.vqType(${i},this.value)"><option value="mc" ${(x.type || 'mc') === 'mc' ? 'selected' : ''}>Pilihan ganda</option><option value="short" ${x.type === 'short' ? 'selected' : ''}>Isian singkat</option></select>
                             <button type="button" onclick="app.delVQ(${i})" class="ml-auto text-red-500"><i class="fa-solid fa-trash"></i></button>
                         </div>
                         <div class="flex flex-wrap gap-1">${syms.map(sy => `<button type="button" onclick='app.vqInsert(${i}, ${JSON.stringify(sy[1]).replace(/'/g, "&#39;")})' class="px-1.5 py-0.5 text-xs border rounded bg-gray-50 hover:bg-gray-200">${sy[0]}</button>`).join('')}</div>
                         <p class="text-[10px] text-gray-500">Tulis rumus di antara tanda dolar, contoh: <code>$\\frac{x+1}{2}$</code>. Klik kolom, lalu klik tombol simbol untuk menyisipkan.</p>
-                        <textarea class="vq-q w-full border rounded p-1 text-sm" rows="2" placeholder="Pertanyaan... (boleh berisi rumus $x^2+1$)" onfocus="app.state.vqFocus={i:${i},el:this}" oninput="app.vqPreview(${i})">${esc(x.q)}</textarea>
+                        <textarea class="vq-q w-full border rounded p-1 text-sm" rows="2" placeholder="Pertanyaan... (boleh berisi rumus $x^2+1$)" onfocus="app.state.vqFocus={i:${i},el:this}" onpaste="app.vqPaste(event,${i},'q')" oninput="app.vqPreview(${i})">${esc(x.q)}</textarea>
+                        <p class="text-[10px] text-gray-500">Tip: salin gambar lalu tekan Ctrl+V di kolom ini untuk menempelkannya sebagai gambar soal.</p>
                         <div class="text-xs">Gambar soal: ${imgBox(x.qImg, i, 'q')}</div>
-                        ${x.options.map((o, k) => `<div class="flex items-center gap-2"><input class="vq-o flex-1 border rounded p-1 text-sm" placeholder="Pilihan ${'ABCD'[k]} (boleh rumus atau kosong jika hanya gambar)" value="${esc(o)}" onfocus="app.state.vqFocus={i:${i},el:this}" oninput="app.vqPreview(${i})">${imgBox(x.optImgs[k], i, k)}</div>`).join('')}
+                        ${x.type === 'short' ? `<label class="text-xs block">Jawaban benar (pisahkan dengan <b>;</b> jika ada beberapa bentuk benar, mis. <code>1/2; 0,5</code>)
+                            <input class="vq-ans w-full border rounded p-1 text-sm mt-1" value="${esc(x.ans || '')}" placeholder="Contoh: 12"></label>` : `${x.options.map((o, k) => `<div class="flex items-center gap-2"><input class="vq-o flex-1 border rounded p-1 text-sm" placeholder="Pilihan ${'ABCD'[k]} (boleh rumus atau kosong jika hanya gambar)" value="${esc(o)}" onfocus="app.state.vqFocus={i:${i},el:this}" onpaste="app.vqPaste(event,${i},${k})" oninput="app.vqPreview(${i})">${imgBox(x.optImgs[k], i, k)}</div>`).join('')}
                         <label class="text-xs">Jawaban benar:
                             <select class="vq-a border rounded p-1">${['A', 'B', 'C', 'D'].map((l, k) => `<option value="${k}" ${x.answer === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
-                        </label>
+                        </label>`}
                         <div class="vq-pv border-t border-dashed mt-1 pt-1 text-sm text-gray-700 bg-gray-50 rounded p-1" title="Pratinjau"></div>
                     </div>`).join('');
                 this.state.tempVQ.forEach((x, i) => this.vqPreview(i));
@@ -2218,14 +2256,30 @@
                 const oi = q.optImgs || [];
                 ob.innerHTML = q.options.map((o, k) => (o || oi[k]) ? `<button type="button" onclick="app.ivAnswer(${k})" class="w-full text-left border-2 border-gray-200 hover:border-brand-blue rounded-lg p-3 text-sm font-medium"><b>${'ABCD'[k]}.</b> ${this.mathText(o)}${oi[k] ? `<img src="${this.vqImgUrl(oi[k])}" class="mt-2 max-h-32 max-w-full rounded border">` : ''}</button>` : '').join('');
                 this.renderMath(ob);
+                if (q.type === 'short') {
+                    ob.innerHTML = `<input id="iv-short" type="text" autocomplete="off" class="w-full border-2 border-gray-300 focus:border-brand-blue rounded-lg p-3 text-sm outline-none" placeholder="Ketik jawabanmu di sini..." onkeydown="if(event.key==='Enter')app.ivSubmitShort()">
+                        <button type="button" id="iv-short-btn" onclick="app.ivSubmitShort()" class="mt-2 bg-brand-blue text-white px-5 py-2 rounded-lg font-bold">Jawab</button>`;
+                    setTimeout(() => { const f = document.getElementById('iv-short'); if (f) f.focus(); }, 100);
+                }
                 box.classList.remove('hidden');
             },
+            ivSubmitShort() {
+                const iv = this.state.iv; if (!iv) return;
+                const f = document.getElementById('iv-short');
+                if (!f || !f.value.trim()) { this.showToast('Ketik jawabanmu dulu.', true); return; }
+                f.disabled = true; document.getElementById('iv-short-btn').disabled = true;
+                this.ivResult(this.checkShort(iv.qs[iv.idx], f.value));
+            },
             ivAnswer(k) {
+                const _q = this.state.iv && this.state.iv.qs[this.state.iv.idx];
+                this.ivResult(!!_q && k === _q.answer);
+            },
+            ivResult(correct) {
                 const iv = this.state.iv; if (!iv) return;
                 const q = iv.qs[iv.idx], fb = document.getElementById('iv-q-feedback');
-                document.querySelectorAll('#iv-q-options button').forEach(b => b.disabled = true);
+                document.querySelectorAll('#iv-q-options button, #iv-q-options input').forEach(b => b.disabled = true);
                 fb.classList.remove('hidden');
-                if (k === q.answer) {
+                if (correct) {
                     fb.className = 'mt-4 text-sm font-bold text-brand-green';
                     fb.innerText = 'Benar! Video dilanjutkan...';
                     this.saveVideoPartial(iv.idx + 1, q.time);
@@ -3496,12 +3550,12 @@
                 const embedUrl = this.normalizeVideoUrl(video);
                 this.readVQ();
                 const hasOpt = (x, k) => (x.options[k] || '').trim() || (x.optImgs && x.optImgs[k]);
-                const videoQuestions = this.state.tempVQ.filter(x => (x.q.trim() || x.qImg) && [0, 1, 2, 3].filter(k => hasOpt(x, k)).length >= 2);
+                const videoQuestions = this.state.tempVQ.filter(x => (x.q.trim() || x.qImg) && (x.type === 'short' ? (x.ans || '').trim() : [0, 1, 2, 3].filter(k => hasOpt(x, k)).length >= 2));
                 if (videoQuestions.length && !this.ytId(embedUrl)) {
                     this.showToast('Soal interaktif di dalam video hanya bisa untuk link YouTube.', true);
                     return;
                 }
-                if (videoQuestions.some(x => !hasOpt(x, x.answer))) {
+                if (videoQuestions.some(x => x.type !== 'short' && !hasOpt(x, x.answer))) {
                     this.showToast('Jawaban benar pada salah satu soal video menunjuk pilihan yang kosong.', true);
                     return;
                 }
