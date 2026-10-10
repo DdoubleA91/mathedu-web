@@ -477,6 +477,7 @@
                         <i class="fa-solid fa-circle-info text-brand-blue mr-1"></i> Gunakan NISN sebagai username. Jika lupa password, silakan lapor ke Guru (Admin).
                     </div>
 
+                    <div id="nisn-link" class="text-center mb-3"><button type="button" onclick="app.openNisnLookup()" class="text-xs text-brand-blue underline font-medium"><i class="fa-solid fa-magnifying-glass mr-1"></i>Lupa NISN? Cari dengan nama lengkap</button></div>
                     <button type="submit" class="w-full bg-brand-blue text-white font-bold py-2 rounded-md hover:bg-blue-800 transition">Masuk</button>
                     <button type="button" onclick="app.closeModals()" class="w-full mt-2 bg-gray-100 text-gray-700 font-medium py-2 rounded-md hover:bg-gray-200 transition">Batal</button>
                 </form>
@@ -952,6 +953,8 @@
 
         // 🔗 URL APLIKASI WEB (APPS SCRIPT) 🔗
         // PASTE URL DARI DEPLOYMENT APPS SCRIPT ANDA DI SINI
+        // Ubah ke false jika ingin mematikan menu 'Lupa NISN?' di halaman login.
+        const ENABLE_NISN_LOOKUP = true;
         const appsScriptUrl = 'https://script.google.com/macros/s/AKfycbxFsm_jicD1T91xZ5kwN4FatZZ4PZJkyw_PtGj6r9e--yjbuA9xNGRD7OYFus48-FZS/exec';
 
         const app = {
@@ -2240,14 +2243,14 @@
                 if (!course.stepProgress) course.stepProgress = {};
                 if ((parseInt(course.stepProgress[nisn]) || 1) >= step) return;
                 course.stepProgress[nisn] = step;
-                this.saveCoursesToStorage();
+                this.saveCourseField(course, 'stepProgress', nisn, step);
             },
             saveVideoPartial(idx, time) {
                 const iv = this.state.iv, nisn = this.state.currentUser && this.state.currentUser.nisn;
                 if (!iv || !nisn || this.state.role === 'admin') return;
                 if (!iv.course.videoPartial) iv.course.videoPartial = {};
                 iv.course.videoPartial[nisn] = { idx: idx, time: time };
-                this.saveCoursesToStorage();
+                this.saveCourseField(iv.course, 'videoPartial', nisn, { idx: idx, time: time });
             },
             ivStatus(t) { document.getElementById('iv-status').innerText = t; },
             ivToggle() {
@@ -2332,7 +2335,7 @@
                 if (nisn && this.state.role !== 'admin') {
                     if (!course.videoProgress) course.videoProgress = {};
                     course.videoProgress[nisn] = { completedAt: new Date().toISOString() };
-                    this.saveCoursesToStorage();
+                    this.saveCourseField(course, 'videoProgress', nisn, course.videoProgress[nisn]);
                 }
                 this.ivStatus('Video tuntas! Kamu bisa lanjut ke tahap berikutnya.');
                 this.showToast('Video tuntas!');
@@ -2419,6 +2422,56 @@
                 const m = document.getElementById('cam-modal'); m.classList.add('hidden'); m.classList.remove('flex');
                 document.getElementById('cam-video').srcObject = null;
                 this.state.cam = keep || null;
+            },
+
+            // ===== LUPA NISN =====
+            openNisnLookup() {
+                if (!ENABLE_NISN_LOOKUP) return;
+                document.getElementById('nisn-name').value = '';
+                document.getElementById('nisn-result').innerHTML = '';
+                const m = document.getElementById('nisn-modal'); m.classList.remove('hidden'); m.classList.add('flex');
+                setTimeout(() => document.getElementById('nisn-name').focus(), 100);
+            },
+            closeNisnLookup() {
+                const m = document.getElementById('nisn-modal'); m.classList.add('hidden'); m.classList.remove('flex');
+            },
+            useNisn(nisn) {
+                document.getElementById('login-nisn').value = nisn;
+                this.closeNisnLookup();
+                const pw = document.getElementById('login-password'); if (pw) pw.focus();
+            },
+            searchNisn() {
+                if (!ENABLE_NISN_LOOKUP) return;
+                const out = document.getElementById('nisn-result');
+                const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+                const norm = t => String(t || '').toLowerCase().replace(/\s+/g, ' ').trim();
+                const now = Date.now();
+                this.state.nisnTries = (this.state.nisnTries || []).filter(t => now - t < 120000);
+                if (this.state.nisnTries.length >= 5) { out.innerHTML = '<p class="text-red-600">Terlalu banyak percobaan. Tunggu 2 menit lalu coba lagi, atau tanya Guru.</p>'; return; }
+                const q = norm(document.getElementById('nisn-name').value);
+                if (q.length < 5 || q.indexOf(' ') === -1) { out.innerHTML = '<p class="text-red-600">Ketik nama lengkap (minimal dua kata).</p>'; return; }
+                this.state.nisnTries.push(now);
+                const found = (this.state.users || []).filter(u => u && norm(u.nama) === q);
+                if (!found.length) { out.innerHTML = '<p class="text-red-600">Nama tidak ditemukan. Periksa penulisan atau tanyakan ke Guru.</p>'; return; }
+                out.innerHTML = found.map(u => `<div class="border border-green-200 bg-green-50 rounded-lg p-3 mb-2">
+                    <p class="font-bold text-gray-800">${esc(u.nama)}</p>
+                    <p class="text-xs text-gray-500">Kelas ${esc(u.kelas)}</p>
+                    <p class="mt-1">NISN: <b class="font-mono text-lg text-brand-blue">${esc(u.nisn)}</b></p>
+                    <button type="button" onclick="app.useNisn('${esc(u.nisn)}')" class="mt-2 text-xs bg-brand-green text-white font-bold px-3 py-1 rounded">Pakai NISN ini untuk login</button>
+                </div>`).join('');
+            },
+
+            // Tulis satu field progres saja (bukan seluruh daftar modul) agar progres siswa lain tidak tertimpa.
+            async saveCourseField(course, field, key, value) {
+                const idx = this.state.courses.findIndex(c => c.id === course.id);
+                try {
+                    if (idx < 0) throw new Error('index');
+                    const chk = await database.ref('courses/' + idx + '/id').once('value');
+                    if (chk.val() !== course.id) throw new Error('mismatch');
+                    await database.ref('courses/' + idx + '/' + field + '/' + key).set(value);
+                } catch (e) {
+                    this.saveCoursesToStorage();   // cadangan: perilaku lama
+                }
             },
 
             goHome() {
@@ -4022,5 +4075,16 @@
             </div>
         </div>
     </div>
+    <div id="nisn-modal" class="fixed inset-0 z-[110] bg-black/60 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-5">
+            <h3 class="font-bold text-gray-800 mb-1"><i class="fa-solid fa-id-card text-brand-blue mr-1"></i> Cari NISN</h3>
+            <p class="text-xs text-gray-500 mb-3">Ketik nama lengkap persis seperti di data sekolah (huruf besar/kecil tidak berpengaruh).</p>
+            <input type="text" id="nisn-name" autocomplete="off" class="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-brand-blue outline-none" placeholder="Nama lengkap siswa" onkeydown="if(event.key==='Enter')app.searchNisn()">
+            <button type="button" onclick="app.searchNisn()" class="w-full mt-2 bg-brand-blue text-white font-bold py-2 rounded-md">Cari</button>
+            <div id="nisn-result" class="mt-3 text-sm"></div>
+            <button type="button" onclick="app.closeNisnLookup()" class="w-full mt-3 bg-gray-100 text-gray-700 font-medium py-2 rounded-md">Tutup</button>
+        </div>
+    </div>
+    <script>if (typeof ENABLE_NISN_LOOKUP !== 'undefined' && !ENABLE_NISN_LOOKUP) { var l = document.getElementById('nisn-link'); if (l) l.remove(); }</script>
 </body>
 </html>
