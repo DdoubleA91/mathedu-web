@@ -975,6 +975,7 @@
                 tempVQ: [],
                 vqFocus: null,
                 forcePw: false,
+                progress: {},
                 cam: null,
                 iv: null,
                 videoDone: true,
@@ -1058,6 +1059,10 @@
                     this.state.initialUsersLoaded = true;
                     this.checkInitialLoadComplete();
                 });
+
+                database.ref('progress').on('value', (snapshot) => {
+                    this.state.progress = snapshot.val() || {};
+                }, () => {});
 
                 database.ref('announcements').on('value', (snapshot) => {
                     const data = snapshot.val();
@@ -2034,10 +2039,12 @@
                 } else {
                     // RESUME UNTUK MODUL BELUM SELESAI: lompat ke step sesuai submission yang sudah ada,
                     // jangan selalu paksa mulai dari step 1.
-                    const vdone = !(course.videoQuestions && course.videoQuestions.length) || (nisnForResume && course.videoProgress && course.videoProgress[nisnForResume]);
+                    const prog = nisnForResume ? this.getProg(nisnForResume, course) : { step: 1, videoDone: false };
+                    // Siswa yang sudah mencapai Checkpoint 3+ atau sudah mengumpulkan file pasti sudah melewati video.
+                    const vdone = !(course.videoQuestions && course.videoQuestions.length) || prog.videoDone || prog.step >= 3 || this.state.isExerciseUploaded;
                     // Mulai dari Checkpoint 1. Naik hanya berdasarkan progres milik siswa ini sendiri
                     // (stepProgress di Firebase) atau bukti nyata berupa file yang sudah ia kumpulkan.
-                    let resumeStep = (nisnForResume && course.stepProgress && parseInt(course.stepProgress[nisnForResume])) || 1;
+                    let resumeStep = prog.step;
                     if (this.state.isExerciseUploaded) resumeStep = Math.max(resumeStep, 4);
                     else if (this.state.isSummaryUploaded) resumeStep = Math.max(resumeStep, 2);
                     // Video interaktif belum tuntas -> tidak boleh melewati Checkpoint 2.
@@ -2266,10 +2273,11 @@
             async ivStart(course) {
                 this.ivDestroy();
                 const nisn = this.state.currentUser ? this.state.currentUser.nisn : null;
-                const done = !!(nisn && course.videoProgress && course.videoProgress[nisn]);
+                const prog = nisn ? this.getProg(nisn, course) : null;
+                const done = !!(prog && (prog.videoDone || prog.step >= 3));
                 this.state.videoDone = done || this.state.role === 'admin';
                 const qs = [...course.videoQuestions].sort((a, b) => a.time - b.time);
-                const part = (!done && nisn && course.videoPartial && course.videoPartial[nisn]) || null;
+                const part = (!done && prog && prog.part) || null;
                 const startIdx = part ? Math.min(part.idx || 0, qs.length) : 0;
                 const startTime = part ? (part.time || 0) : 0;
                 const iv = this.state.iv = { qs, idx: startIdx, max: startTime, wait: false, course, mode: course.videoFailMode || 'start', player: null, timer: null };
@@ -2285,20 +2293,42 @@
                 });
                 iv.timer = setInterval(() => this.ivTick(), 250);
             },
+            // ===== PROGRES SISWA (node Firebase tersendiri: progress/<nisn>/<idModul>) =====
+            // Dipisah dari data modul supaya tidak tertimpa saat guru/siswa lain menyimpan daftar modul.
+            getProg(nisn, course) {
+                const n = String(nisn), cid = String(course.id);
+                const p = (this.state.progress && this.state.progress[n] && this.state.progress[n][cid]) || {};
+                const legacyStep = (course.stepProgress && parseInt(course.stepProgress[n])) || 0;
+                const legacyDone = !!(course.videoProgress && course.videoProgress[n]);
+                const legacyPart = (course.videoPartial && course.videoPartial[n]) || null;
+                return {
+                    step: Math.max(parseInt(p.step) || 0, legacyStep) || 1,
+                    videoDone: !!p.videoDone || legacyDone,
+                    part: (p.vIdx !== undefined ? { idx: p.vIdx, time: p.vTime || 0 } : null) || legacyPart
+                };
+            },
+            setProg(nisn, course, patch) {
+                const n = String(nisn), cid = String(course.id);
+                if (!this.state.progress) this.state.progress = {};
+                if (!this.state.progress[n]) this.state.progress[n] = {};
+                this.state.progress[n][cid] = Object.assign({}, this.state.progress[n][cid], patch);
+                database.ref('progress/' + n + '/' + cid).update(patch).catch(() => {
+                    // Cadangan jika aturan Firebase menolak node baru: simpan di data modul seperti sebelumnya.
+                    if (patch.step !== undefined) this.saveCourseField(course, 'stepProgress', n, patch.step);
+                    if (patch.videoDone) this.saveCourseField(course, 'videoProgress', n, { completedAt: new Date().toISOString() });
+                    if (patch.vIdx !== undefined) this.saveCourseField(course, 'videoPartial', n, { idx: patch.vIdx, time: patch.vTime || 0 });
+                });
+            },
             saveStepProgress(course, step) {
                 const nisn = this.state.currentUser && this.state.currentUser.nisn;
                 if (!course || !nisn || this.state.role === 'admin') return;
-                if (!course.stepProgress) course.stepProgress = {};
-                if ((parseInt(course.stepProgress[nisn]) || 1) >= step) return;
-                course.stepProgress[nisn] = step;
-                this.saveCourseField(course, 'stepProgress', nisn, step);
+                if (this.getProg(nisn, course).step >= step) return;
+                this.setProg(nisn, course, { step: step });
             },
             saveVideoPartial(idx, time) {
                 const iv = this.state.iv, nisn = this.state.currentUser && this.state.currentUser.nisn;
                 if (!iv || !nisn || this.state.role === 'admin') return;
-                if (!iv.course.videoPartial) iv.course.videoPartial = {};
-                iv.course.videoPartial[nisn] = { idx: idx, time: time };
-                this.saveCourseField(iv.course, 'videoPartial', nisn, { idx: idx, time: time });
+                this.setProg(nisn, iv.course, { vIdx: idx, vTime: time });
             },
             ivStatus(t) { document.getElementById('iv-status').innerText = t; },
             ivToggle() {
@@ -2381,9 +2411,7 @@
                 this.state.videoDone = true;
                 const course = iv.course, nisn = this.state.currentUser && this.state.currentUser.nisn;
                 if (nisn && this.state.role !== 'admin') {
-                    if (!course.videoProgress) course.videoProgress = {};
-                    course.videoProgress[nisn] = { completedAt: new Date().toISOString() };
-                    this.saveCourseField(course, 'videoProgress', nisn, course.videoProgress[nisn]);
+                    this.setProg(nisn, course, { videoDone: true });
                 }
                 this.ivStatus('Video tuntas! Kamu bisa lanjut ke tahap berikutnya.');
                 this.showToast('Video tuntas!');
@@ -3927,11 +3955,13 @@
                         if (course[k] && course[k][nisn] !== undefined) delete course[k][nisn];
                     });
                 });
+                try { database.ref('progress/' + nisn).remove(); if (this.state.progress) delete this.state.progress[nisn]; } catch (e) {}
                 return fileIdsToDelete;
             },
 
             // Hapus sisa progres (checkpoint & video) milik NISN tertentu, tanpa menyentuh data lain.
             clearProgressForNisn(nisn) {
+                try { database.ref('progress/' + nisn).remove(); if (this.state.progress) delete this.state.progress[nisn]; } catch (e) {}
                 let changed = false;
                 this.state.courses.forEach(course => {
                     ['stepProgress', 'videoProgress', 'videoPartial'].forEach(k => {
