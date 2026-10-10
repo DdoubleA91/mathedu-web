@@ -754,6 +754,14 @@
                             </label>
                         </div>
                         <div id="f-student-target-wrapper" class="hidden">
+                            <div class="bg-white border border-purple-200 rounded-md p-2 mb-2">
+                                <label class="block text-xs font-bold text-purple-800 mb-1"><i class="fa-solid fa-copy mr-1"></i> Salin pilihan siswa dari modul/kuis lain</label>
+                                <select id="f-copy-from" class="w-full border border-gray-300 rounded-md p-1.5 text-sm mb-1.5"></select>
+                                <div class="flex gap-2">
+                                    <button type="button" onclick="app.copyTargetsFrom('replace')" class="flex-1 text-xs font-bold bg-purple-600 text-white rounded-md py-1.5 hover:bg-purple-700">Salin (ganti pilihan sekarang)</button>
+                                    <button type="button" onclick="app.copyTargetsFrom('add')" class="flex-1 text-xs font-bold border border-purple-400 text-purple-700 rounded-md py-1.5 hover:bg-purple-50">Tambahkan ke pilihan</button>
+                                </div>
+                            </div>
                             <input type="text" id="f-student-search" placeholder="Cari nama atau kelas siswa..." class="w-full border border-gray-300 rounded-md p-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-brand-blue" oninput="app.renderStudentTargetOptions()">
                             <div id="f-student-target-list" class="max-h-48 overflow-y-auto border border-purple-200 rounded-md bg-white p-2 space-y-1 text-sm">
                                 <!-- Diisi oleh JavaScript -->
@@ -3693,6 +3701,38 @@
                 document.getElementById('btn-remove-attachment').classList.add('hidden');
             },
 
+            populateCopyTargets() {
+                const sel = document.getElementById('f-copy-from'); if (!sel) return;
+                const prev = sel.value;
+                const label = v => {
+                    const n = (v.visibility.studentNisns || []);
+                    const kelas = [...new Set(n.map(x => { const u = this.state.users.find(u => u.nisn === x); return u ? (u.kelas || '-') : null; }).filter(Boolean))].sort();
+                    return `${n.length} siswa${kelas.length ? ' · ' + kelas.join(', ') : ''}`;
+                };
+                const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+                const hasSel = x => x.visibility && x.visibility.mode === 'selected' && (x.visibility.studentNisns || []).length;
+                const mods = this.state.courses.filter(c => c.id !== this.state.editingCourseId && hasSel(c));
+                const quizzes = (this.state.quizzes || []).filter(hasSel);
+                let html = '<option value="">- Pilih sumber -</option>';
+                if (mods.length) html += '<optgroup label="Modul">' + mods.map(c => `<option value="m:${c.id}">${esc(c.title)} (${label(c)})</option>`).join('') + '</optgroup>';
+                if (quizzes.length) html += '<optgroup label="Kuis">' + quizzes.map(q => `<option value="q:${q.id}">${esc(q.title)} (${label(q)})</option>`).join('') + '</optgroup>';
+                if (!mods.length && !quizzes.length) html = '<option value="">Belum ada modul/kuis dengan siswa tertentu</option>';
+                sel.innerHTML = html;
+                if (prev) sel.value = prev;
+            },
+            copyTargetsFrom(mode) {
+                const v = document.getElementById('f-copy-from').value;
+                if (!v) { this.showToast('Pilih modul/kuis sumber dulu.', true); return; }
+                const [kind, id] = v.split(':');
+                const src = kind === 'q' ? (this.state.quizzes || []).find(x => String(x.id) === id) : this.state.courses.find(x => String(x.id) === id);
+                if (!src || !src.visibility) { this.showToast('Sumber tidak ditemukan.', true); return; }
+                // Hanya siswa yang masih terdaftar (yang sudah dihapus dilewati).
+                const valid = (src.visibility.studentNisns || []).filter(n => this.state.users.some(u => u.nisn === n));
+                this.state.tempTargetNisns = mode === 'add' ? [...new Set([...this.state.tempTargetNisns, ...valid])] : [...valid];
+                this.renderStudentTargetOptions();
+                this.showToast(`${valid.length} siswa disalin dari "${src.title}". Total terpilih: ${this.state.tempTargetNisns.length}.`);
+            },
+
             toggleVisibilityMode() {
                 const isSelected = document.getElementById('f-visibility-selected').checked;
                 document.getElementById('f-student-target-wrapper').classList.toggle('hidden', !isSelected);
@@ -3721,6 +3761,7 @@
             },
 
             renderStudentTargetOptions() {
+                this.populateCopyTargets();
                 const listEl = document.getElementById('f-student-target-list');
                 const query = (document.getElementById('f-student-search').value || '').toLowerCase();
 
