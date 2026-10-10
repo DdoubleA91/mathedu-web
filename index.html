@@ -903,14 +903,19 @@
     <!-- MODAL: Ubah Password -->
     <div id="modal-password" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center fade-in">
         <div class="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden p-6">
-            <h3 class="text-lg font-bold mb-4">Ubah Password</h3>
+            <h3 class="text-lg font-bold mb-2" id="pw-title">Ubah Password</h3>
+            <p id="pw-force-msg" class="hidden text-xs text-orange-800 bg-orange-50 border border-orange-200 rounded-md p-2 mb-3">Demi keamanan akunmu, buat password baru sebelum melanjutkan. Progres belajarmu tidak berubah.</p>
             <form onsubmit="event.preventDefault(); app.changePassword();">
                 <div class="mb-3">
-                    <label class="block text-sm text-gray-700 mb-1">Password Baru</label>
-                    <input type="password" id="new-password" required class="w-full border border-gray-300 rounded-md p-2">
+                    <label class="block text-sm text-gray-700 mb-1">Password Baru (minimal 6 karakter)</label>
+                    <input type="password" id="new-password" required autocomplete="new-password" class="w-full border border-gray-300 rounded-md p-2">
+                </div>
+                <div class="mb-3">
+                    <label class="block text-sm text-gray-700 mb-1">Ulangi Password Baru</label>
+                    <input type="password" id="new-password2" required autocomplete="new-password" class="w-full border border-gray-300 rounded-md p-2">
                 </div>
                 <button type="submit" class="w-full bg-brand-blue text-white font-bold py-2 rounded-md hover:bg-blue-800 transition mt-2">Simpan</button>
-                <button type="button" onclick="app.closeModals()" class="w-full mt-2 bg-gray-100 text-gray-700 font-medium py-2 rounded-md hover:bg-gray-200">Batal</button>
+                <button type="button" id="pw-cancel" onclick="app.closeModals()" class="w-full mt-2 bg-gray-100 text-gray-700 font-medium py-2 rounded-md hover:bg-gray-200">Batal</button>
             </form>
         </div>
     </div>
@@ -969,6 +974,7 @@
                 tempAttachment: null, 
                 tempVQ: [],
                 vqFocus: null,
+                forcePw: false,
                 cam: null,
                 iv: null,
                 videoDone: true,
@@ -1123,6 +1129,7 @@
                         const user = this.state.users.find(u => u.nisn === parsedSession.nisn);
                         if (user) {
                             this.setRole('student', user);
+                            this.enforcePasswordChange();
                         } else {
                             this.logout(); 
                         }
@@ -1234,6 +1241,7 @@
                         sessionStorage.setItem('mathedu_session', JSON.stringify({ role: 'student', nisn: nisn }));
                         this.closeModals();
                         this.showToast(`Selamat datang, ${user.nama}!`);
+                        this.enforcePasswordChange();
                         return;
                     } else {
                         this.showToast('Password salah!', true);
@@ -1244,6 +1252,8 @@
             },
 
             logout() {
+                this.state.forcePw = false;
+                document.getElementById('modal-password').classList.add('hidden');
                 sessionStorage.removeItem('mathedu_session');
                 this.setRole('guest', null);
                 this.goHome();
@@ -1711,21 +1721,59 @@
             },
 
             openChangePasswordModal() {
+                this.state.forcePw = false;
                 document.getElementById('new-password').value = '';
+                document.getElementById('new-password2').value = '';
+                document.getElementById('pw-title').innerText = 'Ubah Password';
+                document.getElementById('pw-force-msg').classList.add('hidden');
+                const c = document.getElementById('pw-cancel');
+                c.innerText = 'Batal'; c.setAttribute('onclick', 'app.closeModals()');
                 document.getElementById('modal-password').classList.remove('hidden');
             },
 
-            async changePassword() {
-                const newPass = document.getElementById('new-password').value;
-                if (this.state.role === 'student' && this.state.currentUser) {
-                    const userIndex = this.state.users.findIndex(u => u.nisn === this.state.currentUser.nisn);
-                    if (userIndex > -1) {
-                        this.state.users[userIndex].password = await this.hashPassword(newPass);
-                        this.saveUsersToStorage();
-                        this.showToast('Password berhasil diubah!');
-                        this.closeModals();
-                    }
+            // Siswa yang masih memakai password awal (123456) wajib membuat password baru.
+            async enforcePasswordChange() {
+                if (this.state.role !== 'student' || !this.state.currentUser) return;
+                const u = this.state.users.find(x => x.nisn === this.state.currentUser.nisn);
+                if (!u) return;
+                const defHash = await this.hashPassword('123456');
+                if (u.password !== defHash && u.password !== '123456') return;
+                this.openChangePasswordModal();
+                this.state.forcePw = true;
+                document.getElementById('pw-title').innerText = 'Buat Password Baru';
+                document.getElementById('pw-force-msg').classList.remove('hidden');
+                const c = document.getElementById('pw-cancel');
+                c.innerText = 'Keluar'; c.setAttribute('onclick', 'app.logout()');
+            },
+
+            async saveUserField(nisn, field, value) {
+                const idx = this.state.users.findIndex(u => u.nisn === nisn);
+                try {
+                    if (idx < 0) throw new Error('index');
+                    const chk = await database.ref('users/' + idx + '/nisn').once('value');
+                    if (String(chk.val()) !== String(nisn)) throw new Error('mismatch');
+                    await database.ref('users/' + idx + '/' + field).set(value);
+                } catch (e) {
+                    this.saveUsersToStorage();   // cadangan: perilaku lama
                 }
+            },
+
+            async changePassword() {
+                const p1 = document.getElementById('new-password').value;
+                const p2 = document.getElementById('new-password2').value;
+                if (this.state.role !== 'student' || !this.state.currentUser) return;
+                const nisn = this.state.currentUser.nisn;
+                if (p1.length < 6) { this.showToast('Password minimal 6 karakter.', true); return; }
+                if (p1 !== p2) { this.showToast('Ulangi password harus sama.', true); return; }
+                if (p1 === '123456' || p1 === String(nisn)) { this.showToast('Password terlalu mudah ditebak. Pilih yang lain.', true); return; }
+                const userIndex = this.state.users.findIndex(u => u.nisn === nisn);
+                if (userIndex < 0) return;
+                const hash = await this.hashPassword(p1);
+                this.state.users[userIndex].password = hash;
+                await this.saveUserField(nisn, 'password', hash);
+                this.state.forcePw = false;
+                this.showToast('Password berhasil diubah!');
+                this.closeModals();
             },
 
             renderCourses() {
@@ -4001,6 +4049,7 @@
                 document.getElementById('modal-quiz-form').classList.add('hidden');
                 document.getElementById('modal-quiz-results').classList.add('hidden');
                 this.closeConfirmModal();
+                if (this.state.forcePw) document.getElementById('modal-password').classList.remove('hidden');
             },
 
             showToast(message, isError = false) {
