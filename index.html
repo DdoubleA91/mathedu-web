@@ -729,6 +729,13 @@
                                 <p class="text-[10px] text-gray-600 leading-tight mt-0.5">Modul tidak muncul di dashboard siswa mana pun, tetapi tidak dihapus. Hilangkan centang saat siap dibuka untuk siswa yang Anda pilih.</p>
                             </div>
                         </label>
+                        <label class="flex items-start gap-2 cursor-pointer mt-2 pt-2 border-t border-gray-300">
+                            <input type="checkbox" id="f-auto-lock" class="mt-1 w-4 h-4 rounded border-gray-300">
+                            <div>
+                                <span class="text-sm font-bold text-gray-800"><i class="fa-solid fa-clock mr-1"></i> Kunci otomatis setelah deadline lewat</span>
+                                <p class="text-[10px] text-gray-600 leading-tight mt-0.5">Wajib mengisi tanggal deadline. Modul otomatis terkunci mulai pukul 00.00 WIB sehari setelah tanggal deadline. Mengubah tanggal deadline ke depan membukanya lagi.</p>
+                            </div>
+                        </label>
                     </div>
 
                     <div class="bg-sky-50 border border-sky-200 p-3 rounded-md mt-2">
@@ -994,6 +1001,7 @@
                 tempVQ: [],
                 vqFocus: null,
                 forcePw: false,
+                serverOffset: 0,
                 progress: {},
                 cam: null,
                 iv: null,
@@ -1082,6 +1090,20 @@
                 database.ref('progress').on('value', (snapshot) => {
                     this.state.progress = snapshot.val() || {};
                 }, () => {});
+
+                database.ref('.info/serverTimeOffset').on('value', (snapshot) => {
+                    this.state.serverOffset = snapshot.val() || 0;
+                });
+                // Segarkan dashboard siswa otomatis saat ada modul yang baru terkunci karena deadline.
+                setInterval(() => {
+                    if (this.state.role !== 'student') return;
+                    const sig = this.state.courses.filter(c => this.isCourseLocked(c)).map(c => c.id).join(',');
+                    if (this.state.lockSig !== undefined && this.state.lockSig !== sig) {
+                        this.renderCourses();
+                        this.updateStudentProgressBanner();
+                    }
+                    this.state.lockSig = sig;
+                }, 60000);
 
                 database.ref('announcements').on('value', (snapshot) => {
                     const data = snapshot.val();
@@ -1808,7 +1830,7 @@
                 const filtered = this.state.courses.filter(c => {
                     const matchesSearch = c.title.toLowerCase().includes(searchQuery) || c.category.toLowerCase().includes(searchQuery);
                     if (!matchesSearch) return false;
-                    if (c.locked && this.state.role !== 'admin') return false;   // modul terkunci disembunyikan dari siswa
+                    if (this.isCourseLocked(c) && this.state.role !== 'admin') return false;   // modul terkunci disembunyikan dari siswa
 
                     if (this.state.role === 'student' && this.state.currentUser && c.visibility && c.visibility.mode === 'selected') {
                         return (c.visibility.studentNisns || []).includes(this.state.currentUser.nisn);
@@ -1816,7 +1838,7 @@
                     return true;
                 });
 
-                if (this.state.role === 'admin') filtered.sort((x, y) => (x.locked ? 1 : 0) - (y.locked ? 1 : 0));   // modul terkunci di urutan akhir
+                if (this.state.role === 'admin') filtered.sort((x, y) => (this.isCourseLocked(x) ? 1 : 0) - (this.isCourseLocked(y) ? 1 : 0));   // modul terkunci di urutan akhir
 
                 if (filtered.length === 0) {
                     grid.innerHTML = `<div class="col-span-full text-center py-10 text-gray-500">Tidak ada materi yang ditemukan.</div>`;
@@ -1841,7 +1863,7 @@
                         // Hanya hitung siswa target saat ini (siswa angkatan lama tidak ikut terhitung).
                         learnersCount = (course.completedBy || []).filter(n => (course.visibility.studentNisns || []).includes(n)).length;
                     }
-                    const lockBadge = (course.locked && this.state.role === 'admin') ? `<div class="absolute top-3 right-3 bg-gray-800 text-white text-xs font-bold px-2 py-1 rounded shadow-sm z-10"><i class="fa-solid fa-lock"></i> Terkunci</div>` : '';
+                    const lockBadge = (this.isCourseLocked(course) && this.state.role === 'admin') ? `<div class="absolute top-3 right-3 bg-gray-800 text-white text-xs font-bold px-2 py-1 rounded shadow-sm z-10"><i class="fa-solid fa-lock"></i> ${course.locked ? 'Terkunci' : 'Terkunci otomatis'}</div>` : '';
                     let visibilityBadge = '';
                     if (this.state.role === 'admin' && course.visibility && course.visibility.mode === 'selected') {
                         const targetCount = (course.visibility.studentNisns || []).length;
@@ -1860,7 +1882,7 @@
                         actionButtons = `
                             <div class="flex gap-2">
                                 <button onclick="app.openCourse(${course.id})" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-3 rounded-lg text-sm flex-grow transition" title="Lihat"><i class="fa-solid fa-eye"></i></button>
-                                <button onclick="app.toggleLock(${course.id})" class="${course.locked ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} font-bold py-2 px-3 rounded-lg text-sm transition" title="${course.locked ? 'Buka kunci' : 'Kunci modul'}"><i class="fa-solid fa-${course.locked ? 'lock-open' : 'lock'}"></i></button>
+                                <button onclick="app.toggleLock(${course.id})" class="${this.isCourseLocked(course) ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} font-bold py-2 px-3 rounded-lg text-sm transition" title="${this.isCourseLocked(course) ? 'Buka kunci' : 'Kunci modul'}"><i class="fa-solid fa-${this.isCourseLocked(course) ? 'lock-open' : 'lock'}"></i></button>
                                 <button onclick="app.openEditModal(${course.id})" class="bg-blue-100 hover:bg-blue-200 text-brand-blue font-bold py-2 px-3 rounded-lg text-sm transition" title="Edit"><i class="fa-solid fa-pen"></i></button>
                                 <button onclick="app.confirmDeleteCourse(${course.id})" class="bg-red-100 hover:bg-red-200 text-red-600 font-bold py-2 px-3 rounded-lg text-sm transition" title="Hapus"><i class="fa-solid fa-trash"></i></button>
                             </div>
@@ -1868,7 +1890,7 @@
                     }
 
                     grid.innerHTML += `
-                        <div class="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-shadow duration-300 border border-gray-100 overflow-hidden flex flex-col h-full group relative ${course.locked ? 'opacity-60' : ''}">
+                        <div class="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-shadow duration-300 border border-gray-100 overflow-hidden flex flex-col h-full group relative ${this.isCourseLocked(course) ? 'opacity-60' : ''}">
                             ${badgeCompleted}${lockBadge}
                             <div class="h-40 overflow-hidden relative">
                                 <div class="absolute top-3 left-3 ${typeColor} text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm z-10">${typeText}</div>
@@ -1905,7 +1927,7 @@
 
                 const nisn = this.state.currentUser.nisn;
                 const visibleCourses = this.state.courses.filter(c => {
-                    if (c.locked) return false;
+                    if (this.isCourseLocked(c)) return false;
                     if (c.visibility && c.visibility.mode === 'selected') {
                         return (c.visibility.studentNisns || []).includes(nisn);
                     }
@@ -1940,8 +1962,8 @@
 
                 const course = this.state.courses.find(c => c.id === id);
                 if (!course) return;
-                if (course.locked && this.state.role !== 'admin') {
-                    this.showToast('Modul ini sedang dikunci oleh Guru.', true);
+                if (this.isCourseLocked(course) && this.state.role !== 'admin') {
+                    this.showToast(course.locked ? 'Modul ini sedang dikunci oleh Guru.' : 'Waktu pengerjaan modul ini sudah berakhir.', true);
                     return;
                 }
 
@@ -2629,6 +2651,15 @@
                 }
             },
 
+            // Waktu server Firebase (kebal terhadap jam HP siswa yang diubah-ubah).
+            nowMs() { return Date.now() + (this.state.serverOffset || 0); },
+            isAutoLocked(c) {
+                if (!c || !c.autoLock || !c.deadline) return false;
+                const end = new Date(c.deadline + 'T00:00:00+07:00').getTime() + 86400000;   // 00.00 WIB hari berikutnya
+                return this.nowMs() >= end;
+            },
+            isCourseLocked(c) { return !!(c && (c.locked || this.isAutoLocked(c))); },
+
             async setCourseProp(course, prop, value) {
                 const idx = this.state.courses.findIndex(c => c.id === course.id);
                 try {
@@ -2643,6 +2674,11 @@
             toggleLock(id) {
                 const course = this.state.courses.find(c => c.id === id);
                 if (!course) return;
+                if (this.isAutoLocked(course)) {
+                    this.showToast('Modul terkunci otomatis karena deadline lewat. Ubah tanggal deadline (atau matikan kunci otomatis) lewat Edit.', true);
+                    this.openEditModal(id);
+                    return;
+                }
                 const unlocking = !!course.locked;
                 const target = (course.visibility && course.visibility.mode === 'selected')
                     ? (course.visibility.studentNisns || []).length + ' siswa terpilih' : 'SEMUA siswa';
@@ -3733,6 +3769,7 @@
                 document.getElementById('f-upload-summary').value = course.uploadSummary || 'file';
                 document.getElementById('f-upload-task').value = course.uploadTask || 'file';
                 document.getElementById('f-locked').checked = !!course.locked;
+                document.getElementById('f-auto-lock').checked = !!course.autoLock;
                 
                 let imgVal = course.thumbnail;
                 if(imgVal.includes('placehold.co')) imgVal = '';
@@ -3912,6 +3949,10 @@
                 const type = document.getElementById('f-type').value;
                 const duration = document.getElementById('f-duration').value;
                 const deadline = document.getElementById('f-deadline').value || null;
+                if (document.getElementById('f-auto-lock').checked && !deadline) {
+                    this.showToast('Isi tanggal deadline dulu untuk memakai kunci otomatis.', true);
+                    return;
+                }
                 const image = document.getElementById('f-image').value;
                 let video = document.getElementById('f-video').value;
                 const requireSummary = document.getElementById('f-require-summary').checked;
@@ -3975,6 +4016,7 @@
                             uploadSummary: document.getElementById('f-upload-summary').value,
                             uploadTask: document.getElementById('f-upload-task').value,
                             locked: document.getElementById('f-locked').checked,
+                            autoLock: document.getElementById('f-auto-lock').checked,
                             exercise: exercise,
                             attachment: this.state.tempAttachment,
                             visibility: visibility
@@ -4000,6 +4042,7 @@
                             uploadSummary: document.getElementById('f-upload-summary').value,
                             uploadTask: document.getElementById('f-upload-task').value,
                             locked: document.getElementById('f-locked').checked,
+                            autoLock: document.getElementById('f-auto-lock').checked,
                         exercise: exercise,
                         attachment: this.state.tempAttachment,
                         visibility: visibility
