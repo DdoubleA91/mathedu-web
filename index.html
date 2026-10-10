@@ -51,6 +51,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
 
@@ -337,7 +338,7 @@
                             <i class="fa-solid fa-book-open-reader text-3xl text-brand-orange mb-2"></i>
                             <h4 class="font-bold text-gray-800 mb-1">Tugas Rangkuman Video</h4>
                             <p class="text-sm text-gray-600 mb-4">Guru mewajibkan kamu mencatat rangkuman dari video di atas ke dalam buku tulismu. <br><strong>Upload foto catatanmu di sini untuk bisa lanjut ke tahap berikutnya.</strong></p>
-                            <input type="file" class="hidden" id="summary-upload" accept="image/*,.pdf" onchange="app.handleSummaryUpload()">
+                            <input type="file" class="hidden" id="summary-upload" accept="image/*,.pdf" multiple onchange="app.handleSummaryUpload()">
                             <button id="btn-summary-upload" onclick="app.pickUpload('summary')" class="bg-brand-orange text-white px-5 py-2 rounded-md shadow-sm font-medium hover:bg-orange-600 transition">
                                 <i class="fa-solid fa-camera mr-1"></i> Pilih Foto / File
                             </button>
@@ -383,7 +384,7 @@
                             <i class="fa-brands fa-google-drive text-4xl text-gray-400 mb-3"></i>
                             <h4 class="font-bold text-gray-700 mb-1">Kumpulkan Tugas</h4>
                             <p id="student-upload-hint" class="text-xs text-gray-500 mb-4">Pilih file untuk dikirim ke Google Drive Guru.</p>
-                            <input type="file" class="hidden" id="student-upload" onchange="app.handleStudentUpload()">
+                            <input type="file" class="hidden" id="student-upload" multiple onchange="app.handleStudentUpload()">
                             <button id="btn-student-upload" onclick="app.pickUpload('task')" class="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md shadow-sm font-medium hover:bg-gray-50">
                                 <i class="fa-solid fa-upload mr-1"></i> Pilih File Pekerjaan
                             </button>
@@ -2435,8 +2436,8 @@
                     ? '<i class="fa-solid fa-camera mr-1"></i> Ambil Foto Pekerjaan dengan Kamera'
                     : '<i class="fa-solid fa-upload mr-1"></i> Pilih File Pekerjaan';
                 document.getElementById('student-upload-hint').innerText = tCam
-                    ? 'Foto pekerjaanmu langsung dengan kamera. Memilih dari galeri/file tidak diizinkan.'
-                    : 'Pilih file untuk dikirim ke Google Drive Guru.';
+                    ? 'Foto pekerjaanmu langsung dengan kamera. Bisa lebih dari satu lembar, semuanya digabung menjadi 1 PDF. Memilih dari galeri tidak diizinkan.'
+                    : 'Pilih file untuk dikirim ke Google Drive Guru. Boleh pilih beberapa foto sekaligus, otomatis digabung menjadi 1 PDF.';
             },
             pickUpload(kind) {
                 const course = this.state.courses.find(c => c.id === this.state.activeCourseId) || {};
@@ -2446,66 +2447,112 @@
                 this.camOpen(input, kind === 'summary' ? 'handleSummaryUpload' : 'handleStudentUpload');
             },
             async camOpen(input, handler) {
-                this.state.cam = { input, handler, stream: null, blob: null };
+                this.state.cam = { input, handler, stream: null, blob: null, shots: [] };
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                     // Perangkat/browser tanpa akses kamera langsung: minta kamera bawaan HP lewat atribut capture.
                     const f = document.createElement('input');
                     f.type = 'file'; f.accept = 'image/*'; f.setAttribute('capture', 'environment');
-                    f.onchange = () => { if (f.files[0]) this.camDeliver(f.files[0]); };
+                    f.onchange = () => { if (f.files[0]) this.camDeliver([f.files[0]]); };
                     f.click();
                     return;
                 }
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
                     this.state.cam.stream = stream;
-                    const v = document.getElementById('cam-video');
-                    v.srcObject = stream; v.classList.remove('hidden');
-                    document.getElementById('cam-canvas').classList.add('hidden');
-                    ['cam-retake', 'cam-send'].forEach(id => document.getElementById(id).classList.add('hidden'));
-                    document.getElementById('cam-snap').classList.remove('hidden');
+                    document.getElementById('cam-video').srcObject = stream;
                     const m = document.getElementById('cam-modal'); m.classList.remove('hidden'); m.classList.add('flex');
+                    this.camUI('live');
                 } catch (err) {
                     this.showToast('Kamera tidak bisa dibuka. Izinkan akses kamera di browser lalu coba lagi.', true);
                 }
+            },
+            camUI(mode) {
+                const cam = this.state.cam; if (!cam) return;
+                const n = cam.shots.length, live = mode === 'live';
+                const show = (id, on) => document.getElementById(id).classList.toggle('hidden', !on);
+                show('cam-video', live); show('cam-canvas', !live);
+                show('cam-snap', live); show('cam-retake', !live); show('cam-add', !live);
+                show('cam-send', !live || n > 0);
+                document.getElementById('cam-send').innerText = 'Kirim ' + (live ? n : n + 1) + ' Lembar';
+                document.getElementById('cam-count').innerText = n ? (n + ' lembar sudah diambil' + (live ? ' - ambil lagi atau kirim' : '')) : '';
+                document.getElementById('cam-thumbs').innerHTML = cam.shots.map(sh => `<img src="${sh.url}" class="h-12 rounded border border-white/40">`).join('');
             },
             camSnap() {
                 const v = document.getElementById('cam-video'), c = document.getElementById('cam-canvas');
                 if (!v.videoWidth) return;
                 c.width = v.videoWidth; c.height = v.videoHeight;
                 c.getContext('2d').drawImage(v, 0, 0);
+                this.state.cam.blob = null;
                 c.toBlob(b => { this.state.cam.blob = b; }, 'image/jpeg', 0.9);
-                v.classList.add('hidden'); c.classList.remove('hidden');
-                document.getElementById('cam-snap').classList.add('hidden');
-                ['cam-retake', 'cam-send'].forEach(id => document.getElementById(id).classList.remove('hidden'));
+                this.camUI('review');
             },
             camRetake() {
                 this.state.cam.blob = null;
-                document.getElementById('cam-video').classList.remove('hidden');
-                document.getElementById('cam-canvas').classList.add('hidden');
-                document.getElementById('cam-snap').classList.remove('hidden');
-                ['cam-retake', 'cam-send'].forEach(id => document.getElementById(id).classList.add('hidden'));
+                this.camUI('live');
             },
-            camSend() {
+            camAdd() {
                 const cam = this.state.cam;
                 if (!cam || !cam.blob) { this.showToast('Foto belum siap, coba lagi.', true); return; }
-                const file = new File([cam.blob], 'foto_kamera_' + Date.now() + '.jpg', { type: 'image/jpeg' });
-                this.camClose();
-                this.camDeliver(file, cam);
+                cam.shots.push({ blob: cam.blob, url: URL.createObjectURL(cam.blob) });
+                cam.blob = null;
+                this.camUI('live');
             },
-            camDeliver(file, cam) {
+            camSend() {
+                const cam = this.state.cam; if (!cam) return;
+                const blobs = cam.shots.map(sh => sh.blob);
+                if (cam.blob) blobs.push(cam.blob);
+                if (!blobs.length) { this.showToast('Foto belum siap, coba lagi.', true); return; }
+                const t = Date.now();
+                const files = blobs.map((b, i) => new File([b], 'foto_kamera_' + t + '_' + (i + 1) + '.jpg', { type: 'image/jpeg' }));
+                this.camClose();
+                this.camDeliver(files, cam);
+            },
+            camDeliver(files, cam) {
                 cam = cam || this.state.cam;
                 if (!cam) return;
-                const dt = new DataTransfer(); dt.items.add(file);
+                const dt = new DataTransfer();
+                files.forEach(f => dt.items.add(f));
                 cam.input.files = dt.files;
                 this[cam.handler]();
             },
             camClose() {
                 const cam = this.state.cam;
                 if (cam && cam.stream) cam.stream.getTracks().forEach(t => t.stop());
-                const keep = cam && { input: cam.input, handler: cam.handler };
+                if (cam) cam.shots.forEach(sh => URL.revokeObjectURL(sh.url));
+                const keep = cam && { input: cam.input, handler: cam.handler, shots: [] };
                 const m = document.getElementById('cam-modal'); m.classList.add('hidden'); m.classList.remove('flex');
                 document.getElementById('cam-video').srcObject = null;
                 this.state.cam = keep || null;
+            },
+
+            // Gabungkan beberapa foto menjadi 1 PDF (1 foto/1 file non-gambar dikirim apa adanya).
+            async prepareUpload(files) {
+                if (files.length === 1) return this.compressImageForUpload(files[0]);
+                if (!files.every(f => f.type.startsWith('image/'))) throw new Error('Untuk banyak file, semuanya harus berupa foto.');
+                if (!(window.jspdf && window.jspdf.jsPDF)) throw new Error('Pustaka PDF belum termuat, periksa internet lalu coba lagi.');
+                const { jsPDF } = window.jspdf;
+                let pdf = null;
+                for (const f of files) {
+                    const { base64 } = await this.compressImageForUpload(f, 1400, 0.7);
+                    // Paksa jadi JPEG (jaga-jaga file asli PNG/WebP) sekaligus ambil ukurannya.
+                    const dim = await new Promise((res, rej) => {
+                        const im = new Image();
+                        im.onload = () => {
+                            const c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
+                            const cx = c.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, c.width, c.height); cx.drawImage(im, 0, 0);
+                            res({ w: im.width, h: im.height, jpg: c.toDataURL('image/jpeg', 0.7) });
+                        };
+                        im.onerror = () => rej(new Error('Foto tidak bisa dibaca.')); im.src = base64;
+                    });
+                    const land = dim.w > dim.h;
+                    const pw = land ? 297 : 210, ph = land ? 210 : 297, m = 5;
+                    if (!pdf) pdf = new jsPDF({ orientation: land ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
+                    else pdf.addPage('a4', land ? 'landscape' : 'portrait');
+                    const r = Math.min((pw - 2 * m) / dim.w, (ph - 2 * m) / dim.h);
+                    const w = dim.w * r, h = dim.h * r;
+                    pdf.addImage(dim.jpg, 'JPEG', (pw - w) / 2, (ph - h) / 2, w, h);
+                }
+                return { base64: pdf.output('datauristring'), mimeType: 'application/pdf', fileName: 'Lembar_' + files.length + '_halaman.pdf' };
             },
 
             // ===== LUPA NISN =====
@@ -3427,7 +3474,8 @@
 
             handleSummaryUpload() {
                 const fileInput = document.getElementById('summary-upload');
-                const file = fileInput.files[0];
+                const files = [...fileInput.files];
+                const file = files[0];
                 if (!file) return;
 
                 if (appsScriptUrl === 'URL_WEB_APP_APPS_SCRIPT_ANDA_DI_SINI') {
@@ -3435,7 +3483,7 @@
                     return;
                 }
 
-                if (file.size > 15 * 1024 * 1024) {
+                if (files.some(f => f.size > 15 * 1024 * 1024)) {
                     this.showToast('Ukuran file terlalu besar (maks 15MB). Pilih foto/file yang lebih kecil.', true);
                     fileInput.value = '';
                     return;
@@ -3445,7 +3493,7 @@
                 document.getElementById('summary-upload-overlay').classList.add('flex');
                 document.getElementById('summary-upload-name').classList.add('hidden');
 
-                this.compressImageForUpload(file).then(async ({ base64, mimeType, fileName }) => {
+                this.prepareUpload(files).then(async ({ base64, mimeType, fileName }) => {
                     const userName = this.state.currentUser ? this.state.currentUser.nama.replace(/\s+/g, '_') : 'Guest';
                     const nisn = this.state.currentUser ? this.state.currentUser.nisn : '000';
                     const courseName = document.getElementById('learn-title').innerText.replace(/\s+/g, '_');
@@ -3487,7 +3535,7 @@
                     }
                 }).catch((error) => {
                     console.error(error);
-                    this.showToast('Gagal memproses file. Coba pilih file lain.', true);
+                    this.showToast('Gagal memproses file: ' + (error && error.message ? error.message : 'coba pilih file lain') + '.', true);
                     document.getElementById('summary-upload-overlay').classList.add('hidden');
                     document.getElementById('summary-upload-overlay').classList.remove('flex');
                 });
@@ -3530,7 +3578,8 @@
 
             async handleStudentUpload() {
                 const fileInput = document.getElementById('student-upload');
-                const file = fileInput.files[0];
+                const files = [...fileInput.files];
+                const file = files[0];
                 if(!file) return;
 
                 if (appsScriptUrl === 'URL_WEB_APP_APPS_SCRIPT_ANDA_DI_SINI') {
@@ -3538,7 +3587,7 @@
                     return;
                 }
 
-                if (file.size > 15 * 1024 * 1024) {
+                if (files.some(f => f.size > 15 * 1024 * 1024)) {
                     this.showToast('Ukuran file terlalu besar (maks 15MB). Pilih file yang lebih kecil.', true);
                     fileInput.value = '';
                     return;
@@ -3549,7 +3598,7 @@
                 document.getElementById('upload-overlay').classList.add('flex');
 
                 try {
-                    const { base64, mimeType, fileName } = await this.compressImageForUpload(file);
+                    const { base64, mimeType, fileName } = await this.prepareUpload(files);
                     const userName = this.state.currentUser ? this.state.currentUser.nama.replace(/\s+/g, '_') : 'Guest';
                     const nisn = this.state.currentUser ? this.state.currentUser.nisn : '000';
                     const courseName = document.getElementById('learn-title').innerText.replace(/\s+/g, '_');
@@ -4187,9 +4236,12 @@
                 <video id="cam-video" class="w-full h-full object-contain" autoplay playsinline muted></video>
                 <canvas id="cam-canvas" class="w-full h-full object-contain hidden"></canvas>
             </div>
-            <div class="flex gap-2 justify-center mt-3">
+            <p id="cam-count" class="text-white text-xs text-center mt-2 h-4"></p>
+            <div id="cam-thumbs" class="flex gap-1 justify-center mt-1 overflow-x-auto"></div>
+            <div class="flex flex-wrap gap-2 justify-center mt-3">
                 <button type="button" id="cam-snap" onclick="app.camSnap()" class="bg-white text-gray-900 font-bold px-5 py-2 rounded-lg"><i class="fa-solid fa-circle-dot mr-1"></i> Ambil Foto</button>
                 <button type="button" id="cam-retake" onclick="app.camRetake()" class="hidden bg-gray-600 text-white font-bold px-4 py-2 rounded-lg">Ulangi</button>
+                <button type="button" id="cam-add" onclick="app.camAdd()" class="hidden bg-sky-600 text-white font-bold px-4 py-2 rounded-lg"><i class="fa-solid fa-plus mr-1"></i> Lembar Berikutnya</button>
                 <button type="button" id="cam-send" onclick="app.camSend()" class="hidden bg-brand-green text-white font-bold px-5 py-2 rounded-lg">Kirim</button>
                 <button type="button" onclick="app.camClose()" class="bg-red-600 text-white font-bold px-4 py-2 rounded-lg">Batal</button>
             </div>
