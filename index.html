@@ -730,6 +730,13 @@
                             </div>
                         </label>
                         <label class="flex items-start gap-2 cursor-pointer mt-2 pt-2 border-t border-gray-300">
+                            <input type="checkbox" id="f-review-locked" class="mt-1 w-4 h-4 rounded border-gray-300">
+                            <div>
+                                <span class="text-sm font-bold text-gray-800"><i class="fa-solid fa-eye mr-1"></i> Siswa yang sudah tuntas tetap bisa meninjau</span>
+                                <p class="text-[10px] text-gray-600 leading-tight mt-0.5">Saat modul terkunci (manual atau karena deadline), siswa yang sudah tuntas masih melihat modul ini dengan mode hanya-baca. Siswa yang belum tuntas tetap tidak bisa membukanya.</p>
+                            </div>
+                        </label>
+                        <label class="flex items-start gap-2 cursor-pointer mt-2 pt-2 border-t border-gray-300">
                             <input type="checkbox" id="f-auto-lock" class="mt-1 w-4 h-4 rounded border-gray-300">
                             <div>
                                 <span class="text-sm font-bold text-gray-800"><i class="fa-solid fa-clock mr-1"></i> Kunci otomatis setelah deadline lewat</span>
@@ -1099,7 +1106,7 @@
                 // Segarkan dashboard siswa otomatis saat ada modul yang baru terkunci karena deadline.
                 setInterval(() => {
                     if (this.state.role !== 'student') return;
-                    const sig = this.state.courses.filter(c => this.isCourseLocked(c)).map(c => c.id).join(',');
+                    const sig = this.state.courses.filter(c => this.isLockedForCurrentUser(c)).map(c => c.id).join(',');
                     if (this.state.lockSig !== undefined && this.state.lockSig !== sig) {
                         this.renderCourses();
                         this.updateStudentProgressBanner();
@@ -1832,7 +1839,7 @@
                 const filtered = this.state.courses.filter(c => {
                     const matchesSearch = c.title.toLowerCase().includes(searchQuery) || c.category.toLowerCase().includes(searchQuery);
                     if (!matchesSearch) return false;
-                    if (this.isCourseLocked(c) && this.state.role !== 'admin') return false;   // modul terkunci disembunyikan dari siswa
+                    if (this.isLockedForCurrentUser(c)) return false;   // modul terkunci disembunyikan dari siswa
 
                     if (this.state.role === 'student' && this.state.currentUser && c.visibility && c.visibility.mode === 'selected') {
                         return (c.visibility.studentNisns || []).includes(this.state.currentUser.nisn);
@@ -1893,7 +1900,7 @@
 
                     grid.innerHTML += `
                         <div class="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-shadow duration-300 border border-gray-100 overflow-hidden flex flex-col h-full group relative ${this.isCourseLocked(course) ? 'opacity-60' : ''}">
-                            ${badgeCompleted}${lockBadge}
+                            ${badgeCompleted}${lockBadge}${(this.isCourseLocked(course) && this.canReviewLocked(course)) ? '<div class="absolute bottom-3 left-3 bg-gray-800 text-white text-xs font-bold px-2 py-1 rounded shadow-sm z-10"><i class="fa-solid fa-lock"></i> Terkunci - hanya tinjau</div>' : ''}
                             <div class="h-40 overflow-hidden relative">
                                 <div class="absolute top-3 left-3 ${typeColor} text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm z-10">${typeText}</div>
                                 <img src="${course.thumbnail}" alt="${course.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
@@ -1929,7 +1936,7 @@
 
                 const nisn = this.state.currentUser.nisn;
                 const visibleCourses = this.state.courses.filter(c => {
-                    if (this.isCourseLocked(c)) return false;
+                    if (this.isLockedForCurrentUser(c)) return false;
                     if (c.visibility && c.visibility.mode === 'selected') {
                         return (c.visibility.studentNisns || []).includes(nisn);
                     }
@@ -1964,7 +1971,7 @@
 
                 const course = this.state.courses.find(c => c.id === id);
                 if (!course) return;
-                if (this.isCourseLocked(course) && this.state.role !== 'admin') {
+                if (this.isLockedForCurrentUser(course)) {
                     this.showToast(course.locked ? 'Modul ini sedang dikunci oleh Guru.' : 'Waktu pengerjaan modul ini sudah berakhir.', true);
                     return;
                 }
@@ -2331,7 +2338,7 @@
                 this.ivDestroy();
                 const nisn = this.state.currentUser ? this.state.currentUser.nisn : null;
                 const prog = nisn ? this.getProg(nisn, course) : null;
-                const done = !!(prog && (prog.videoDone || prog.step >= 3));
+                const done = !!(prog && (prog.videoDone || prog.step >= 3)) || !!(nisn && (course.completedBy || []).includes(nisn));
                 this.state.videoDone = done || this.state.role === 'admin';
                 const qs = [...course.videoQuestions].sort((a, b) => a.time - b.time);
                 const part = (!done && prog && prog.part) || null;
@@ -2749,6 +2756,15 @@
                 return this.nowMs() >= end;
             },
             isCourseLocked(c) { return !!(c && (c.locked || this.isAutoLocked(c))); },
+            // Siswa yang sudah tuntas boleh meninjau modul terkunci jika guru mengizinkan.
+            canReviewLocked(c) {
+                const u = this.state.currentUser;
+                return !!(c && c.reviewWhenLocked && this.state.role === 'student' && u && (c.completedBy || []).includes(u.nisn));
+            },
+            // True jika modul tidak boleh dilihat/dibuka oleh pengguna saat ini (admin selalu boleh).
+            isLockedForCurrentUser(c) {
+                return this.isCourseLocked(c) && this.state.role !== 'admin' && !this.canReviewLocked(c);
+            },
 
             async setCourseProp(course, prop, value) {
                 const idx = this.state.courses.findIndex(c => c.id === course.id);
@@ -3862,6 +3878,7 @@
                 document.getElementById('f-upload-task').value = course.uploadTask || 'file';
                 document.getElementById('f-locked').checked = !!course.locked;
                 document.getElementById('f-auto-lock').checked = !!course.autoLock;
+                document.getElementById('f-review-locked').checked = !!course.reviewWhenLocked;
                 
                 let imgVal = course.thumbnail;
                 if(imgVal.includes('placehold.co')) imgVal = '';
@@ -4109,6 +4126,7 @@
                             uploadTask: document.getElementById('f-upload-task').value,
                             locked: document.getElementById('f-locked').checked,
                             autoLock: document.getElementById('f-auto-lock').checked,
+                            reviewWhenLocked: document.getElementById('f-review-locked').checked,
                             exercise: exercise,
                             attachment: this.state.tempAttachment,
                             visibility: visibility
@@ -4135,6 +4153,7 @@
                             uploadTask: document.getElementById('f-upload-task').value,
                             locked: document.getElementById('f-locked').checked,
                             autoLock: document.getElementById('f-auto-lock').checked,
+                            reviewWhenLocked: document.getElementById('f-review-locked').checked,
                         exercise: exercise,
                         attachment: this.state.tempAttachment,
                         visibility: visibility
