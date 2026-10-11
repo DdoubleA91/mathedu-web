@@ -1002,6 +1002,8 @@
                 vqFocus: null,
                 forcePw: false,
                 serverOffset: 0,
+                sheets: null,
+                sheetsSending: false,
                 progress: {},
                 cam: null,
                 iv: null,
@@ -2508,8 +2510,10 @@
                     document.getElementById('cam-video').srcObject = stream;
                     const m = document.getElementById('cam-modal'); m.classList.remove('hidden'); m.classList.add('flex');
                     this.camUI('live');
+                    const sm = document.getElementById('sheet-modal'); sm.classList.add('hidden'); sm.classList.remove('flex');
                 } catch (err) {
                     this.showToast('Kamera tidak bisa dibuka. Izinkan akses kamera di browser lalu coba lagi.', true);
+                    if (this.state.sheets) this.sheetsShow();
                 }
             },
             camUI(mode) {
@@ -2569,6 +2573,92 @@
                 const m = document.getElementById('cam-modal'); m.classList.add('hidden'); m.classList.remove('flex');
                 document.getElementById('cam-video').srcObject = null;
                 this.state.cam = keep || null;
+                if (this.state.sheets && this.state.sheets.adding) this.sheetsShow();   // kembali ke daftar lembar
+            },
+
+            // ===== PRATINJAU LEMBAR (lihat, urutkan, hapus sebelum dikirim) =====
+            sheetsIntercept(input, handler) {
+                if (this.state.sheetsSending) return false;
+                const incoming = [...input.files];
+                const sh = this.state.sheets;
+                const allImg = incoming.length > 0 && incoming.every(f => f.type.startsWith('image/'));
+                if (sh && sh.input === input && sh.adding) {
+                    sh.adding = false;
+                    if (!allImg) this.showToast('Hanya foto yang bisa ditambahkan.', true);
+                    else this.sheetsPush(incoming);
+                    input.value = '';
+                    this.sheetsShow();
+                    return true;
+                }
+                if (incoming.length > 1 && allImg) {
+                    input.value = '';
+                    const course = this.state.courses.find(c => c.id === this.state.activeCourseId) || {};
+                    const cam = (handler === 'handleSummaryUpload' ? course.uploadSummary : course.uploadTask) === 'camera';
+                    this.state.sheets = { input, handler, cam, adding: false, items: [] };
+                    this.sheetsPush(incoming);
+                    this.sheetsShow();
+                    return true;
+                }
+                return false;
+            },
+            sheetsPush(files) { files.forEach(f => this.state.sheets.items.push({ file: f, url: URL.createObjectURL(f) })); },
+            sheetsShow() {
+                if (!this.state.sheets) return;
+                if (!this.state.sheets.items.length) { this.sheetsCancel(); return; }
+                this.sheetsRender();
+                const m = document.getElementById('sheet-modal'); m.classList.remove('hidden'); m.classList.add('flex');
+            },
+            sheetsRender() {
+                const sh = this.state.sheets, n = sh.items.length;
+                document.getElementById('sheet-list').innerHTML = sh.items.map((it, i) => `
+                    <div class="flex items-center gap-3 border border-gray-200 rounded-lg p-2">
+                        <img src="${it.url}" class="w-20 h-20 object-cover rounded border cursor-pointer" onclick="app.sheetsZoom(${i})">
+                        <div class="flex-1"><p class="font-bold text-sm text-gray-800">Lembar ${i + 1}</p><p class="text-[10px] text-gray-500">Ketuk foto untuk memperbesar</p></div>
+                        <div class="flex flex-col gap-1">
+                            <button type="button" ${i === 0 ? 'disabled' : ''} onclick="app.sheetsMove(${i},-1)" class="px-2 py-0.5 border rounded text-xs disabled:opacity-30"><i class="fa-solid fa-arrow-up"></i></button>
+                            <button type="button" ${i === n - 1 ? 'disabled' : ''} onclick="app.sheetsMove(${i},1)" class="px-2 py-0.5 border rounded text-xs disabled:opacity-30"><i class="fa-solid fa-arrow-down"></i></button>
+                        </div>
+                        <button type="button" onclick="app.sheetsRemove(${i})" class="text-red-500 px-2" title="Hapus lembar ini"><i class="fa-solid fa-trash"></i></button>
+                    </div>`).join('');
+                document.getElementById('sheet-send').innerText = 'Kirim ' + n + ' Lembar';
+            },
+            sheetsMove(i, d) {
+                const it = this.state.sheets.items, j = i + d;
+                if (j < 0 || j >= it.length) return;
+                [it[i], it[j]] = [it[j], it[i]];
+                this.sheetsRender();
+            },
+            sheetsRemove(i) {
+                const sh = this.state.sheets;
+                URL.revokeObjectURL(sh.items[i].url);
+                sh.items.splice(i, 1);
+                this.sheetsShow();
+            },
+            sheetsZoom(i) {
+                document.getElementById('sheet-zoom-img').src = this.state.sheets.items[i].url;
+                const z = document.getElementById('sheet-zoom'); z.classList.remove('hidden'); z.classList.add('flex');
+            },
+            sheetsAdd() {
+                const sh = this.state.sheets; if (!sh) return;
+                sh.adding = true;
+                if (sh.cam) this.camOpen(sh.input, sh.handler); else sh.input.click();
+            },
+            sheetsCancel() {
+                const sh = this.state.sheets;
+                if (sh) sh.items.forEach(it => URL.revokeObjectURL(it.url));
+                this.state.sheets = null;
+                const m = document.getElementById('sheet-modal'); m.classList.add('hidden'); m.classList.remove('flex');
+            },
+            sheetsSend() {
+                const sh = this.state.sheets;
+                if (!sh || !sh.items.length) return;
+                const dt = new DataTransfer();
+                sh.items.forEach(it => dt.items.add(it.file));
+                const { input, handler } = sh;
+                this.sheetsCancel();
+                input.files = dt.files;
+                this.state.sheetsSending = true;
+                try { this[handler](); } finally { this.state.sheetsSending = false; }
             },
 
             // Gabungkan beberapa foto menjadi 1 PDF (1 foto/1 file non-gambar dikirim apa adanya).
@@ -3564,6 +3654,7 @@
 
             handleSummaryUpload() {
                 const fileInput = document.getElementById('summary-upload');
+                if (this.sheetsIntercept(fileInput, 'handleSummaryUpload')) return;
                 const files = [...fileInput.files];
                 const file = files[0];
                 if (!file) return;
@@ -3668,6 +3759,7 @@
 
             async handleStudentUpload() {
                 const fileInput = document.getElementById('student-upload');
+                if (this.sheetsIntercept(fileInput, 'handleStudentUpload')) return;
                 const files = [...fileInput.files];
                 const file = files[0];
                 if(!file) return;
@@ -4329,6 +4421,21 @@
             app.init();
         };
     </script>
+    <div id="sheet-modal" class="fixed inset-0 z-[105] bg-black/70 hidden items-center justify-center p-3">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[92vh] flex flex-col">
+            <div class="p-3 border-b">
+                <h3 class="font-bold text-gray-800"><i class="fa-solid fa-images text-brand-blue mr-1"></i> Periksa Lembar Pekerjaan</h3>
+                <p class="text-xs text-gray-500">Urutan di sini = urutan halaman PDF. Hapus foto yang buram atau ubah urutannya sebelum mengirim.</p>
+            </div>
+            <div id="sheet-list" class="p-3 overflow-y-auto space-y-2 flex-1"></div>
+            <div class="p-3 border-t flex flex-wrap gap-2">
+                <button type="button" onclick="app.sheetsAdd()" class="border border-sky-400 text-sky-700 font-bold px-3 py-2 rounded-lg text-sm"><i class="fa-solid fa-plus mr-1"></i> Tambah Lembar</button>
+                <button type="button" id="sheet-send" onclick="app.sheetsSend()" class="flex-1 bg-brand-green text-white font-bold px-4 py-2 rounded-lg text-sm">Kirim</button>
+                <button type="button" onclick="app.sheetsCancel()" class="bg-gray-100 text-gray-700 font-medium px-3 py-2 rounded-lg text-sm">Batal</button>
+            </div>
+        </div>
+    </div>
+    <div id="sheet-zoom" class="fixed inset-0 z-[120] bg-black/90 hidden items-center justify-center p-2" onclick="this.classList.add('hidden');this.classList.remove('flex')"><img id="sheet-zoom-img" class="max-w-full max-h-full rounded"></div>
     <div id="cam-modal" class="fixed inset-0 z-[100] bg-black/90 hidden flex-col items-center justify-center p-3">
         <div class="w-full max-w-lg">
             <p class="text-white text-sm font-bold mb-2 text-center"><i class="fa-solid fa-camera mr-1"></i> Foto langsung dari kamera</p>
