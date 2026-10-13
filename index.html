@@ -308,7 +308,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="mt-2 flex items-center gap-3 bg-gray-100 rounded-lg px-3 py-2">
+                            <div id="iv-bar-wrap" class="mt-2 flex items-center gap-3 bg-gray-100 rounded-lg px-3 py-2">
                                 <button type="button" id="iv-btn" onclick="app.ivToggle()" class="w-9 h-9 rounded-full bg-brand-blue text-white"><i class="fa-solid fa-play"></i></button>
                                 <div class="flex-1 h-2 bg-gray-300 rounded-full overflow-hidden"><div id="iv-bar" class="h-full bg-brand-green" style="width:0%"></div></div>
                                 <span id="iv-time" class="text-xs text-gray-600 font-mono">0:00</span>
@@ -2347,12 +2347,16 @@
                 const iv = this.state.iv = { qs, idx: startIdx, max: startTime, wait: false, course, mode: course.videoFailMode || 'start', player: null, timer: null };
                 document.getElementById('iv-wrap').classList.remove('hidden');
                 document.getElementById('iv-q-text').parentElement.parentElement.classList.add('hidden');
-                this.ivStatus(done ? 'Video sudah tuntas. Kamu boleh menonton ulang.' : (part ? 'Progres tersimpan: video dilanjutkan dari soal terakhir yang sudah kamu jawab benar.' : 'Tonton video sampai selesai dan jawab semua soal dengan benar. Video tidak bisa dipercepat/dilewati.'));
+                // Siswa yang sudah tuntas (dan guru) memakai pemutar YouTube biasa: bisa dipercepat, diulang, dan dilompati.
+                const free = done || this.state.role === 'admin';
+                document.getElementById('iv-shield').classList.toggle('hidden', free);
+                document.getElementById('iv-bar-wrap').classList.toggle('hidden', free);
+                this.ivStatus(free ? 'Video sudah tuntas. Kamu bebas menonton ulang: bisa dipercepat, diulang, dan dilompati seperti video YouTube biasa.' : (part ? 'Progres tersimpan: video dilanjutkan dari soal terakhir yang sudah kamu jawab benar.' : 'Tonton video sampai selesai dan jawab semua soal dengan benar. Video tidak bisa dipercepat/dilewati.'));
                 await this.ivLoadAPI();
                 if (this.state.iv !== iv) return;
                 iv.player = new YT.Player('iv-player', {
                     videoId: this.ytId(course.videoUrl),
-                    playerVars: { start: Math.floor(startTime), controls: 0, disablekb: 1, rel: 0, modestbranding: 1, fs: 0, playsinline: 1 },
+                    playerVars: { start: Math.floor(startTime), controls: free ? 1 : 0, disablekb: free ? 0 : 1, rel: 0, modestbranding: 1, fs: free ? 1 : 0, playsinline: 1 },
                     events: { onStateChange: e => this.ivState(e) }
                 });
                 iv.timer = setInterval(() => this.ivTick(), 250);
@@ -2410,7 +2414,7 @@
                 const done = this.state.videoDone;
                 if (!done && t > iv.max + 1.2) { iv.player.seekTo(iv.max, true); return; }   // anti-skip
                 if (t > iv.max) iv.max = t;
-                if (iv.player.getPlaybackRate() !== 1) iv.player.setPlaybackRate(1);          // anti-speedup
+                if (!done && iv.player.getPlaybackRate() !== 1) iv.player.setPlaybackRate(1);   // anti-speedup (hanya untuk yang belum tuntas)
                 document.getElementById('iv-bar').style.width = (t / dur * 100) + '%';
                 const f = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
                 document.getElementById('iv-time').innerText = f(t) + ' / ' + f(dur);
