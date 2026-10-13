@@ -2502,7 +2502,7 @@
                 this.camOpen(input, kind === 'summary' ? 'handleSummaryUpload' : 'handleStudentUpload');
             },
             async camOpen(input, handler) {
-                this.state.cam = { input, handler, stream: null, blob: null, shots: [] };
+                this.state.cam = { input, handler, stream: null, blob: null, shots: [], torchOn: false };
                 if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
                     // Perangkat/browser tanpa akses kamera langsung: minta kamera bawaan HP lewat atribut capture.
                     const f = document.createElement('input');
@@ -2515,12 +2515,50 @@
                     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
                     this.state.cam.stream = stream;
                     document.getElementById('cam-video').srcObject = stream;
+                    this.camInitTorch(stream);
                     const m = document.getElementById('cam-modal'); m.classList.remove('hidden'); m.classList.add('flex');
                     this.camUI('live');
                     const sm = document.getElementById('sheet-modal'); sm.classList.add('hidden'); sm.classList.remove('flex');
                 } catch (err) {
                     this.showToast('Kamera tidak bisa dibuka. Izinkan akses kamera di browser lalu coba lagi.', true);
                     if (this.state.sheets) this.sheetsShow();
+                }
+            },
+            // Flash/senter: hanya tersedia di browser yang mendukung (umumnya Chrome Android, kamera belakang).
+            camInitTorch(stream) {
+                const check = () => {
+                    const cam = this.state.cam;
+                    if (!cam || cam.stream !== stream) return;
+                    let ok = false;
+                    try {
+                        const t = stream.getVideoTracks()[0];
+                        ok = !!(t && t.getCapabilities && t.getCapabilities().torch);
+                    } catch (e) {}
+                    document.getElementById('cam-flash').classList.toggle('hidden', !ok);
+                    document.getElementById('cam-flash-note').classList.toggle('hidden', ok);
+                    this.camFlashUI(!!cam.torchOn);
+                };
+                check();
+                setTimeout(check, 700);   // sebagian HP baru melaporkan kemampuan setelah kamera menyala
+            },
+            camFlashUI(on) {
+                document.getElementById('cam-flash-txt').innerText = on ? 'Flash: Nyala' : 'Flash: Mati';
+                document.getElementById('cam-flash').classList.toggle('bg-yellow-400', on);
+                document.getElementById('cam-flash').classList.toggle('text-gray-900', on);
+                document.getElementById('cam-flash').classList.toggle('bg-black/60', !on);
+                document.getElementById('cam-flash').classList.toggle('text-white', !on);
+            },
+            async camToggleFlash() {
+                const cam = this.state.cam;
+                if (!cam || !cam.stream) return;
+                const track = cam.stream.getVideoTracks()[0];
+                const next = !cam.torchOn;
+                try {
+                    await track.applyConstraints({ advanced: [{ torch: next }] });
+                    cam.torchOn = next;
+                    this.camFlashUI(next);
+                } catch (e) {
+                    this.showToast('Flash tidak bisa dinyalakan di perangkat ini.', true);
                 }
             },
             camUI(mode) {
@@ -4461,7 +4499,9 @@
             <div class="relative bg-black rounded-lg overflow-hidden" style="aspect-ratio:4/3">
                 <video id="cam-video" class="w-full h-full object-contain" autoplay playsinline muted></video>
                 <canvas id="cam-canvas" class="w-full h-full object-contain hidden"></canvas>
+                <button type="button" id="cam-flash" onclick="app.camToggleFlash()" class="hidden absolute top-2 right-2 z-10 bg-black/60 text-white text-xs font-bold px-3 py-1.5 rounded-full border border-white/40"><i class="fa-solid fa-bolt mr-1"></i><span id="cam-flash-txt">Flash: Mati</span></button>
             </div>
+            <p id="cam-flash-note" class="hidden text-[10px] text-yellow-200 text-center mt-1">Flash tidak tersedia di kamera ini. Nyalakan senter HP dari panel cepat (geser layar dari atas), atau gunakan Chrome di Android.</p>
             <p id="cam-count" class="text-white text-xs text-center mt-2 h-4"></p>
             <div id="cam-thumbs" class="flex gap-1 justify-center mt-1 overflow-x-auto"></div>
             <div class="flex flex-wrap gap-2 justify-center mt-3">
