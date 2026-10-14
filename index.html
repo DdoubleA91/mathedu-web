@@ -407,6 +407,10 @@
 
                     <!-- Navigation Buttons -->
                     <div class="mt-8 flex justify-end gap-3 pt-4 border-t border-gray-100">
+                        <p id="review-nav-hint" class="hidden text-xs text-gray-500 mr-auto self-center"><i class="fa-solid fa-hand-pointer mr-1"></i> Mode tinjau: ketuk lingkaran checkpoint untuk berpindah.</p>
+                        <button id="btn-prev-step" onclick="app.prevStep()" class="hidden border border-gray-300 text-gray-700 px-5 py-2.5 rounded-lg font-bold hover:bg-gray-50 transition items-center gap-2">
+                            <i class="fa-solid fa-arrow-left"></i> Sebelumnya
+                        </button>
                         <button id="btn-next-step" onclick="app.nextStep()" class="bg-brand-blue text-white px-6 py-2.5 rounded-lg font-bold hover:bg-blue-800 transition shadow-md flex items-center gap-2">
                             Lanjut <i class="fa-solid fa-arrow-right"></i>
                         </button>
@@ -1006,6 +1010,8 @@
                 editingCourseId: null,
                 tempAttachment: null, 
                 tempVQ: [],
+                reviewNav: false,
+                lastStep: null,
                 vqFocus: null,
                 forcePw: false,
                 serverOffset: 0,
@@ -1991,6 +1997,10 @@
                 if (this.state.role === 'student' && this.state.currentUser) {
                     isCompleted = (course.completedBy || []).includes(this.state.currentUser.nisn);
                 }
+
+                // Siswa yang sudah tuntas (dan guru) boleh berpindah bebas antar checkpoint.
+                this.state.reviewNav = isCompleted || this.state.role === 'admin';
+                this.state.lastStep = null;
 
                 document.getElementById('learn-title').innerText = course.title;
                 const deadlineEl = document.getElementById('learn-deadline-info');
@@ -3602,6 +3612,18 @@
                     }
                 }
 
+                const nav = !!this.state.reviewNav;
+                document.querySelectorAll('.step-indicator').forEach(ind => {
+                    const n = parseInt(ind.dataset.step);
+                    ind.style.cursor = nav ? 'pointer' : '';
+                    ind.onclick = nav ? () => this.gotoStep(n) : null;
+                });
+                document.getElementById('btn-prev-step').classList.toggle('hidden', !(nav && this.state.activeStep > 1));
+                document.getElementById('btn-prev-step').classList.toggle('flex', nav && this.state.activeStep > 1);
+                document.getElementById('review-nav-hint').classList.toggle('hidden', !nav);
+                if (this.state.lastStep === 2 && this.state.activeStep !== 2) this.leaveVideo();   // video berhenti saat pindah checkpoint
+                this.state.lastStep = this.state.activeStep;
+
                 if (this.state.activeStep === totalSteps) {
                     document.getElementById('btn-next-step').classList.add('hidden');
                     document.getElementById('btn-finish').classList.remove('hidden');
@@ -3610,6 +3632,21 @@
                     document.getElementById('btn-next-step').classList.remove('hidden');
                     document.getElementById('btn-finish').classList.add('hidden');
                     document.getElementById('btn-finish').classList.remove('flex');
+                }
+            },
+
+            gotoStep(n) {
+                if (!this.state.reviewNav || n < 1 || n > 4) return;
+                this.state.activeStep = n;
+                this.updateStepUI();
+            },
+            prevStep() { this.gotoStep(Math.max(1, this.state.activeStep - 1)); },
+            leaveVideo() {
+                const iv = this.state.iv;
+                if (iv && iv.player && iv.player.pauseVideo) { try { iv.player.pauseVideo(); } catch (e) {} }
+                const f = document.getElementById('learn-video');
+                if (f && f.getAttribute('src') && f.parentElement && !f.parentElement.classList.contains('hidden')) {
+                    const u = f.getAttribute('src'); f.setAttribute('src', ''); f.setAttribute('src', u);   // hentikan video iframe biasa
                 }
             },
 
