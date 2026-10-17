@@ -1229,7 +1229,26 @@
                     fileId: fileId || null,
                     submittedAt: new Date().toISOString()
                 };
-                this.saveCoursesToStorage();
+                // Tulis hanya cabang milik siswa ini (bukan seluruh daftar modul) supaya tidak menimpa data siswa lain.
+                const course = this.state.courses[courseIndex];
+                this.setCourseProp(course, 'submissions/' + nisn + '/' + type, course.submissions[nisn][type]);
+            },
+
+            // Tambahkan NISN ke daftar tuntas secara aman (transaksi), tanpa menulis ulang seluruh modul.
+            async addCompletedBy(course, nisn) {
+                const idx = this.state.courses.findIndex(c => c.id === course.id);
+                try {
+                    if (idx < 0) throw new Error('index');
+                    const chk = await database.ref('courses/' + idx + '/id').once('value');
+                    if (chk.val() !== course.id) throw new Error('mismatch');
+                    await database.ref('courses/' + idx + '/completedBy').transaction(cur => {
+                        const a = Array.isArray(cur) ? cur.slice() : (cur ? Object.values(cur) : []);
+                        if (!a.includes(nisn)) a.push(nisn);
+                        return a;
+                    });
+                } catch (e) {
+                    this.saveCoursesToStorage();   // cadangan: perilaku lama
+                }
             },
 
             saveUsersToStorage() {
@@ -3993,7 +4012,7 @@
                         const nisn = this.state.currentUser.nisn;
                         if (!this.state.courses[courseIndex].completedBy.includes(nisn)) {
                             this.state.courses[courseIndex].completedBy.push(nisn);
-                            this.saveCoursesToStorage(); 
+                            this.addCompletedBy(this.state.courses[courseIndex], nisn);
                         }
                     }
                 }
