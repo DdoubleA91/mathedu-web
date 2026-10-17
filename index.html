@@ -706,6 +706,17 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">URL Video YouTube <span class="text-red-500">*</span></label>
                         <input type="url" id="f-video" required class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="https://www.youtube.com/watch?v=... atau https://edpuzzle.com/media/...">
                         <p class="text-[10px] text-gray-500 mt-1">Mendukung YouTube dan Edpuzzle (link /media/ otomatis diubah ke link embed).</p>
+                        <div class="grid grid-cols-2 gap-2 mt-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1"><i class="fa-solid fa-scissors mr-1"></i> Mulai dari (menit:detik)</label>
+                                <input type="text" id="f-video-start" class="w-full border border-gray-300 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="Kosong = dari awal. Contoh: 1:30">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Berhenti di (menit:detik)</label>
+                                <input type="text" id="f-video-end" class="w-full border border-gray-300 rounded-md p-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="Kosong = sampai akhir. Contoh: 8:45">
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-gray-500 mt-1">Siswa hanya melihat bagian ini. Waktu soal interaktif memakai waktu asli video (sama dengan penanda waktu di YouTube) dan harus berada di dalam rentang ini. Pemotongan hanya untuk link YouTube.</p>
                     </div>
 
                     <div class="bg-green-50 border border-green-200 p-3 rounded-md">
@@ -2206,9 +2217,9 @@
             vtInit(course) {
                 const toWatch = u => (u && u.includes('youtube.com/embed/')) ? u.replace('embed/', 'watch?v=') : (u || '');
                 if (course) {
-                    this.state.tempVideos = this.getVideos(course).map(v => ({ title: v.title, url: toWatch(v.url), failMode: v.failMode, questions: JSON.parse(JSON.stringify(v.qs)) }));
+                    this.state.tempVideos = this.getVideos(course).map(v => ({ title: v.title, url: toWatch(v.url), failMode: v.failMode, start: this.fmtTime(v.start), end: this.fmtTime(v.end), questions: JSON.parse(JSON.stringify(v.qs)) }));
                 } else {
-                    this.state.tempVideos = [{ title: '', url: '', failMode: 'start', questions: [] }];
+                    this.state.tempVideos = [{ title: '', url: '', failMode: 'start', start: '', end: '', questions: [] }];
                 }
                 this.vtLoad(0);
             },
@@ -2218,6 +2229,8 @@
                 this.state.tempVQ = v.questions;
                 document.getElementById('f-video').value = v.url || '';
                 document.getElementById('f-video-title').value = v.title || '';
+                document.getElementById('f-video-start').value = v.start || '';
+                document.getElementById('f-video-end').value = v.end || '';
                 document.getElementById('f-vq-mode').value = v.failMode || 'start';
                 document.getElementById('f-video-no').innerText = i + 1;
                 this.renderVQ();
@@ -2229,12 +2242,14 @@
                 v.questions = this.state.tempVQ;
                 v.url = document.getElementById('f-video').value;
                 v.title = document.getElementById('f-video-title').value;
+                v.start = document.getElementById('f-video-start').value;
+                v.end = document.getElementById('f-video-end').value;
                 v.failMode = document.getElementById('f-vq-mode').value;
             },
             vtSelect(i) { this.vtStore(); this.vtLoad(i); },
             vtAdd() {
                 this.vtStore();
-                this.state.tempVideos.push({ title: '', url: '', failMode: 'start', questions: [] });
+                this.state.tempVideos.push({ title: '', url: '', failMode: 'start', start: '', end: '', questions: [] });
                 this.vtLoad(this.state.tempVideos.length - 1);
             },
             vtRemove() {
@@ -2430,21 +2445,25 @@
                 this.state.videoDone = done || this.state.role === 'admin';
                 const qs = [...V.qs].sort((a, b) => a.time - b.time);
                 const part = (!done && prog && prog.parts[vi]) || null;
+                const segStart = V.start || 0, segEnd = V.end || 0;
                 const startIdx = part ? Math.min(part.idx || 0, qs.length) : 0;
-                const startTime = part ? (part.time || 0) : 0;
-                const iv = this.state.iv = { qs, idx: startIdx, max: startTime, wait: false, course, vi, mode: V.failMode || 'start', player: null, timer: null };
+                const startTime = Math.max(part ? (part.time || 0) : 0, segStart);
+                const iv = this.state.iv = { qs, idx: startIdx, max: startTime, wait: false, course, vi, start: segStart, end: segEnd, mode: V.failMode || 'start', player: null, timer: null };
                 document.getElementById('iv-wrap').classList.remove('hidden');
                 document.getElementById('iv-q-text').parentElement.parentElement.classList.add('hidden');
                 // Siswa yang sudah tuntas (dan guru) memakai pemutar YouTube biasa: bisa dipercepat, diulang, dan dilompati.
                 const free = done || this.state.role === 'admin';
                 document.getElementById('iv-shield').classList.toggle('hidden', free);
                 document.getElementById('iv-bar-wrap').classList.toggle('hidden', free);
-                this.ivStatus(free ? 'Video sudah tuntas. Kamu bebas menonton ulang: bisa dipercepat, diulang, dan dilompati seperti video YouTube biasa.' : (part ? 'Progres tersimpan: video dilanjutkan dari soal terakhir yang sudah kamu jawab benar.' : 'Tonton video sampai selesai dan jawab semua soal dengan benar. Video tidak bisa dipercepat/dilewati.'));
+                const segNote = (segStart || segEnd) ? ' Bagian video yang ditonton: ' + (this.fmtTime(segStart) || '0:00') + ' - ' + (segEnd ? this.fmtTime(segEnd) : 'akhir') + '.' : '';
+                this.ivStatus((free ? 'Video sudah tuntas. Kamu bebas menonton ulang: bisa dipercepat, diulang, dan dilompati seperti video YouTube biasa.' : (part ? 'Progres tersimpan: video dilanjutkan dari soal terakhir yang sudah kamu jawab benar.' : 'Tonton video sampai selesai dan jawab semua soal dengan benar. Video tidak bisa dipercepat/dilewati.')) + segNote);
                 await this.ivLoadAPI();
                 if (this.state.iv !== iv) return;
+                const pv = { start: Math.floor(startTime), controls: free ? 1 : 0, disablekb: free ? 0 : 1, rel: 0, modestbranding: 1, fs: free ? 1 : 0, playsinline: 1 };
+                if (segEnd) pv.end = Math.floor(segEnd);
                 iv.player = new YT.Player('iv-player', {
                     videoId: this.ytId(V.url),
-                    playerVars: { start: Math.floor(startTime), controls: free ? 1 : 0, disablekb: free ? 0 : 1, rel: 0, modestbranding: 1, fs: free ? 1 : 0, playsinline: 1 },
+                    playerVars: pv,
                     events: { onStateChange: e => this.ivState(e) }
                 });
                 iv.timer = setInterval(() => this.ivTick(), 250);
@@ -2458,6 +2477,9 @@
                 document.getElementById('learn-video-heading').innerHTML = '<i class="fa-solid fa-play text-brand-blue mr-2"></i> ' + esc(label);
                 let vidUrl = V.url || '';
                 if (vidUrl.includes('watch?v=')) vidUrl = vidUrl.replace('watch?v=', 'embed/');
+                if ((V.start || V.end) && this.ytId(vidUrl)) {
+                    vidUrl = 'https://www.youtube.com/embed/' + this.ytId(vidUrl) + '?rel=0' + (V.start ? '&start=' + V.start : '') + (V.end ? '&end=' + V.end : '');
+                }
                 const hasIV = V.qs.length && this.ytId(vidUrl);
                 const frameBox = document.getElementById('learn-video').parentElement;
                 this.ivDestroy();
@@ -2476,9 +2498,31 @@
             // Dipisah dari data modul supaya tidak tertimpa saat guru/siswa lain menyimpan daftar modul.
             // ===== BANYAK VIDEO (setiap video = 1 checkpoint) =====
             getVideos(course) {
-                const list = [{ title: course.videoTitle || '', url: course.videoUrl, qs: course.videoQuestions || [], failMode: course.videoFailMode || 'start' }];
-                (course.extraVideos || []).forEach(v => list.push({ title: v.title || '', url: v.url, qs: v.videoQuestions || [], failMode: v.failMode || 'start' }));
+                const list = [{ title: course.videoTitle || '', url: course.videoUrl, qs: course.videoQuestions || [], failMode: course.videoFailMode || 'start', start: course.videoStart || 0, end: course.videoEnd || 0 }];
+                (course.extraVideos || []).forEach(v => list.push({ title: v.title || '', url: v.url, qs: v.videoQuestions || [], failMode: v.failMode || 'start', start: v.start || 0, end: v.end || 0 }));
                 return list;
+            },
+            // "1:30" -> 90 detik; kosong -> null; format salah -> NaN
+            parseTime(str) {
+                const t = String(str || '').trim();
+                if (!t) return null;
+                if (!/^\d+(:\d{1,2}){0,2}$/.test(t)) return NaN;
+                const parts = t.split(':').map(Number);
+                if (parts.slice(1).some(n => n > 59)) return NaN;
+                return parts.reduce((a, n) => a * 60 + n, 0);
+            },
+            fmtTime(sec) {
+                if (!sec) return '';
+                const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), x = Math.floor(sec % 60);
+                return h ? `${h}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}` : `${m}:${String(x).padStart(2, '0')}`;
+            },
+            // Pesan error jika rentang/soal tidak valid; null jika aman.
+            checkVideoRange(no, st, en, qs) {
+                if (st !== null && en !== null && en <= st) return `Video ${no}: waktu "Berhenti di" harus lebih besar dari "Mulai dari".`;
+                const lo = st || 0, hi = en ? en - 1 : Infinity;
+                const bad = (qs || []).find(x => x.time < lo || x.time > hi);
+                if (bad) return `Video ${no}: soal di detik ke-${bad.time} berada di luar rentang video yang ditampilkan (${this.fmtTime(lo) || '0:00'} - ${en ? this.fmtTime(en) : 'akhir'}). Ubah waktu soal atau rentang videonya.`;
+                return null;
             },
             stepInfo(course) {
                 const k = course ? this.getVideos(course).length : 1;
@@ -2566,12 +2610,15 @@
                 const iv = this.state.iv; if (!iv || !iv.player || !iv.player.getCurrentTime || iv.wait) return;
                 const t = iv.player.getCurrentTime(), dur = iv.player.getDuration() || 1;
                 const done = this.state.videoDone;
+                if (!done && iv.start && t < iv.start - 0.5) { iv.player.seekTo(iv.start, true); return; }   // tidak boleh sebelum titik mulai
+                if (!done && iv.end && t >= iv.end - 0.25 && iv.idx >= iv.qs.length) { iv.player.pauseVideo(); this.ivFinish(); return; }   // batas akhir
                 if (!done && t > iv.max + 1.2) { iv.player.seekTo(iv.max, true); return; }   // anti-skip
                 if (t > iv.max) iv.max = t;
                 if (!done && iv.player.getPlaybackRate() !== 1) iv.player.setPlaybackRate(1);   // anti-speedup (hanya untuk yang belum tuntas)
-                document.getElementById('iv-bar').style.width = (t / dur * 100) + '%';
+                const base = iv.start || 0, top = iv.end || dur, span = Math.max(1, top - base);
+                document.getElementById('iv-bar').style.width = (Math.max(0, Math.min(t, top) - base) / span * 100) + '%';
                 const f = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
-                document.getElementById('iv-time').innerText = f(t) + ' / ' + f(dur);
+                document.getElementById('iv-time').innerText = f(Math.max(0, t - base)) + ' / ' + f(span);
                 if (!done && iv.idx < iv.qs.length && t >= iv.qs[iv.idx].time) this.ivAsk(iv.qs[iv.idx]);
             },
             ivAsk(q) {
@@ -2618,7 +2665,7 @@
                     fb.className = 'mt-4 text-sm font-bold text-red-600';
                     fb.innerText = iv.mode === 'segment' ? 'Jawaban salah. Kamu harus mengulang bagian video sebelumnya.' : 'Jawaban salah. Video belum tuntas, kamu harus mengulang dari awal.';
                     setTimeout(() => {
-                        const back = iv.mode === 'segment' && iv.idx > 0 ? iv.qs[iv.idx - 1].time : 0;
+                        const back = iv.mode === 'segment' && iv.idx > 0 ? iv.qs[iv.idx - 1].time : (iv.start || 0);
                         iv.idx = iv.mode === 'segment' ? Math.max(0, iv.idx) : 0;
                         iv.max = back; iv.wait = false;
                         this.saveVideoPartial(iv.idx, back);
@@ -4345,6 +4392,12 @@
                 const videoFailMode = document.getElementById('f-vq-mode').value;
                 const videoTitle = (document.getElementById('f-video-title').value || '').trim();
                 const vqIds = list => (list || []).flatMap(x => [x.qImg, ...(x.optImgs || [])]).filter(Boolean).map(i => i.fileId);
+                const mainStart = this.parseTime(document.getElementById('f-video-start').value);
+                const mainEnd = this.parseTime(document.getElementById('f-video-end').value);
+                if (Number.isNaN(mainStart) || Number.isNaN(mainEnd)) { this.showToast('Format waktu Video 1 salah. Gunakan menit:detik, contoh 1:30.', true); return; }
+                if ((mainStart || mainEnd) && !this.ytId(embedUrl)) { this.showToast('Pemotongan waktu hanya untuk link YouTube (Video 1).', true); return; }
+                const mainErr = this.checkVideoRange(1, mainStart, mainEnd, videoQuestions);
+                if (mainErr) { this.showToast(mainErr, true); return; }
                 // Video tambahan (Video 2, 3, ...)
                 const extraVideos = [];
                 for (let i = 1; i < this.state.tempVideos.length; i++) {
@@ -4354,7 +4407,12 @@
                     const qs = (t.questions || []).filter(x => (x.q.trim() || x.qImg) && (x.type === 'short' ? (x.ans || '').trim() : [0, 1, 2, 3, 4].filter(k => hasOpt(x, k)).length >= 2));
                     if (qs.length && !this.ytId(url)) { this.showToast('Soal interaktif Video ' + (i + 1) + ' hanya bisa untuk link YouTube.', true); this.vtLoad(i); return; }
                     if (qs.some(x => x.type !== 'short' && !hasOpt(x, x.answer))) { this.showToast('Jawaban benar pada salah satu soal Video ' + (i + 1) + ' menunjuk pilihan yang kosong.', true); this.vtLoad(i); return; }
-                    extraVideos.push({ title: (t.title || '').trim(), url: url, videoQuestions: qs, failMode: t.failMode || 'start' });
+                    const st = this.parseTime(t.start), en = this.parseTime(t.end);
+                    if (Number.isNaN(st) || Number.isNaN(en)) { this.showToast('Format waktu Video ' + (i + 1) + ' salah. Gunakan menit:detik, contoh 1:30.', true); this.vtLoad(i); return; }
+                    if ((st || en) && !this.ytId(url)) { this.showToast('Pemotongan waktu hanya untuk link YouTube (Video ' + (i + 1) + ').', true); this.vtLoad(i); return; }
+                    const err = this.checkVideoRange(i + 1, st, en, qs);
+                    if (err) { this.showToast(err, true); this.vtLoad(i); return; }
+                    extraVideos.push({ title: (t.title || '').trim(), url: url, videoQuestions: qs, failMode: t.failMode || 'start', start: st || null, end: en || null });
                 }
                 const allQ = (c) => [...(c.videoQuestions || []), ...((c.extraVideos || []).flatMap(v => v.videoQuestions || []))];
                 if (this.state.editingCourseId) {
@@ -4381,6 +4439,8 @@
                             videoQuestions: videoQuestions,
                             videoFailMode: videoFailMode,
                             videoTitle: videoTitle,
+                            videoStart: mainStart || null,
+                            videoEnd: mainEnd || null,
                             extraVideos: extraVideos,
                             requireSummary: requireSummary,
                             uploadSummary: document.getElementById('f-upload-summary').value,
@@ -4410,6 +4470,8 @@
                         videoQuestions: videoQuestions,
                         videoFailMode: videoFailMode,
                         videoTitle: videoTitle,
+                        videoStart: mainStart || null,
+                        videoEnd: mainEnd || null,
                         extraVideos: extraVideos,
                         requireSummary: requireSummary,
                             uploadSummary: document.getElementById('f-upload-summary').value,
