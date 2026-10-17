@@ -244,7 +244,7 @@
 
                 <!-- Progress Bar / Checkpoints -->
                 <div class="p-6 border-b border-gray-100 bg-white">
-                    <div class="flex items-center justify-between relative max-w-3xl mx-auto">
+                    <div id="stepper-row" class="flex items-center justify-between relative max-w-3xl mx-auto">
                         <!-- Line bg -->
                         <div class="absolute top-1/2 left-0 w-full h-1 bg-gray-200 -z-10 -translate-y-1/2 rounded-full"></div>
                         <!-- Progress Line -->
@@ -289,7 +289,7 @@
 
                     <!-- Step 2: Video -->
                     <div id="content-step-2" class="step-content flex-grow fade-in hidden">
-                        <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-play text-brand-blue mr-2"></i> Video Pembelajaran</h2>
+                        <h2 id="learn-video-heading" class="text-xl font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-play text-brand-blue mr-2"></i> Video Pembelajaran</h2>
                         <div class="aspect-w-16 aspect-h-9 bg-black rounded-lg overflow-hidden shadow-md max-w-4xl mx-auto">
                             <iframe id="learn-video" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen class="w-full h-full min-h-[300px] md:min-h-[450px]"></iframe>
                         </div>
@@ -696,7 +696,14 @@
                         <p class="text-[10px] text-gray-500 mt-1">Kosongkan untuk gambar otomatis.</p>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">URL Video YouTube (Checkpoint 2) <span class="text-red-500">*</span></label>
+                        <div class="bg-blue-50 border border-blue-200 rounded-md p-2 mb-3">
+                            <p class="text-xs font-bold text-blue-900 mb-1"><i class="fa-solid fa-film mr-1"></i> Video Pembelajaran (setiap video = 1 checkpoint)</p>
+                            <div id="f-video-tabs" class="flex flex-wrap gap-1"></div>
+                            <p class="text-[10px] text-gray-600 mt-1">Urutan checkpoint siswa: Panduan, Video 1, Video 2, ..., Latihan, Review. Klik tab untuk mengisi tiap video.</p>
+                        </div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Judul Video <span id="f-video-no">1</span> (opsional)</label>
+                        <input type="text" id="f-video-title" class="w-full border border-gray-300 rounded-md p-2 mb-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="Contoh: Pengertian Matriks">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">URL Video YouTube <span class="text-red-500">*</span></label>
                         <input type="url" id="f-video" required class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-blue" placeholder="https://www.youtube.com/watch?v=... atau https://edpuzzle.com/media/...">
                         <p class="text-[10px] text-gray-500 mt-1">Mendukung YouTube dan Edpuzzle (link /media/ otomatis diubah ke link embed).</p>
                     </div>
@@ -1011,6 +1018,10 @@
                 tempAttachment: null, 
                 tempVQ: [],
                 reviewNav: false,
+                lastKind: null,
+                shownVideo: null,
+                tempVideos: [],
+                curVideo: 0,
                 lastStep: null,
                 vqFocus: null,
                 forcePw: false,
@@ -2001,6 +2012,8 @@
                 // Siswa yang sudah tuntas (dan guru) boleh berpindah bebas antar checkpoint.
                 this.state.reviewNav = isCompleted || this.state.role === 'admin';
                 this.state.lastStep = null;
+                this.state.lastKind = null;
+                this.renderStepper(course);
 
                 document.getElementById('learn-title').innerText = course.title;
                 const deadlineEl = document.getElementById('learn-deadline-info');
@@ -2025,20 +2038,10 @@
                 }
                 document.getElementById('learn-exercise').innerText = course.exercise;
                 
-                let vidUrl = course.videoUrl;
-                if (vidUrl.includes('watch?v=')) vidUrl = vidUrl.replace('watch?v=', 'embed/');
-                const hasIV = course.videoQuestions && course.videoQuestions.length && this.ytId(vidUrl);
-                const frameBox = document.getElementById('learn-video').parentElement;
                 this.ivDestroy();
                 this.state.videoDone = true;
-                if (hasIV) {
-                    frameBox.classList.add('hidden');
-                    document.getElementById('learn-video').src = '';
-                    this.ivStart(course);
-                } else {
-                    frameBox.classList.remove('hidden');
-                    document.getElementById('learn-video').src = vidUrl;
-                }
+                this.state.shownVideo = null;
+                document.getElementById('learn-video').src = '';
 
                 this.applyUploadModes(course);
                 const summarySection = document.getElementById('summary-upload-section');
@@ -2108,22 +2111,26 @@
                     
                     document.getElementById('btn-finish').innerHTML = '<i class="fa-solid fa-arrow-left"></i> Kembali ke Dashboard';
                     
-                    this.state.activeStep = 4; // Langsung loncat ke Review
+                    this.state.activeStep = this.stepInfo(course).review; // Langsung loncat ke Review
                     this.updateStepUI();
                 } else {
                     // RESUME UNTUK MODUL BELUM SELESAI: lompat ke step sesuai submission yang sudah ada,
                     // jangan selalu paksa mulai dari step 1.
-                    const prog = nisnForResume ? this.getProg(nisnForResume, course) : { step: 1, videoDone: false };
-                    // Siswa yang sudah mencapai Checkpoint 3+ atau sudah mengumpulkan file pasti sudah melewati video.
-                    const vdone = !(course.videoQuestions && course.videoQuestions.length) || prog.videoDone || prog.step >= 3 || this.state.isExerciseUploaded;
+                    const info = this.stepInfo(course);
+                    const prog = nisnForResume ? this.getProg(nisnForResume, course) : { step: 1, vDone: [], parts: [] };
+                    // Video berpertanyaan yang belum tuntas menahan siswa di checkpoint video itu.
+                    const vids = this.getVideos(course);
+                    let firstUndone = -1;
+                    for (let i = 0; i < vids.length; i++) {
+                        if (vids[i].qs.length && this.ytId(vids[i].url) && !(prog.vDone && prog.vDone[i]) && !this.state.isExerciseUploaded) { firstUndone = i; break; }
+                    }
                     // Mulai dari Checkpoint 1. Naik hanya berdasarkan progres milik siswa ini sendiri
-                    // (stepProgress di Firebase) atau bukti nyata berupa file yang sudah ia kumpulkan.
+                    // atau bukti nyata berupa file yang sudah ia kumpulkan.
                     let resumeStep = prog.step;
-                    if (this.state.isExerciseUploaded) resumeStep = Math.max(resumeStep, 4);
+                    if (this.state.isExerciseUploaded) resumeStep = Math.max(resumeStep, info.review);
                     else if (this.state.isSummaryUploaded) resumeStep = Math.max(resumeStep, 2);
-                    // Video interaktif belum tuntas -> tidak boleh melewati Checkpoint 2.
-                    if (!vdone) resumeStep = Math.min(resumeStep, 2);
-                    this.state.activeStep = Math.min(Math.max(resumeStep, 1), 4);
+                    if (firstUndone >= 0) resumeStep = Math.min(resumeStep, 2 + firstUndone);
+                    this.state.activeStep = Math.min(Math.max(resumeStep, 1), info.total);
                     document.getElementById('learn-completed-banner').classList.add('hidden');
                     document.getElementById('learn-container').classList.replace('rounded-t-none', 'rounded-t-2xl');
                     
@@ -2176,6 +2183,57 @@
                 if (v.includes('youtu.be/')) return v.replace('youtu.be/', 'youtube.com/embed/').split('?')[0];
                 return v;
             },
+            // ===== EDITOR BANYAK VIDEO (tab Video 1, Video 2, ...) =====
+            vtInit(course) {
+                const toWatch = u => (u && u.includes('youtube.com/embed/')) ? u.replace('embed/', 'watch?v=') : (u || '');
+                if (course) {
+                    this.state.tempVideos = this.getVideos(course).map(v => ({ title: v.title, url: toWatch(v.url), failMode: v.failMode, questions: JSON.parse(JSON.stringify(v.qs)) }));
+                } else {
+                    this.state.tempVideos = [{ title: '', url: '', failMode: 'start', questions: [] }];
+                }
+                this.vtLoad(0);
+            },
+            vtLoad(i) {
+                const v = this.state.tempVideos[i]; if (!v) return;
+                this.state.curVideo = i;
+                this.state.tempVQ = v.questions;
+                document.getElementById('f-video').value = v.url || '';
+                document.getElementById('f-video-title').value = v.title || '';
+                document.getElementById('f-vq-mode').value = v.failMode || 'start';
+                document.getElementById('f-video-no').innerText = i + 1;
+                this.renderVQ();
+                this.renderVideoTabs();
+            },
+            vtStore() {
+                const v = this.state.tempVideos[this.state.curVideo]; if (!v) return;
+                this.readVQ();
+                v.questions = this.state.tempVQ;
+                v.url = document.getElementById('f-video').value;
+                v.title = document.getElementById('f-video-title').value;
+                v.failMode = document.getElementById('f-vq-mode').value;
+            },
+            vtSelect(i) { this.vtStore(); this.vtLoad(i); },
+            vtAdd() {
+                this.vtStore();
+                this.state.tempVideos.push({ title: '', url: '', failMode: 'start', questions: [] });
+                this.vtLoad(this.state.tempVideos.length - 1);
+            },
+            vtRemove() {
+                if (this.state.tempVideos.length <= 1) return;
+                const i = this.state.curVideo;
+                if (!confirm('Hapus Video ' + (i + 1) + ' dari modul ini? Soal-soal di dalam video ini ikut terhapus saat modul disimpan.')) return;
+                this.vtStore();
+                this.state.tempVideos.splice(i, 1);
+                this.vtLoad(Math.max(0, i - 1));
+            },
+            renderVideoTabs() {
+                const el = document.getElementById('f-video-tabs'); if (!el) return;
+                const cur = this.state.curVideo, n = this.state.tempVideos.length;
+                el.innerHTML = this.state.tempVideos.map((v, i) => `<button type="button" onclick="app.vtSelect(${i})" class="px-3 py-1 rounded-md text-xs font-bold border ${i === cur ? 'bg-brand-blue text-white border-brand-blue' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}">Video ${i + 1}</button>`).join('')
+                    + `<button type="button" onclick="app.vtAdd()" class="px-3 py-1 rounded-md text-xs font-bold border border-dashed border-green-500 text-green-700 hover:bg-green-50"><i class="fa-solid fa-plus mr-1"></i> Tambah Video</button>`
+                    + (n > 1 ? `<button type="button" onclick="app.vtRemove()" class="px-3 py-1 rounded-md text-xs font-bold border border-red-300 text-red-600 hover:bg-red-50 ml-auto"><i class="fa-solid fa-trash mr-1"></i> Hapus Video ${cur + 1}</button>` : '');
+            },
+
             addVQ() { this.readVQ(); this.state.tempVQ.push({ time: 30, type: 'mc', ans: '', q: '', qImg: null, options: ['', '', '', '', ''], optImgs: [null, null, null, null, null], answer: 0 }); this.renderVQ(); },
             delVQ(i) { this.readVQ(); this.state.tempVQ.splice(i, 1); this.renderVQ(); },
             readVQ() {
@@ -2344,17 +2402,18 @@
                     if (!old) { const d = document.createElement('div'); d.id = 'iv-player'; d.className = 'absolute inset-0 w-full h-full'; document.getElementById('iv-shield').before(d); }
                 }
             },
-            async ivStart(course) {
+            async ivStart(course, vi = 0) {
                 this.ivDestroy();
+                const V = this.getVideos(course)[vi] || this.getVideos(course)[0];
                 const nisn = this.state.currentUser ? this.state.currentUser.nisn : null;
                 const prog = nisn ? this.getProg(nisn, course) : null;
-                const done = !!(prog && (prog.videoDone || prog.step >= 3)) || !!(nisn && (course.completedBy || []).includes(nisn));
+                const done = !!(prog && prog.vDone[vi]) || !!(nisn && (course.completedBy || []).includes(nisn));
                 this.state.videoDone = done || this.state.role === 'admin';
-                const qs = [...course.videoQuestions].sort((a, b) => a.time - b.time);
-                const part = (!done && prog && prog.part) || null;
+                const qs = [...V.qs].sort((a, b) => a.time - b.time);
+                const part = (!done && prog && prog.parts[vi]) || null;
                 const startIdx = part ? Math.min(part.idx || 0, qs.length) : 0;
                 const startTime = part ? (part.time || 0) : 0;
-                const iv = this.state.iv = { qs, idx: startIdx, max: startTime, wait: false, course, mode: course.videoFailMode || 'start', player: null, timer: null };
+                const iv = this.state.iv = { qs, idx: startIdx, max: startTime, wait: false, course, vi, mode: V.failMode || 'start', player: null, timer: null };
                 document.getElementById('iv-wrap').classList.remove('hidden');
                 document.getElementById('iv-q-text').parentElement.parentElement.classList.add('hidden');
                 // Siswa yang sudah tuntas (dan guru) memakai pemutar YouTube biasa: bisa dipercepat, diulang, dan dilompati.
@@ -2365,25 +2424,90 @@
                 await this.ivLoadAPI();
                 if (this.state.iv !== iv) return;
                 iv.player = new YT.Player('iv-player', {
-                    videoId: this.ytId(course.videoUrl),
+                    videoId: this.ytId(V.url),
                     playerVars: { start: Math.floor(startTime), controls: free ? 1 : 0, disablekb: free ? 0 : 1, rel: 0, modestbranding: 1, fs: free ? 1 : 0, playsinline: 1 },
                     events: { onStateChange: e => this.ivState(e) }
                 });
                 iv.timer = setInterval(() => this.ivTick(), 250);
             },
+            // Tampilkan video ke-vi pada area video bersama (judul, pemutar, rangkuman hanya di video terakhir).
+            showVideoStep(course, vi) {
+                const vids = this.getVideos(course), V = vids[vi] || vids[0], k = vids.length;
+                this.state.shownVideo = vi;
+                const esc = t => String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+                const label = k > 1 ? 'Video ' + (vi + 1) + (V.title ? ': ' + V.title : '') : (V.title || 'Video Pembelajaran');
+                document.getElementById('learn-video-heading').innerHTML = '<i class="fa-solid fa-play text-brand-blue mr-2"></i> ' + esc(label);
+                let vidUrl = V.url || '';
+                if (vidUrl.includes('watch?v=')) vidUrl = vidUrl.replace('watch?v=', 'embed/');
+                const hasIV = V.qs.length && this.ytId(vidUrl);
+                const frameBox = document.getElementById('learn-video').parentElement;
+                this.ivDestroy();
+                this.state.videoDone = true;
+                if (hasIV) {
+                    frameBox.classList.add('hidden');
+                    document.getElementById('learn-video').src = '';
+                    this.ivStart(course, vi);
+                } else {
+                    frameBox.classList.remove('hidden');
+                    document.getElementById('learn-video').src = vidUrl;
+                }
+                document.getElementById('summary-upload-section').style.display = (vi === k - 1) ? '' : 'none';
+            },
             // ===== PROGRES SISWA (node Firebase tersendiri: progress/<nisn>/<idModul>) =====
             // Dipisah dari data modul supaya tidak tertimpa saat guru/siswa lain menyimpan daftar modul.
+            // ===== BANYAK VIDEO (setiap video = 1 checkpoint) =====
+            getVideos(course) {
+                const list = [{ title: course.videoTitle || '', url: course.videoUrl, qs: course.videoQuestions || [], failMode: course.videoFailMode || 'start' }];
+                (course.extraVideos || []).forEach(v => list.push({ title: v.title || '', url: v.url, qs: v.videoQuestions || [], failMode: v.failMode || 'start' }));
+                return list;
+            },
+            stepInfo(course) {
+                const k = course ? this.getVideos(course).length : 1;
+                return { k, total: k + 3, exercise: k + 2, review: k + 3 };
+            },
+            stepKind(course, step) {
+                const info = this.stepInfo(course);
+                if (step <= 1) return { kind: 'guide' };
+                if (step <= 1 + info.k) return { kind: 'video', vi: step - 2 };
+                if (step === info.exercise) return { kind: 'exercise' };
+                return { kind: 'review' };
+            },
+            // Progres disimpan sebagai NAMA tahap (g, v1, v2, ..., l, r) supaya tetap benar walau jumlah video diubah guru.
+            stageOf(course, step) {
+                const x = this.stepKind(course, step);
+                return x.kind === 'guide' ? 'g' : x.kind === 'video' ? 'v' + (x.vi + 1) : x.kind === 'exercise' ? 'l' : 'r';
+            },
+            stepOfStage(course, stage) {
+                const info = this.stepInfo(course);
+                if (stage === 'g') return 1;
+                if (stage === 'l') return info.exercise;
+                if (stage === 'r') return info.review;
+                const m = /^v(\d+)$/.exec(stage || '');
+                if (m) { const n = parseInt(m[1]); return n <= info.k ? 1 + n : info.exercise; }
+                return 1;
+            },
+            vKeys(vi) { return vi === 0 ? { done: 'videoDone', idx: 'vIdx', time: 'vTime' } : { done: 'videoDone_' + (vi + 1), idx: 'vIdx_' + (vi + 1), time: 'vTime_' + (vi + 1) }; },
+
             getProg(nisn, course) {
                 const n = String(nisn), cid = String(course.id);
                 const p = (this.state.progress && this.state.progress[n] && this.state.progress[n][cid]) || {};
-                const legacyStep = (course.stepProgress && parseInt(course.stepProgress[n])) || 0;
-                const legacyDone = !!(course.videoProgress && course.videoProgress[n]);
-                const legacyPart = (course.videoPartial && course.videoPartial[n]) || null;
-                return {
-                    step: Math.max(parseInt(p.step) || 0, legacyStep) || 1,
-                    videoDone: !!p.videoDone || legacyDone,
-                    part: (p.vIdx !== undefined ? { idx: p.vIdx, time: p.vTime || 0 } : null) || legacyPart
-                };
+                const legacyStages = ['g', 'g', 'v1', 'l', 'r'];   // nomor checkpoint lama (4 tahap) -> nama tahap
+                const fromNum = num => { const v = parseInt(num) || 0; return v ? this.stepOfStage(course, legacyStages[Math.min(v, 4)]) : 0; };
+                const stepP = p.stage ? this.stepOfStage(course, p.stage) : fromNum(p.step);
+                const stepL = fromNum(course.stepProgress && course.stepProgress[n]);
+                const step = Math.max(stepP, stepL) || 1;
+                const vids = this.getVideos(course);
+                const vDone = vids.map((v, i) => {
+                    const kk = this.vKeys(i);
+                    const flag = !!p[kk.done] || (i === 0 && !!(course.videoProgress && course.videoProgress[n]));
+                    return flag || step > i + 2;   // sudah melewati checkpoint video ini
+                });
+                const parts = vids.map((v, i) => {
+                    const kk = this.vKeys(i);
+                    if (p[kk.idx] !== undefined) return { idx: p[kk.idx], time: p[kk.time] || 0 };
+                    return i === 0 ? ((course.videoPartial && course.videoPartial[n]) || null) : null;
+                });
+                return { step, vDone, parts, videoDone: vDone[0], part: parts[0] };
             },
             setProg(nisn, course, patch) {
                 const n = String(nisn), cid = String(course.id);
@@ -2401,12 +2525,13 @@
                 const nisn = this.state.currentUser && this.state.currentUser.nisn;
                 if (!course || !nisn || this.state.role === 'admin') return;
                 if (this.getProg(nisn, course).step >= step) return;
-                this.setProg(nisn, course, { step: step });
+                this.setProg(nisn, course, { stage: this.stageOf(course, step), step: step });
             },
             saveVideoPartial(idx, time) {
                 const iv = this.state.iv, nisn = this.state.currentUser && this.state.currentUser.nisn;
                 if (!iv || !nisn || this.state.role === 'admin') return;
-                this.setProg(nisn, iv.course, { vIdx: idx, vTime: time });
+                const kk = this.vKeys(iv.vi || 0);
+                this.setProg(nisn, iv.course, { [kk.idx]: idx, [kk.time]: time });
             },
             ivStatus(t) { document.getElementById('iv-status').innerText = t; },
             ivToggle() {
@@ -2489,7 +2614,7 @@
                 this.state.videoDone = true;
                 const course = iv.course, nisn = this.state.currentUser && this.state.currentUser.nisn;
                 if (nisn && this.state.role !== 'admin') {
-                    this.setProg(nisn, course, { videoDone: true });
+                    this.setProg(nisn, course, { [this.vKeys(iv.vi || 0).done]: true });
                 }
                 this.ivStatus('Video tuntas! Kamu bisa lanjut ke tahap berikutnya.');
                 this.showToast('Video tuntas!');
@@ -3581,34 +3706,53 @@
                 return { text: `${diffDays} hari lagi`, cls: 'bg-gray-50 text-gray-500' };
             },
 
+            renderStepper(course) {
+                const row = document.getElementById('stepper-row'); if (!row) return;
+                const info = this.stepInfo(course);
+                row.querySelectorAll('.step-indicator').forEach(e => e.remove());
+                for (let i = 1; i <= info.total; i++) {
+                    const kd = this.stepKind(course, i);
+                    const label = kd.kind === 'guide' ? 'Panduan' : kd.kind === 'video' ? (info.k > 1 ? 'Video ' + (kd.vi + 1) : 'Video') : kd.kind === 'exercise' ? 'Latihan' : 'Review';
+                    const el = document.createElement('div');
+                    el.className = 'step-indicator'; el.dataset.step = i;
+                    el.innerHTML = '<div></div><div>' + label + '</div>';
+                    row.appendChild(el);
+                }
+            },
             updateStepUI() {
-                const totalSteps = 4;
-                const icons = ['book-open', 'play', 'pen-clip', 'check-double'];
+                const course = this.state.courses.find(c => c.id === this.state.activeCourseId);
+                const info = course ? this.stepInfo(course) : { k: 1, total: 4, exercise: 3, review: 4 };
+                const totalSteps = info.total;
+                const icons = { guide: 'book-open', video: 'play', exercise: 'pen-clip', review: 'check-double' };
+                const many = totalSteps > 5;
+                const circ = many ? 'w-8 h-8 text-xs' : 'w-10 h-10';
+                const lbl = many ? 'absolute -ml-3 w-14 text-[9px] leading-tight' : 'absolute -ml-4 w-20 text-xs';
 
                 const progressPercentage = ((this.state.activeStep - 1) / (totalSteps - 1)) * 100;
                 document.getElementById('progress-line').style.width = `${progressPercentage}%`;
 
+                const cur = course ? this.stepKind(course, this.state.activeStep) : { kind: 'guide' };
+                const activeContent = { guide: 1, video: 2, exercise: 3, review: 4 }[cur.kind];
+                for (let c = 1; c <= 4; c++) document.getElementById(`content-step-${c}`).classList.toggle('hidden', c !== activeContent);
+
                 for (let i = 1; i <= totalSteps; i++) {
                     const indicator = document.querySelector(`.step-indicator[data-step="${i}"]`);
+                    if (!indicator) continue;
                     const iconBg = indicator.querySelector('div:first-child');
                     const text = indicator.querySelector('div:last-child');
-                    const content = document.getElementById(`content-step-${i}`);
-                    
+                    const kind = course ? this.stepKind(course, i).kind : 'guide';
                     if (i < this.state.activeStep) {
-                        iconBg.className = 'w-10 h-10 rounded-full bg-brand-green text-white flex items-center justify-center font-bold shadow-md ring-4 ring-white transition-all';
+                        iconBg.className = circ + ' rounded-full bg-brand-green text-white flex items-center justify-center font-bold shadow-md ring-4 ring-white transition-all';
                         iconBg.innerHTML = '<i class="fa-solid fa-check"></i>';
-                        text.className = 'text-xs font-semibold mt-2 text-brand-green text-center absolute -ml-4 w-20';
-                        content.classList.add('hidden');
+                        text.className = 'font-semibold mt-2 text-brand-green text-center ' + lbl;
                     } else if (i === this.state.activeStep) {
-                        iconBg.className = 'w-10 h-10 rounded-full bg-brand-blue text-white flex items-center justify-center font-bold shadow-md ring-4 ring-white transition-all';
-                        iconBg.innerHTML = `<i class="fa-solid fa-${icons[i-1]}"></i>`;
-                        text.className = 'text-xs font-bold mt-2 text-brand-blue text-center absolute -ml-4 w-20';
-                        content.classList.remove('hidden');
+                        iconBg.className = circ + ' rounded-full bg-brand-blue text-white flex items-center justify-center font-bold shadow-md ring-4 ring-white transition-all';
+                        iconBg.innerHTML = `<i class="fa-solid fa-${icons[kind]}"></i>`;
+                        text.className = 'font-bold mt-2 text-brand-blue text-center ' + lbl;
                     } else {
-                        iconBg.className = 'w-10 h-10 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center font-bold shadow-sm ring-4 ring-white transition-all';
-                        iconBg.innerHTML = `<i class="fa-solid fa-${icons[i-1]}"></i>`;
-                        text.className = 'text-xs font-medium mt-2 text-gray-500 text-center absolute -ml-4 w-20';
-                        content.classList.add('hidden');
+                        iconBg.className = circ + ' rounded-full bg-gray-200 text-gray-500 flex items-center justify-center font-bold shadow-sm ring-4 ring-white transition-all';
+                        iconBg.innerHTML = `<i class="fa-solid fa-${icons[kind]}"></i>`;
+                        text.className = 'font-medium mt-2 text-gray-500 text-center ' + lbl;
                     }
                 }
 
@@ -3621,8 +3765,10 @@
                 document.getElementById('btn-prev-step').classList.toggle('hidden', !(nav && this.state.activeStep > 1));
                 document.getElementById('btn-prev-step').classList.toggle('flex', nav && this.state.activeStep > 1);
                 document.getElementById('review-nav-hint').classList.toggle('hidden', !nav);
-                if (this.state.lastStep === 2 && this.state.activeStep !== 2) this.leaveVideo();   // video berhenti saat pindah checkpoint
-                this.state.lastStep = this.state.activeStep;
+
+                if (this.state.lastKind === 'video' && cur.kind !== 'video') this.leaveVideo();   // video berhenti saat pindah checkpoint
+                this.state.lastKind = cur.kind;
+                if (course && cur.kind === 'video' && this.state.shownVideo !== cur.vi) this.showVideoStep(course, cur.vi);
 
                 if (this.state.activeStep === totalSteps) {
                     document.getElementById('btn-next-step').classList.add('hidden');
@@ -3636,7 +3782,9 @@
             },
 
             gotoStep(n) {
-                if (!this.state.reviewNav || n < 1 || n > 4) return;
+                const course = this.state.courses.find(c => c.id === this.state.activeCourseId);
+                const total = this.stepInfo(course).total;
+                if (!this.state.reviewNav || n < 1 || n > total) return;
                 this.state.activeStep = n;
                 this.updateStepUI();
             },
@@ -3653,14 +3801,16 @@
             nextStep() {
               try {
                 const course = this.state.courses.find(c => c.id === this.state.activeCourseId);
-                const totalSteps = 4;
+                const info = this.stepInfo(course);
+                const cur = this.stepKind(course, this.state.activeStep);
 
-                if (this.state.activeStep === 2) {
+                if (cur.kind === 'video') {
                     if (!this.state.videoDone) {
                         this.showToast('Selesaikan video interaktif dulu (tonton sampai habis & jawab semua soal dengan benar).', true);
                         return;
                     }
-                    if (course && course.requireSummary && !this.state.isSummaryUploaded) {
+                    // Rangkuman diminta di video terakhir.
+                    if (cur.vi === info.k - 1 && course && course.requireSummary && !this.state.isSummaryUploaded) {
                         this.showToast('Wajib upload foto rangkuman!', true);
                         const summaryForm = document.getElementById('summary-upload-section');
                         summaryForm.classList.add('ring-4', 'ring-red-400', 'animate-pulse');
@@ -3669,7 +3819,7 @@
                     }
                 }
 
-                if (this.state.activeStep === 3 && !this.state.isExerciseUploaded) {
+                if (cur.kind === 'exercise' && !this.state.isExerciseUploaded) {
                     this.showToast('Wajib mengumpulkan file tugas!', true);
                     const taskForm = document.getElementById('student-upload-section');
                     taskForm.classList.add('ring-4', 'ring-red-400', 'animate-pulse');
@@ -3677,7 +3827,7 @@
                     return; 
                 }
 
-                if (this.state.activeStep < totalSteps) {
+                if (this.state.activeStep < info.total) {
                     this.state.activeStep++;
                     this.updateStepUI();
                     this.saveStepProgress(course, this.state.activeStep);
@@ -3926,7 +4076,7 @@
                 document.getElementById('btn-save-course').innerHTML = '<i class="fa-solid fa-save mr-2"></i> Simpan Modul';
                 document.getElementById('course-form').reset();
                 document.getElementById('f-deadline').value = '';
-                this.renderVQ();
+                this.vtInit(null);
                 document.getElementById('f-require-summary').checked = false;
                 document.getElementById('f-visibility-all').checked = true;
                 document.getElementById('f-student-target-wrapper').classList.add('hidden');
@@ -3965,10 +4115,7 @@
                 
                 let normalUrl = course.videoUrl;
                 if(normalUrl.includes('youtube.com/embed/')) normalUrl = normalUrl.replace('embed/', 'watch?v=');
-                this.state.tempVQ = JSON.parse(JSON.stringify(course.videoQuestions || []));
-                this.renderVQ();
-                document.getElementById('f-vq-mode').value = course.videoFailMode || 'start';
-                document.getElementById('f-video').value = normalUrl;
+                this.vtInit(course);
                 
                 document.getElementById('f-guide').value = course.guide;
                 document.getElementById('f-interactive-url').value = course.interactiveUrl || '';
@@ -4132,6 +4279,7 @@
             },
 
             saveCourse() {
+                this.vtSelect(0);   // pastikan isi Video 1 ada di form sebelum membaca field
                 const title = document.getElementById('f-title').value;
                 const category = document.getElementById('f-category').value;
                 const type = document.getElementById('f-type').value;
@@ -4176,11 +4324,24 @@
                     return;
                 }
                 const videoFailMode = document.getElementById('f-vq-mode').value;
+                const videoTitle = (document.getElementById('f-video-title').value || '').trim();
                 const vqIds = list => (list || []).flatMap(x => [x.qImg, ...(x.optImgs || [])]).filter(Boolean).map(i => i.fileId);
+                // Video tambahan (Video 2, 3, ...)
+                const extraVideos = [];
+                for (let i = 1; i < this.state.tempVideos.length; i++) {
+                    const t = this.state.tempVideos[i];
+                    const url = this.normalizeVideoUrl((t.url || '').trim());
+                    if (!url) { this.showToast('URL Video ' + (i + 1) + ' belum diisi.', true); this.vtLoad(i); return; }
+                    const qs = (t.questions || []).filter(x => (x.q.trim() || x.qImg) && (x.type === 'short' ? (x.ans || '').trim() : [0, 1, 2, 3, 4].filter(k => hasOpt(x, k)).length >= 2));
+                    if (qs.length && !this.ytId(url)) { this.showToast('Soal interaktif Video ' + (i + 1) + ' hanya bisa untuk link YouTube.', true); this.vtLoad(i); return; }
+                    if (qs.some(x => x.type !== 'short' && !hasOpt(x, x.answer))) { this.showToast('Jawaban benar pada salah satu soal Video ' + (i + 1) + ' menunjuk pilihan yang kosong.', true); this.vtLoad(i); return; }
+                    extraVideos.push({ title: (t.title || '').trim(), url: url, videoQuestions: qs, failMode: t.failMode || 'start' });
+                }
+                const allQ = (c) => [...(c.videoQuestions || []), ...((c.extraVideos || []).flatMap(v => v.videoQuestions || []))];
                 if (this.state.editingCourseId) {
                     const old = this.state.courses.find(c => c.id === this.state.editingCourseId);
-                    const keep = new Set(vqIds(videoQuestions));
-                    const orphan = vqIds(old && old.videoQuestions).filter(id => !keep.has(id));
+                    const keep = new Set(vqIds(allQ({ videoQuestions: videoQuestions, extraVideos: extraVideos })));
+                    const orphan = vqIds(old ? allQ(old) : []).filter(id => !keep.has(id));
                     if (orphan.length) this.deleteFilesFromDrive(orphan);
                 }
 
@@ -4200,6 +4361,8 @@
                             videoUrl: embedUrl,
                             videoQuestions: videoQuestions,
                             videoFailMode: videoFailMode,
+                            videoTitle: videoTitle,
+                            extraVideos: extraVideos,
                             requireSummary: requireSummary,
                             uploadSummary: document.getElementById('f-upload-summary').value,
                             uploadTask: document.getElementById('f-upload-task').value,
@@ -4227,6 +4390,8 @@
                         videoUrl: embedUrl,
                         videoQuestions: videoQuestions,
                         videoFailMode: videoFailMode,
+                        videoTitle: videoTitle,
+                        extraVideos: extraVideos,
                         requireSummary: requireSummary,
                             uploadSummary: document.getElementById('f-upload-summary').value,
                             uploadTask: document.getElementById('f-upload-task').value,
@@ -4296,7 +4461,7 @@
                                 });
                             });
                         }
-                        (course.videoQuestions || []).forEach(x => [x.qImg, ...(x.optImgs || [])].forEach(im => { if (im && im.fileId) fileIdsToDelete.push(im.fileId); }));
+                        [...(course.videoQuestions || []), ...((course.extraVideos || []).flatMap(v => v.videoQuestions || []))].forEach(x => [x.qImg, ...(x.optImgs || [])].forEach(im => { if (im && im.fileId) fileIdsToDelete.push(im.fileId); }));
                         if (fileIdsToDelete.length > 0) {
                             await this.deleteFilesFromDrive(fileIdsToDelete);
                         }
