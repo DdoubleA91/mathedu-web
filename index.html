@@ -685,9 +685,14 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Tenggat Waktu (Opsional)</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tenggat Waktu Umum (Opsional)</label>
                         <input type="date" id="f-deadline" class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-blue">
                         <p class="text-[10px] text-gray-500 mt-1">Kosongkan jika modul ini tidak punya batas waktu pengerjaan.</p>
+                        <div class="mt-2 bg-amber-50 border border-amber-200 rounded-md p-2">
+                            <p class="text-xs font-bold text-amber-900"><i class="fa-solid fa-calendar-check mr-1"></i> Tenggat per kelas (opsional)</p>
+                            <p class="text-[10px] text-gray-600 mb-1.5 leading-tight">Isi tanggal berbeda untuk tiap kelas. Kelas yang dikosongkan memakai tenggat umum di atas. Berlaku juga untuk kunci otomatis.</p>
+                            <div id="f-class-deadlines" class="space-y-1"></div>
+                        </div>
                     </div>
 
                     <div>
@@ -762,7 +767,7 @@
                             <input type="checkbox" id="f-auto-lock" class="mt-1 w-4 h-4 rounded border-gray-300">
                             <div>
                                 <span class="text-sm font-bold text-gray-800"><i class="fa-solid fa-clock mr-1"></i> Kunci otomatis setelah deadline lewat</span>
-                                <p class="text-[10px] text-gray-600 leading-tight mt-0.5">Wajib mengisi tanggal deadline. Modul otomatis terkunci mulai pukul 00.00 WIB sehari setelah tanggal deadline. Mengubah tanggal deadline ke depan membukanya lagi.</p>
+                                <p class="text-[10px] text-gray-600 leading-tight mt-0.5">Wajib mengisi tenggat umum atau tenggat per kelas. Modul otomatis terkunci mulai pukul 00.00 WIB sehari setelah tenggat kelas itu. Mengubah tanggal deadline ke depan membukanya lagi.</p>
                             </div>
                         </label>
                     </div>
@@ -1926,8 +1931,11 @@
                         visibilityBadge = `<span class="flex items-center gap-1 text-purple-600"><i class="fa-solid fa-user-lock"></i> ${targetCount} Siswa Terpilih</span>`;
                     }
                     let deadlineBadgeHtml = '';
-                    if (course.deadline && !isCompleted) {
-                        const status = this.getDeadlineStatus(course.deadline);
+                    const myDl = this.myDeadline(course);
+                    if (this.state.role === 'admin' && (course.classDeadlines || []).length) {
+                        deadlineBadgeHtml = `<div class="text-[10px] font-bold px-2 py-1 rounded inline-flex items-center gap-1 mb-2 bg-amber-50 text-amber-700"><i class="fa-solid fa-calendar-check"></i> Tenggat per kelas (${course.classDeadlines.length} kelas)</div>`;
+                    } else if (myDl && !isCompleted) {
+                        const status = this.getDeadlineStatus(myDl);
                         if (status) {
                             deadlineBadgeHtml = `<div class="text-[10px] font-bold px-2 py-1 rounded inline-flex items-center gap-1 mb-2 ${status.cls}"><i class="fa-solid fa-calendar-days"></i> ${status.text}</div>`;
                         }
@@ -2047,9 +2055,16 @@
 
                 document.getElementById('learn-title').innerText = course.title;
                 const deadlineEl = document.getElementById('learn-deadline-info');
-                if (course.deadline && !isCompleted) {
-                    const status = this.getDeadlineStatus(course.deadline);
-                    const formattedDate = new Date(course.deadline + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                const myDl = this.myDeadline(course);
+                if (this.state.role === 'admin' && (course.classDeadlines || []).length) {
+                    const fd = d => new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+                    const parts = course.classDeadlines.map(x => `${x.kelas}: ${fd(x.date)}`);
+                    if (course.deadline) parts.push(`lainnya: ${fd(course.deadline)}`);
+                    deadlineEl.innerHTML = '<i class="fa-solid fa-calendar-days mr-1"></i> Tenggat per kelas - ' + parts.join(' | ');
+                    deadlineEl.className = 'text-xs font-bold mt-2 px-2 py-1 rounded inline-block bg-amber-50 text-amber-700';
+                } else if (myDl && !isCompleted) {
+                    const status = this.getDeadlineStatus(myDl);
+                    const formattedDate = new Date(myDl + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
                     deadlineEl.innerHTML = `<i class="fa-solid fa-calendar-days mr-1"></i> Tenggat: ${formattedDate} (${status.text})`;
                     deadlineEl.className = `text-xs font-bold mt-2 px-2 py-1 rounded inline-block ${status.cls}`;
                 } else {
@@ -2993,10 +3008,32 @@
 
             // Waktu server Firebase (kebal terhadap jam HP siswa yang diubah-ubah).
             nowMs() { return Date.now() + (this.state.serverOffset || 0); },
+            // Tenggat efektif: tenggat khusus kelas jika ada, jika tidak tenggat umum modul.
+            effectiveDeadline(course, kelas) {
+                const cd = (course.classDeadlines || []).find(x => x.kelas === kelas && x.date);
+                return cd ? cd.date : (course.deadline || null);
+            },
+            myDeadline(course) {
+                const cu = this.state.currentUser;
+                if (this.state.role === 'student' && cu) {
+                    const u = this.state.users.find(x => x.nisn === cu.nisn) || cu;
+                    return this.effectiveDeadline(course, u.kelas);
+                }
+                return course.deadline || null;
+            },
+            targetClasses(c) {
+                const sel = c.visibility && c.visibility.mode === 'selected';
+                const list = this.state.users.filter(u => !sel || (c.visibility.studentNisns || []).includes(u.nisn));
+                return [...new Set(list.map(u => (u.kelas || '').trim()).filter(Boolean))];
+            },
             isAutoLocked(c) {
-                if (!c || !c.autoLock || !c.deadline) return false;
-                const end = new Date(c.deadline + 'T00:00:00+07:00').getTime() + 86400000;   // 00.00 WIB hari berikutnya
-                return this.nowMs() >= end;
+                if (!c || !c.autoLock) return false;
+                const passed = d => !!d && this.nowMs() >= new Date(d + 'T00:00:00+07:00').getTime() + 86400000;   // 00.00 WIB hari berikutnya
+                if (this.state.role === 'student' && this.state.currentUser) return passed(this.myDeadline(c));
+                // Guru: terkunci otomatis hanya jika semua kelas sasaran sudah melewati tenggatnya.
+                const kelas = this.targetClasses(c);
+                if (!kelas.length) return passed(c.deadline);
+                return kelas.every(k => passed(this.effectiveDeadline(c, k)));
             },
             isCourseLocked(c) { return !!(c && (c.locked || this.isAutoLocked(c))); },
             // Siswa yang sudah tuntas boleh meninjau modul terkunci jika guru mengizinkan.
@@ -4176,6 +4213,7 @@
                 document.getElementById('course-form').reset();
                 document.getElementById('f-deadline').value = '';
                 this.vtInit(null);
+                this.renderClassDeadlines(null);
                 document.getElementById('f-require-summary').checked = false;
                 document.getElementById('f-visibility-all').checked = true;
                 document.getElementById('f-student-target-wrapper').classList.add('hidden');
@@ -4215,6 +4253,7 @@
                 let normalUrl = course.videoUrl;
                 if(normalUrl.includes('youtube.com/embed/')) normalUrl = normalUrl.replace('embed/', 'watch?v=');
                 this.vtInit(course);
+                this.renderClassDeadlines(course);
                 
                 document.getElementById('f-guide').value = course.guide;
                 document.getElementById('f-interactive-url').value = course.interactiveUrl || '';
@@ -4308,6 +4347,18 @@
                 this.showToast(`${valid.length} siswa disalin dari "${src.title}". Total terpilih: ${this.state.tempTargetNisns.length}.`);
             },
 
+            renderClassDeadlines(course) {
+                const box = document.getElementById('f-class-deadlines'); if (!box) return;
+                const saved = {};
+                ((course && course.classDeadlines) || []).forEach(x => { saved[x.kelas] = x.date; });
+                const esc = t => String(t).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                const kelas = [...new Set([...this.state.users.map(u => (u.kelas || '').trim()).filter(Boolean), ...Object.keys(saved)])]
+                    .sort((a, b) => a.localeCompare(b, 'id', { numeric: true }));
+                box.innerHTML = kelas.length
+                    ? kelas.map(k => `<div class="flex items-center gap-2"><span class="text-xs font-bold text-gray-700 w-20 shrink-0">${esc(k)}</span><input type="date" class="cd-date flex-1 border border-gray-300 rounded-md p-1 text-sm" data-kelas="${esc(k)}" value="${esc(saved[k] || '')}"></div>`).join('')
+                    : '<p class="text-[10px] text-gray-500">Belum ada data kelas siswa.</p>';
+            },
+
             toggleVisibilityMode() {
                 const isSelected = document.getElementById('f-visibility-selected').checked;
                 document.getElementById('f-student-target-wrapper').classList.toggle('hidden', !isSelected);
@@ -4384,8 +4435,9 @@
                 const type = document.getElementById('f-type').value;
                 const duration = document.getElementById('f-duration').value;
                 const deadline = document.getElementById('f-deadline').value || null;
-                if (document.getElementById('f-auto-lock').checked && !deadline) {
-                    this.showToast('Isi tanggal deadline dulu untuk memakai kunci otomatis.', true);
+                const classDeadlines = [...document.querySelectorAll('#f-class-deadlines .cd-date')].filter(i => i.value).map(i => ({ kelas: i.dataset.kelas, date: i.value }));
+                if (document.getElementById('f-auto-lock').checked && !deadline && !classDeadlines.length) {
+                    this.showToast('Isi tenggat umum atau tenggat per kelas dulu untuk memakai kunci otomatis.', true);
                     return;
                 }
                 const image = document.getElementById('f-image').value;
@@ -4466,6 +4518,7 @@
                             thumbnail: image || `https://placehold.co/600x400/2563eb/ffffff?text=${encodeURIComponent(title)}`,
                             duration: duration,
                             deadline: deadline,
+                            classDeadlines: classDeadlines,
                             guide: guide,
                             interactiveUrl: interactiveUrl,
                             videoUrl: embedUrl,
@@ -4496,6 +4549,7 @@
                         thumbnail: image || `https://placehold.co/600x400/2563eb/ffffff?text=${encodeURIComponent(title)}`,
                         duration: duration,
                         deadline: deadline,
+                        classDeadlines: classDeadlines,
                         completedBy: [],
                         guide: guide,
                         interactiveUrl: interactiveUrl,
