@@ -1960,6 +1960,7 @@
                             <div class="flex gap-2">
                                 <button onclick="app.openCourse(${course.id})" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-3 rounded-lg text-sm flex-grow transition" title="Lihat"><i class="fa-solid fa-eye"></i></button>
                                 <button onclick="app.toggleLock(${course.id})" class="${this.isCourseLocked(course) ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} font-bold py-2 px-3 rounded-lg text-sm transition" title="${this.isCourseLocked(course) ? 'Buka kunci' : 'Kunci modul'}"><i class="fa-solid fa-${this.isCourseLocked(course) ? 'lock-open' : 'lock'}"></i></button>
+                                <button onclick="app.copyCourse(${course.id})" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-3 rounded-lg text-sm transition" title="Salin modul"><i class="fa-solid fa-copy"></i></button>
                                 <button onclick="app.openEditModal(${course.id})" class="bg-blue-100 hover:bg-blue-200 text-brand-blue font-bold py-2 px-3 rounded-lg text-sm transition" title="Edit"><i class="fa-solid fa-pen"></i></button>
                                 <button onclick="app.confirmDeleteCourse(${course.id})" class="bg-red-100 hover:bg-red-200 text-red-600 font-bold py-2 px-3 rounded-lg text-sm transition" title="Hapus"><i class="fa-solid fa-trash"></i></button>
                             </div>
@@ -2408,7 +2409,7 @@
                 this.readVQ();
                 const q = this.state.tempVQ[i];
                 const img = slot === 'q' ? q.qImg : q.optImgs[slot];
-                if (img && img.fileId) this.deleteFilesFromDrive([img.fileId]);
+                if (img && img.fileId && !this.isFileShared(img.fileId, this.state.editingCourseId)) this.deleteFilesFromDrive([img.fileId]);
                 if (slot === 'q') q.qImg = null; else q.optImgs[slot] = null;
                 this.renderVQ();
             },
@@ -4263,6 +4264,35 @@
                 document.getElementById('modal-course-form').classList.remove('hidden');
             },
 
+            // File di Drive (mis. gambar soal video) bisa dipakai bersama oleh modul asli dan salinannya.
+            // Jangan hapus file selama masih dipakai modul lain.
+            isFileShared(fileId, exceptCourseId) {
+                if (!fileId) return false;
+                return this.state.courses.some(c => c.id !== exceptCourseId && JSON.stringify(c).includes(fileId));
+            },
+
+            // Salin modul: isi formulir dari modul asli lalu disimpan sebagai modul BARU (jadwal, kunci, dan siswa sasaran dikosongkan).
+            copyCourse(id) {
+                const course = this.state.courses.find(c => c.id === id);
+                if (!course) return;
+                this.openEditModal(id);
+                this.state.editingCourseId = null;
+                document.getElementById('modal-title-text').innerHTML = '<i class="fa-solid fa-copy text-brand-blue mr-2"></i> Salin Modul';
+                document.getElementById('btn-save-course').innerHTML = '<i class="fa-solid fa-save mr-2"></i> Simpan Salinan';
+                document.getElementById('f-title').value = course.title + ' (Salinan)';
+                document.getElementById('f-deadline').value = '';
+                document.getElementById('f-start').value = '';
+                document.getElementById('f-locked').checked = false;
+                document.getElementById('f-auto-lock').checked = false;
+                this.renderClassDeadlines(null);
+                // Siswa sasaran dikosongkan supaya salinan tidak terbuka untuk siapa pun sebelum Anda memilih kelas tujuan.
+                document.getElementById('f-visibility-selected').checked = true;
+                document.getElementById('f-student-target-wrapper').classList.remove('hidden');
+                this.state.tempTargetNisns = [];
+                this.renderStudentTargetOptions();
+                this.showToast('Salinan siap diedit. Pilih siswa tujuan, atur jadwal dan jumlah video, lalu simpan.');
+            },
+
             openEditModal(id) {
                 const course = this.state.courses.find(c => c.id === id);
                 if (!course) return;
@@ -4559,7 +4589,8 @@
                     const old = this.state.courses.find(c => c.id === this.state.editingCourseId);
                     const keep = new Set(vqIds(allQ({ videoQuestions: videoQuestions, extraVideos: extraVideos })));
                     const orphan = vqIds(old ? allQ(old) : []).filter(id => !keep.has(id));
-                    if (orphan.length) this.deleteFilesFromDrive(orphan);
+                    const toDel = orphan.filter(fid => !this.isFileShared(fid, this.state.editingCourseId));
+                    if (toDel.length) this.deleteFilesFromDrive(toDel);
                 }
 
                 if (this.state.editingCourseId) {
@@ -4687,8 +4718,9 @@
                             });
                         }
                         [...(course.videoQuestions || []), ...((course.extraVideos || []).flatMap(v => v.videoQuestions || []))].forEach(x => [x.qImg, ...(x.optImgs || [])].forEach(im => { if (im && im.fileId) fileIdsToDelete.push(im.fileId); }));
-                        if (fileIdsToDelete.length > 0) {
-                            await this.deleteFilesFromDrive(fileIdsToDelete);
+                        const safeToDelete = fileIdsToDelete.filter(fid => !this.isFileShared(fid, id));   // jangan hapus file yang dipakai salinan modul
+                        if (safeToDelete.length > 0) {
+                            await this.deleteFilesFromDrive(safeToDelete);
                         }
 
                         this.state.courses = this.state.courses.filter(c => c.id !== id);
