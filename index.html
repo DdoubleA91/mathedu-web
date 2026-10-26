@@ -2493,12 +2493,15 @@
                 this.ivStatus((free ? 'Video sudah tuntas. Kamu bebas menonton ulang: bisa dipercepat, diulang, dan dilompati seperti video YouTube biasa.' : (part ? 'Progres tersimpan: video dilanjutkan dari soal terakhir yang sudah kamu jawab benar.' : 'Tonton video sampai selesai dan jawab semua soal dengan benar. Video tidak bisa dipercepat/dilewati.')) + segNote);
                 await this.ivLoadAPI();
                 if (this.state.iv !== iv) return;
-                const pv = { start: Math.floor(startTime), controls: free ? 1 : 0, disablekb: free ? 0 : 1, rel: 0, modestbranding: 1, fs: free ? 1 : 0, playsinline: 1 };
+                const pv = { start: Math.floor(startTime), controls: free ? 1 : 0, disablekb: free ? 0 : 1, rel: 0, modestbranding: 1, fs: free ? 1 : 0, playsinline: 1, cc_load_policy: 0, iv_load_policy: 3 };
                 if (segEnd) pv.end = Math.floor(segEnd);
                 iv.player = new YT.Player('iv-player', {
                     videoId: this.ytId(V.url),
                     playerVars: pv,
-                    events: { onStateChange: e => this.ivState(e) }
+                    events: {
+                        onReady: e => this.ivNoCaptions(e.target),
+                        onStateChange: e => { if (e.data === 1) this.ivNoCaptions(e.target); this.ivState(e); }
+                    }
                 });
                 iv.timer = setInterval(() => this.ivTick(), 250);
             },
@@ -2511,8 +2514,9 @@
                 document.getElementById('learn-video-heading').innerHTML = '<i class="fa-solid fa-play text-brand-blue mr-2"></i> ' + esc(label);
                 let vidUrl = V.url || '';
                 if (vidUrl.includes('watch?v=')) vidUrl = vidUrl.replace('watch?v=', 'embed/');
-                if ((V.start || V.end) && this.ytId(vidUrl)) {
-                    vidUrl = 'https://www.youtube.com/embed/' + this.ytId(vidUrl) + '?rel=0' + (V.start ? '&start=' + V.start : '') + (V.end ? '&end=' + V.end : '');
+                const isYT = !!this.ytId(vidUrl);
+                if (isYT) {
+                    vidUrl = 'https://www.youtube.com/embed/' + this.ytId(vidUrl) + '?rel=0&cc_load_policy=0&iv_load_policy=3&enablejsapi=1' + (V.start ? '&start=' + V.start : '') + (V.end ? '&end=' + V.end : '');
                 }
                 const hasIV = V.qs.length && this.ytId(vidUrl);
                 const frameBox = document.getElementById('learn-video').parentElement;
@@ -2524,7 +2528,9 @@
                     this.ivStart(course, vi);
                 } else {
                     frameBox.classList.remove('hidden');
-                    document.getElementById('learn-video').src = vidUrl;
+                    const lf = document.getElementById('learn-video');
+                    lf.onload = isYT ? () => this.plainNoCaptions(lf) : null;
+                    lf.src = vidUrl;
                 }
                 document.getElementById('summary-upload-section').style.display = (vi === k - 1) ? '' : 'none';
             },
@@ -2630,6 +2636,21 @@
                 const kk = this.vKeys(iv.vi || 0);
                 this.setProg(nisn, iv.course, { [kk.idx]: idx, [kk.time]: time });
             },
+            // Matikan subtitle otomatis YouTube (menutupi layar/rumus). Memakai perintah pemutar, diulang tiap beberapa detik.
+            ivNoCaptions(p) {
+                try { p.unloadModule('captions'); } catch (e) {}
+                try { p.unloadModule('cc'); } catch (e) {}
+            },
+            plainNoCaptions(frame) {
+                const send = () => {
+                    try {
+                        const w = frame.contentWindow; if (!w) return;
+                        w.postMessage(JSON.stringify({ event: 'listening', id: 1 }), '*');
+                        ['captions', 'cc'].forEach(m => w.postMessage(JSON.stringify({ event: 'command', func: 'unloadModule', args: [m] }), '*'));
+                    } catch (e) {}
+                };
+                send(); setTimeout(send, 1500); setTimeout(send, 4000);
+            },
             ivStatus(t) { document.getElementById('iv-status').innerText = t; },
             ivToggle() {
                 const iv = this.state.iv; if (!iv || !iv.player || iv.wait) return;
@@ -2642,6 +2663,8 @@
             },
             ivTick() {
                 const iv = this.state.iv; if (!iv || !iv.player || !iv.player.getCurrentTime || iv.wait) return;
+                iv._n = (iv._n || 0) + 1;
+                if (iv._n % 20 === 0) this.ivNoCaptions(iv.player);   // cek ulang tiap ~5 detik
                 const t = iv.player.getCurrentTime(), dur = iv.player.getDuration() || 1;
                 const done = this.state.videoDone;
                 if (!done && iv.start && t < iv.start - 0.5) { iv.player.seekTo(iv.start, true); return; }   // tidak boleh sebelum titik mulai
