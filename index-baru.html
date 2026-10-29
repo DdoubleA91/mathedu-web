@@ -288,7 +288,7 @@
                     <p class="text-sm text-gray-500">Pelajari konsep, tonton video, dan kerjakan latihan untuk menguji pemahamanmu.</p>
                 </div>
                 <div id="modul-tab-content">
-                    <div id="course-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"></div>
+                    <div id="course-grid" class="max-w-3xl"></div>
                 </div>
             </section>
 
@@ -351,11 +351,11 @@
             <div class="bg-white rounded-b-2xl rounded-t-2xl shadow-sm border border-gray-200 overflow-hidden mt-0" id="learn-container">
                 
                 <!-- Course Header Info -->
-                <div class="bg-gray-50 border-b border-gray-200 p-6">
-                    <div class="flex justify-between items-start mb-2">
-                        <span id="learn-category" class="bg-blue-100 text-brand-blue text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wide">Kategori</span>
-                    </div>
-                    <h1 id="learn-title" class="text-2xl font-bold text-gray-800">Judul Materi</h1>
+                <div class="relative bg-white border-b border-gray-200 pl-7 pr-6 py-5">
+                    <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-brand-blue"></div>
+                    <p class="text-xs text-gray-500">Modul <span class="mx-1">/</span> <span id="learn-category" class="font-bold text-brand-blue uppercase tracking-wide">Kategori</span></p>
+                    <h1 id="learn-title" class="text-2xl md:text-3xl font-bold text-gray-900 mt-1">Judul Materi</h1>
+                    <p id="learn-meta" class="text-xs text-gray-500 mt-1"></p>
                     <p id="learn-deadline-info" class="hidden text-xs font-bold mt-2 px-2 py-1 rounded inline-block"></p>
                 </div>
 
@@ -5249,6 +5249,120 @@
                 }).join('');
             },
 
+
+            // ===== Tahap 2: daftar modul berbentuk garis waktu =====
+            renderCourses() {
+                const grid = document.getElementById('course-grid');
+                const q = (document.getElementById('search-input').value || '').toLowerCase();
+                const role = this.state.role, cu = this.state.currentUser;
+                let list = this.state.courses.filter(c => {
+                    if (!(c.title || '').toLowerCase().includes(q) && !(c.category || '').toLowerCase().includes(q)) return false;
+                    if (this.isLockedForCurrentUser(c)) return false;   // modul terkunci disembunyikan dari siswa
+                    if (role === 'student' && cu && c.visibility && c.visibility.mode === 'selected') {
+                        return (c.visibility.studentNisns || []).includes(cu.nisn);
+                    }
+                    return true;
+                });
+                list = list.map(c => ({ c, n: this.state.courses.indexOf(c) + 1 })).reverse();   // modul terbaru di atas
+                if (role === 'admin') list.sort((a, b) => (this.isCourseLocked(a.c) ? 1 : 0) - (this.isCourseLocked(b.c) ? 1 : 0));
+                if (!list.length) {
+                    grid.innerHTML = '<div class="text-center py-10 text-gray-500">Tidak ada materi yang ditemukan.</div>';
+                } else {
+                    grid.innerHTML = list.map((it, i) => this.courseRowHtml(it.c, it.n, i === list.length - 1)).join('');
+                }
+                this.updateStudentProgressBanner();
+            },
+
+            courseRowHtml(course, n, isLast) {
+                const role = this.state.role, cu = this.state.currentUser;
+                const esc = t => this.escapeHtml(t);
+                const chip = (text, cls, icon) => `<span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${cls}">${icon ? `<i class="fa-solid fa-${icon}"></i>` : ''}${text}</span>`;
+                const fd = d => new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                const isStudent = role === 'student' && !!cu;
+                const isAdmin = role === 'admin';
+                const done = isStudent && (course.completedBy || []).includes(cu.nisn);
+                const locked = this.isCourseLocked(course);
+                const notStarted = this.isNotStarted(course);
+                const info = this.stepInfo(course);
+
+                // Tanggal / tenggat
+                let dateLine = '', statusChip = '';
+                const myDl = this.myDeadline(course);
+                if (isAdmin) {
+                    const per = (course.classDeadlines || []).filter(x => x.date);
+                    dateLine = per.length ? 'Tenggat per kelas (' + per.length + ' kelas)' : (course.deadline ? 'Tenggat ' + fd(course.deadline) + ', 23.59' : 'Tanpa tenggat');
+                    if (course.startAt || (course.classDeadlines || []).some(x => x.start)) statusChip += chip('Mulai terjadwal', 'bg-blue-50 text-blue-700', 'hourglass-start');
+                } else if (notStarted) {
+                    dateLine = 'Dibuka ' + this.fmtStart(this.myStart(course));
+                } else if (myDl) {
+                    dateLine = 'Tenggat ' + fd(myDl) + ', 23.59';
+                    const st = !done ? this.getDeadlineStatus(myDl) : null;
+                    if (st) statusChip += chip(st.text, st.cls, 'calendar-days');
+                } else {
+                    dateLine = 'Tanpa tenggat';
+                }
+                if (done) statusChip = chip('Selesai', 'bg-green-100 text-green-700', 'check') + statusChip;
+                if (locked && isAdmin) statusChip += chip(course.locked ? 'Terkunci' : 'Terkunci otomatis', 'bg-gray-800 text-white', 'lock');
+                if (locked && this.canReviewLocked(course)) statusChip += chip('Terkunci - hanya tinjau', 'bg-gray-800 text-white', 'lock');
+
+                // Penanda kecil: kategori, jumlah video, wajib/peminatan
+                const tags = chip(esc(course.category || 'Modul'), 'bg-blue-50 text-brand-blue')
+                    + chip(info.k + ' video', 'bg-gray-100 text-gray-600', 'film')
+                    + chip(course.type === 'Compulsory' ? 'Wajib' : 'Peminatan', course.type === 'Compulsory' ? 'bg-red-50 text-red-600' : 'bg-indigo-50 text-indigo-600');
+
+                // Progres checkpoint (siswa)
+                let progress = '';
+                if (isStudent && !done && !notStarted) {
+                    const step = Math.min(this.getProg(cu.nisn, course).step, info.total);
+                    const pct = Math.round(((step - 1) / (info.total - 1)) * 100);
+                    progress = `<div class="mt-3"><div class="flex justify-between text-[11px] text-gray-500 mb-1"><span>${step === 1 ? 'Belum dimulai' : 'Checkpoint ' + step + ' dari ' + info.total}</span><span>${pct}%</span></div>
+                        <div class="w-full bg-gray-100 rounded-full h-1.5"><div class="bg-brand-green h-1.5 rounded-full" style="width:${pct}%"></div></div></div>`;
+                }
+
+                // Tombol aksi
+                let actions;
+                if (isAdmin) {
+                    let learners = (course.completedBy || []).length;
+                    if (course.visibility && course.visibility.mode === 'selected') learners = (course.completedBy || []).filter(x => (course.visibility.studentNisns || []).includes(x)).length;
+                    const target = (course.visibility && course.visibility.mode === 'selected') ? ' · ' + (course.visibility.studentNisns || []).length + ' siswa terpilih' : '';
+                    actions = `<div class="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2 flex-wrap">
+                        <span class="text-xs text-gray-500"><i class="fa-solid fa-user-graduate mr-1"></i>${learners} siswa selesai${target}</span>
+                        <div class="flex gap-1.5">
+                            <button onclick="app.openCourse(${course.id})" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-1.5 px-3 rounded-lg text-xs transition" title="Lihat"><i class="fa-solid fa-eye"></i></button>
+                            <button onclick="app.toggleLock(${course.id})" class="${locked ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} font-bold py-1.5 px-3 rounded-lg text-xs transition" title="${locked ? 'Buka kunci' : 'Kunci modul'}"><i class="fa-solid fa-${locked ? 'lock-open' : 'lock'}"></i></button>
+                            <button onclick="app.copyCourse(${course.id})" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-1.5 px-3 rounded-lg text-xs transition" title="Salin modul"><i class="fa-solid fa-copy"></i></button>
+                            <button onclick="app.openEditModal(${course.id})" class="bg-blue-100 hover:bg-blue-200 text-brand-blue font-bold py-1.5 px-3 rounded-lg text-xs transition" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="app.confirmDeleteCourse(${course.id})" class="bg-red-100 hover:bg-red-200 text-red-600 font-bold py-1.5 px-3 rounded-lg text-xs transition" title="Hapus"><i class="fa-solid fa-trash"></i></button>
+                        </div></div>`;
+                } else if (notStarted) {
+                    actions = '<button disabled class="mt-3 bg-gray-200 text-gray-500 font-bold py-2 px-4 rounded-lg text-xs cursor-not-allowed"><i class="fa-solid fa-hourglass-start mr-1"></i> Belum dibuka</button>';
+                } else {
+                    actions = `<button onclick="app.openCourse(${course.id})" class="mt-3 bg-brand-orange hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg text-xs transition shadow-sm"><i class="fa-solid fa-${done ? 'check-double' : 'play'} mr-1"></i> ${done ? 'Lihat Review' : 'Mulai / Lanjutkan'}</button>`;
+                }
+
+                const circ = done ? 'border-brand-green text-brand-green bg-green-50' : (locked || notStarted) ? 'border-gray-300 text-gray-400' : 'border-brand-blue text-brand-blue';
+                return `<div class="flex gap-3 sm:gap-4">
+                    <div class="flex flex-col items-center flex-shrink-0">
+                        <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 ${circ} bg-white flex flex-col items-center justify-center leading-none">
+                            <span class="text-[8px] sm:text-[9px] font-bold tracking-wider">MODUL</span><span class="text-lg sm:text-xl font-bold">${n}</span>
+                        </div>
+                        ${isLast ? '' : '<div class="flex-1 w-0.5 bg-gray-200 my-1"></div>'}
+                    </div>
+                    <div class="flex-1 min-w-0 pb-4">
+                        <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition ${locked ? 'opacity-70' : ''}">
+                            <div class="flex items-start justify-between gap-2">
+                                <h3 class="font-bold text-base sm:text-lg text-gray-900 leading-snug">${esc(course.title)}</h3>
+                                <div class="flex flex-wrap gap-1 justify-end flex-shrink-0">${statusChip}</div>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">${dateLine}</p>
+                            <div class="flex flex-wrap gap-1.5 mt-2">${tags}</div>
+                            ${progress}
+                            ${actions}
+                        </div>
+                    </div>
+                </div>`;
+            },
+
             renderAllAnnouncements() {
                 const box = document.getElementById('announcements-all'); if (!box) return;
                 const list = this.state.announcements || [];
@@ -5282,6 +5396,12 @@
             app.setRole = function (role, userData) {
                 origRole.call(this, role, userData);
                 this.goPage('home', true);
+            };
+            const origOpen = app.openCourse;
+            app.openCourse = function (id) {
+                origOpen.apply(this, arguments);
+                const c = this.state.courses.find(x => x.id === id), m = document.getElementById('learn-meta');
+                if (c && m) { const i = this.stepInfo(c); m.innerText = i.k + ' video · ' + i.total + ' checkpoint' + (c.type === 'Compulsory' ? ' · Wajib' : ''); }
             };
             const origHome = app.goHome;
             app.goHome = function () {
