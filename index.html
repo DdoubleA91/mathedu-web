@@ -53,7 +53,7 @@
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
-<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+<body class="bg-gray-50 text-gray-800 min-h-screen">
 
     <!-- Layar Loading Bertema Matematika (tampil saat data awal dari Firebase masih dimuat) -->
     <div id="app-loading-screen" class="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center transition-opacity duration-500">
@@ -79,151 +79,267 @@
         <i class="fa-solid fa-download"></i> Install Aplikasi
     </button>
 
-    <!-- Header -->
-    <header class="bg-white shadow-sm sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
-                <!-- Logo & Brand -->
-                <div class="flex items-center gap-2 sm:gap-4 cursor-pointer min-w-0" onclick="app.goHome()">
-                    <img src="logo.jpg" alt="Logo SMAN 3 Jember" class="h-8 sm:h-10 md:h-12 w-auto object-contain flex-shrink-0" onerror="this.src='https://placehold.co/100x100?text=Logo'">
-                    <div class="h-6 sm:h-8 border-l-2 border-gray-300 flex-shrink-0"></div>
-                    <div class="flex flex-col">
-                        <span class="font-bold text-lg sm:text-xl text-brand-blue leading-tight">MathEdu</span>
-                        <span class="text-[9px] sm:text-[10px] leading-tight max-w-[72px] sm:max-w-none text-gray-500 font-medium">LMS Matematika Interaktif</span>
+    <!-- Bilah atas (khusus HP) -->
+    <div id="mobile-bar" class="lg:hidden sticky top-0 z-40 bg-white border-b border-gray-200 h-14 px-3 flex items-center justify-between">
+        <button onclick="app.toggleSidebar(true)" class="w-10 h-10 rounded-lg hover:bg-gray-100 text-gray-700 text-lg" aria-label="Buka menu"><i class="fa-solid fa-bars"></i></button>
+        <div class="flex items-center gap-2 cursor-pointer" onclick="app.goPage('home')">
+            <img src="logo.jpg" alt="Logo SMAN 3 Jember" class="h-7 w-auto object-contain" onerror="this.src='https://placehold.co/100x100?text=Logo'">
+            <span class="font-bold text-lg text-brand-blue">MathEdu</span>
+        </div>
+        <div class="h-9 w-9 rounded-full bg-brand-blue text-white flex items-center justify-center font-bold text-sm"><span id="mobile-initial">?</span></div>
+    </div>
+
+    <!-- Latar gelap saat menu HP terbuka -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/40 z-40 hidden lg:hidden" onclick="app.toggleSidebar(false)"></div>
+
+    <!-- Menu samping -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-brand-blue text-white flex flex-col transform -translate-x-full lg:translate-x-0 transition-transform duration-200">
+        <div class="px-4 pt-5 pb-3 cursor-pointer" onclick="app.goPage('home')">
+            <div class="bg-white rounded-xl px-3 py-2">
+                <img src="logo.jpg" alt="Logo SMAN 3 Jember" class="h-9 w-auto object-contain mx-auto" onerror="this.src='https://placehold.co/100x100?text=Logo'">
+            </div>
+            <div class="mt-3 flex items-center gap-2">
+                <span class="font-bold text-xl leading-tight">MathEdu</span>
+            </div>
+            <p class="text-[11px] text-blue-200 leading-tight">LMS Matematika Interaktif - SMAN 3 Jember</p>
+        </div>
+        <div class="mx-4 border-t border-white/10"></div>
+        <nav id="sidebar-nav" class="flex-1 overflow-y-auto px-3 py-3 space-y-1"></nav>
+        <div class="p-3 border-t border-white/10">
+            <div id="auth-guest" class="block">
+                <button onclick="app.openLoginModal()" class="w-full bg-brand-orange text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-orange-600 transition"><i class="fa-solid fa-right-to-bracket mr-1"></i> Login</button>
+            </div>
+            <div id="auth-user" class="hidden">
+                <div class="flex items-center gap-3 mb-2 px-1">
+                    <div class="h-10 w-10 flex-shrink-0 rounded-full bg-white text-brand-blue flex items-center justify-center font-bold"><span id="user-initial">U</span></div>
+                    <div class="min-w-0">
+                        <div id="user-name" class="font-bold text-sm truncate">Nama User</div>
+                        <div id="user-role" class="text-xs text-orange-300 font-medium">Role</div>
                     </div>
                 </div>
-
-                <!-- User Controls -->
-                <div class="flex items-center gap-3 flex-shrink-0 ml-2">
-                    <div id="auth-guest" class="block">
-                        <button onclick="app.openLoginModal()" class="bg-brand-blue text-white px-5 py-2 rounded-full font-medium text-sm hover:bg-blue-800 transition shadow-sm">
-                            <i class="fa-solid fa-sign-in-alt mr-1"></i> Login
-                        </button>
-                    </div>
-
-                    <div id="auth-user" class="hidden relative group">
-                        <div class="flex items-center gap-3 cursor-pointer p-1 rounded-full hover:bg-gray-100 transition">
-                            <div class="text-right hidden md:block">
-                                <div id="user-name" class="font-bold text-sm text-gray-800">Nama User</div>
-                                <div id="user-role" class="text-xs text-brand-orange font-medium">Role</div>
-                            </div>
-                            <div class="h-10 w-10 rounded-full bg-brand-blue text-white flex items-center justify-center font-bold shadow-inner">
-                                <span id="user-initial">U</span>
-                            </div>
-                        </div>
-                        
-                        <!-- Dropdown Menu -->
-                        <div class="absolute right-0 top-full pt-2 w-48 hidden group-hover:block z-50">
-                            <div class="bg-white rounded-md shadow-lg py-1 border border-gray-100">
-                                <button id="btn-change-password" onclick="app.openChangePasswordModal()" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                    <i class="fa-solid fa-key mr-2 text-gray-400"></i> Ubah Password
-                                </button>
-                                <button onclick="app.logout()" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 border-t border-gray-100">
-                                    <i class="fa-solid fa-sign-out-alt mr-2"></i> Keluar
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <button id="btn-change-password" onclick="app.openChangePasswordModal(); app.toggleSidebar(false)" class="w-full text-left px-3 py-2 rounded-lg text-xs text-blue-100 hover:bg-white/10 transition"><i class="fa-solid fa-key mr-2"></i> Ubah Password</button>
+                <button onclick="app.logout()" class="w-full text-left px-3 py-2 rounded-lg text-xs text-red-200 hover:bg-white/10 transition"><i class="fa-solid fa-right-from-bracket mr-2"></i> Keluar</button>
             </div>
         </div>
-    </header>
+    </aside>
 
-    <!-- Main Content Area -->
-    <main class="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Area isi -->
+    <div class="lg:pl-64 min-h-screen flex flex-col">
+    <main class="flex-grow w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
 
-        <!-- VIEW: Dashboard -->
+        <!-- VIEW: Dashboard (berisi halaman-halaman: Beranda, Modul, Kuis, Pengumuman, Jadwal, Presensi) -->
         <div id="view-dashboard" class="fade-in block">
-            
-            <!-- Hero Section -->
-            <div class="bg-gradient-to-r from-brand-blue to-blue-600 rounded-2xl p-8 mb-10 text-white shadow-lg relative overflow-hidden">
-                <div class="relative z-10 md:w-2/3">
-                    <h1 class="text-3xl md:text-4xl font-bold mb-3">Materi Pembelajaran</h1>
-                    <p class="text-blue-100 mb-6 text-sm md:text-base">Eksplorasi modul interaktif matematika. Pelajari konsep, tonton video, dan kerjakan latihan untuk menguji pemahamanmu.</p>
-                    <div class="relative max-w-md">
-                        <input type="text" id="search-input" placeholder="Cari bab atau materi..." class="w-full pl-10 pr-4 py-3 rounded-full text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-orange shadow-sm" oninput="app.renderCourses()">
-                        <i class="fa-solid fa-search absolute left-4 top-3.5 text-gray-400"></i>
+
+            <!-- Pengalih tab lama (disembunyikan; dipakai fungsi lama) -->
+            <div class="hidden"><button id="tab-btn-modul"></button><button id="tab-btn-kuis"></button></div>
+
+            <!-- Bilah alat daftar: pencarian + tombol tambah (guru) -->
+            <div id="list-toolbar" class="hidden mb-5">
+                <div class="flex flex-col sm:flex-row gap-3 sm:items-center">
+                    <div class="relative w-full sm:max-w-sm">
+                        <input type="text" id="search-input" placeholder="Cari bab atau materi..." class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-blue shadow-sm text-sm" oninput="app.renderCourses(); app.renderQuizzes();">
+                        <i class="fa-solid fa-search absolute left-4 top-3.5 text-gray-400 text-sm"></i>
+                    </div>
+                    <div id="admin-controls" class="hidden flex gap-2 flex-wrap sm:ml-auto">
+                        <button id="btn-add-course" onclick="app.openAddCourseModal()" class="bg-brand-orange text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-orange-600 transition flex items-center gap-2 shadow-sm"><i class="fa-solid fa-plus"></i> Tambah Modul Baru</button>
+                        <button id="btn-add-quiz" onclick="app.openAddQuizModal()" class="hidden bg-teal-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-teal-700 transition items-center gap-2 shadow-sm"><i class="fa-solid fa-plus"></i> Tambah Kuis Baru</button>
                     </div>
                 </div>
-                <!-- Dekorasi -->
-                <div class="absolute right-0 top-0 h-full w-1/3 opacity-20 pointer-events-none hidden md:block">
-                    <i class="fa-solid fa-square-root-variable text-[150px] absolute -right-10 top-10"></i>
-                </div>
             </div>
 
-            <!-- Tab Switcher: Modul vs Kuis -->
-            <div class="flex gap-2 mb-6 bg-gray-100 p-1.5 rounded-xl w-full sm:w-fit">
-                <button id="tab-btn-modul" onclick="app.switchDashboardTab('modul')" class="flex-1 sm:flex-none px-5 py-2.5 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2 bg-white text-brand-blue shadow-sm">
-                    <i class="fa-solid fa-book-open"></i> Modul Pembelajaran
-                </button>
-                <button id="tab-btn-kuis" onclick="app.switchDashboardTab('kuis')" class="flex-1 sm:flex-none px-5 py-2.5 rounded-lg font-bold text-sm transition flex items-center justify-center gap-2 text-gray-500 hover:text-gray-700">
-                    <i class="fa-solid fa-clipboard-question"></i> Kuis & Asesmen
-                </button>
-            </div>
+            <!-- HALAMAN: Beranda -->
+            <section id="page-home">
 
-            <!-- Admin Controls -->
-            <div id="admin-controls" class="hidden mb-6 flex gap-3 flex-wrap bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-                <button id="btn-add-course" onclick="app.openAddCourseModal()" class="bg-brand-orange text-white px-5 py-2 rounded-lg font-medium text-sm hover:bg-orange-600 transition flex items-center gap-2 shadow-sm">
-                    <i class="fa-solid fa-plus"></i> Tambah Modul Baru
-                </button>
-                <button id="btn-add-quiz" onclick="app.openAddQuizModal()" class="hidden bg-teal-600 text-white px-5 py-2 rounded-lg font-medium text-sm hover:bg-teal-700 transition items-center gap-2 shadow-sm">
-                    <i class="fa-solid fa-plus"></i> Tambah Kuis Baru
-                </button>
-                <button onclick="app.openManageStudentsModal()" class="bg-gray-800 text-white px-5 py-2 rounded-lg font-medium text-sm hover:bg-gray-900 transition flex items-center gap-2 shadow-sm">
-                    <i class="fa-solid fa-users"></i> Kelola Siswa
-                </button>
-                <button onclick="app.openReportsModal()" class="bg-teal-600 text-white px-5 py-2 rounded-lg font-medium text-sm hover:bg-teal-700 transition flex items-center gap-2 shadow-sm">
-                    <i class="fa-solid fa-chart-column"></i> Rekap Nilai & Tugas
-                </button>
-                <button onclick="app.openAnnouncementsModal()" class="bg-yellow-500 text-white px-5 py-2 rounded-lg font-medium text-sm hover:bg-yellow-600 transition flex items-center gap-2 shadow-sm">
-                    <i class="fa-solid fa-bullhorn"></i> Kelola Pengumuman
-                </button>
-            </div>
-
-            <!-- Papan Pengumuman -->
-            <div id="announcements-section" class="hidden mb-6 space-y-2">
-                <!-- Diisi oleh JavaScript -->
-            </div>
-
-            <!-- Progres Belajar Siswa -->
-            <div id="student-progress-banner" class="hidden mb-6 bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                    <div class="flex-grow">
-                        <div class="flex justify-between items-center mb-1">
-                            <span class="text-sm font-bold text-gray-700"><i class="fa-solid fa-chart-simple text-brand-blue mr-1"></i> Progres Belajarmu</span>
-                            <span id="progress-summary-text" class="text-sm font-bold text-brand-blue">0 dari 0 modul selesai</span>
+                <!-- Tamu (belum login) -->
+                <div id="home-guest" class="hidden">
+                    <div class="bg-gradient-to-r from-brand-blue to-blue-600 rounded-2xl p-8 text-white shadow-lg relative overflow-hidden">
+                        <div class="relative z-10 md:w-2/3">
+                            <h1 class="text-3xl font-bold mb-2">Selamat datang di MathEdu</h1>
+                            <p class="text-blue-100 text-sm md:text-base">Belajar matematika lewat modul interaktif: tonton video, jawab soal di dalam video, dan kumpulkan tugas.</p>
+                            <p class="text-blue-200 text-xs md:text-sm mt-3"><i class="fa-solid fa-circle-info mr-1"></i> Untuk mulai, klik tombol <b>Login</b> di menu samping dan masuk dengan NISN. Di HP, buka menu lewat ikon <i class="fa-solid fa-bars"></i> di pojok kiri atas.</p>
                         </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2.5">
-                            <div id="progress-summary-bar" class="bg-brand-green h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        <i class="fa-solid fa-square-root-variable text-[150px] absolute -right-6 top-6 opacity-20 hidden md:block"></i>
+                    </div>
+                    <div id="ann-slot-guest" class="mt-6"></div>
+                </div>
+
+                <!-- Siswa -->
+                <div id="home-student" class="hidden">
+                    <div class="mb-6">
+                        <h1 class="text-3xl font-bold text-gray-900">Hai, <span id="home-name" class="bg-yellow-200/70 px-1 rounded">Siswa</span></h1>
+                        <p id="home-sub" class="text-sm text-gray-500 mt-1"></p>
+                    </div>
+                    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                        <div class="xl:col-span-2 space-y-6">
+                            <!-- Progres Belajar Siswa -->
+                            <div id="student-progress-banner" class="hidden bg-white p-5 rounded-2xl shadow-sm border border-gray-200">
+                                <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                                    <div class="flex-grow">
+                                        <div class="flex justify-between items-center mb-1">
+                                            <span class="text-sm font-bold text-gray-700"><i class="fa-solid fa-chart-simple text-brand-blue mr-1"></i> Progres Belajarmu</span>
+                                            <span id="progress-summary-text" class="text-sm font-bold text-brand-blue">0 dari 0 modul selesai</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                            <div id="progress-summary-bar" class="bg-brand-green h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                    <button id="btn-continue-course" class="hidden bg-brand-blue text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-blue-800 transition whitespace-nowrap flex-shrink-0">
+                                        <i class="fa-solid fa-play mr-1"></i> Lanjutkan Belajar
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h2 class="font-bold text-gray-800"><i class="fa-solid fa-book-open text-brand-blue mr-2"></i> Modul yang harus dikerjakan</h2>
+                                    <button onclick="app.goPage('modul')" class="text-xs font-bold text-brand-blue hover:underline">Lihat semua</button>
+                                </div>
+                                <div id="home-todo" class="space-y-2"></div>
+                            </div>
+
+                            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h2 class="font-bold text-gray-800"><i class="fa-solid fa-clipboard-question text-teal-600 mr-2"></i> Kuis &amp; asesmen</h2>
+                                    <button onclick="app.goPage('kuis')" class="text-xs font-bold text-brand-blue hover:underline">Lihat semua</button>
+                                </div>
+                                <div id="home-quiz" class="space-y-2"></div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-6">
+                            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+                                <h2 class="font-bold text-gray-800 mb-3"><i class="fa-solid fa-calendar-day text-brand-orange mr-2"></i> Jadwal hari ini</h2>
+                                <div class="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center">
+                                    <p class="text-sm font-bold text-gray-500">Segera hadir</p>
+                                    <p class="text-xs text-gray-400 mt-1">Jadwal pelajaran dan tautan kelas daring akan tampil di sini.</p>
+                                </div>
+                            </div>
+                            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h2 class="font-bold text-gray-800"><i class="fa-solid fa-bullhorn text-yellow-500 mr-2"></i> Pengumuman</h2>
+                                    <button onclick="app.goPage('pengumuman')" class="text-xs font-bold text-brand-blue hover:underline">Semua</button>
+                                </div>
+                                <div id="ann-slot-student"></div>
+                                <p id="home-ann-empty" class="text-xs text-gray-400">Belum ada pengumuman.</p>
+                            </div>
                         </div>
                     </div>
-                    <button id="btn-continue-course" class="hidden bg-brand-blue text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-blue-800 transition whitespace-nowrap flex-shrink-0">
-                        <i class="fa-solid fa-play mr-1"></i> Lanjutkan Belajar
-                    </button>
                 </div>
-            </div>
 
-            <!-- TAB: Modul -->
-            <div id="modul-tab-content">
-                <!-- Course Grid -->
-                <div id="course-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    <!-- Diisi oleh JavaScript -->
+                <!-- Guru -->
+                <div id="home-admin" class="hidden">
+                    <div class="mb-6">
+                        <h1 class="text-3xl font-bold text-gray-900">Beranda Guru</h1>
+                        <p id="home-admin-sub" class="text-sm text-gray-500 mt-1"></p>
+                    </div>
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-brand-blue text-white rounded-2xl p-4 shadow-sm"><p class="text-xs text-blue-200">Modul</p><p id="ha-modul" class="text-3xl font-bold mt-1">0</p><p id="ha-modul-sub" class="text-[11px] text-blue-200 mt-1"></p></div>
+                        <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-200"><p class="text-xs text-gray-500">Kuis</p><p id="ha-kuis" class="text-3xl font-bold mt-1 text-gray-900">0</p><p class="text-[11px] text-gray-400 mt-1">&nbsp;</p></div>
+                        <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-200"><p class="text-xs text-gray-500">Siswa</p><p id="ha-siswa" class="text-3xl font-bold mt-1 text-gray-900">0</p><p id="ha-siswa-sub" class="text-[11px] text-gray-400 mt-1"></p></div>
+                        <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-200"><p class="text-xs text-gray-500">Pengumuman</p><p id="ha-ann" class="text-3xl font-bold mt-1 text-gray-900">0</p><p class="text-[11px] text-gray-400 mt-1">&nbsp;</p></div>
+                    </div>
+                    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                        <div class="xl:col-span-2 space-y-6">
+                            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+                                <h2 class="font-bold text-gray-800 mb-3"><i class="fa-solid fa-bolt text-brand-orange mr-2"></i> Aksi cepat</h2>
+                                <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                    <button onclick="app.openAddCourseModal()" class="text-left p-3 rounded-xl border border-gray-200 hover:bg-orange-50 hover:border-orange-200 transition"><i class="fa-solid fa-plus text-brand-orange"></i><p class="text-sm font-bold mt-1 text-gray-800">Tambah Modul</p></button>
+                                    <button onclick="app.openAddQuizModal()" class="text-left p-3 rounded-xl border border-gray-200 hover:bg-teal-50 hover:border-teal-200 transition"><i class="fa-solid fa-clipboard-question text-teal-600"></i><p class="text-sm font-bold mt-1 text-gray-800">Tambah Kuis</p></button>
+                                    <button onclick="app.openManageStudentsModal()" class="text-left p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition"><i class="fa-solid fa-users text-gray-700"></i><p class="text-sm font-bold mt-1 text-gray-800">Kelola Siswa</p></button>
+                                    <button onclick="app.openReportsModal()" class="text-left p-3 rounded-xl border border-gray-200 hover:bg-teal-50 hover:border-teal-200 transition"><i class="fa-solid fa-chart-column text-teal-600"></i><p class="text-sm font-bold mt-1 text-gray-800">Rekap Nilai &amp; Tugas</p></button>
+                                    <button onclick="app.openAnnouncementsModal()" class="text-left p-3 rounded-xl border border-gray-200 hover:bg-yellow-50 hover:border-yellow-200 transition"><i class="fa-solid fa-bullhorn text-yellow-500"></i><p class="text-sm font-bold mt-1 text-gray-800">Kelola Pengumuman</p></button>
+                                </div>
+                            </div>
+                            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h2 class="font-bold text-gray-800"><i class="fa-solid fa-book-open text-brand-blue mr-2"></i> Modul Anda</h2>
+                                    <button onclick="app.goPage('modul')" class="text-xs font-bold text-brand-blue hover:underline">Kelola</button>
+                                </div>
+                                <div id="ha-modul-list" class="space-y-2"></div>
+                            </div>
+                        </div>
+                        <div class="space-y-6">
+                            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+                                <h2 class="font-bold text-gray-800 mb-3"><i class="fa-solid fa-square-check text-brand-green mr-2"></i> Presensi hari ini</h2>
+                                <div class="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center"><p class="text-sm font-bold text-gray-500">Segera hadir</p><p class="text-xs text-gray-400 mt-1">Buka presensi dan lihat kehadiran siswa per pertemuan.</p></div>
+                            </div>
+                            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+                                <h2 class="font-bold text-gray-800 mb-3"><i class="fa-solid fa-pen-to-square text-brand-orange mr-2"></i> Perlu dikoreksi</h2>
+                                <div class="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center"><p class="text-sm font-bold text-gray-500">Segera hadir</p><p class="text-xs text-gray-400 mt-1">Antrean tugas dan esai yang menunggu penilaian.</p></div>
+                            </div>
+                            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+                                <h2 class="font-bold text-gray-800 mb-3"><i class="fa-solid fa-bullhorn text-yellow-500 mr-2"></i> Pengumuman</h2>
+                                <div id="ann-slot-admin"></div>
+                                <p id="home-ann-empty-admin" class="text-xs text-gray-400">Belum ada pengumuman.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            </section>
 
-            <!-- TAB: Kuis -->
-            <div id="kuis-tab-content" class="hidden">
-                <div id="quiz-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    <!-- Diisi oleh JavaScript -->
+            <!-- Slot pengumuman (elemen ini dipindah otomatis ke slot sesuai peran) -->
+            <div id="announcements-section" class="hidden space-y-2"></div>
+
+            <!-- HALAMAN: Modul -->
+            <section id="page-modul" class="hidden">
+                <div class="mb-4">
+                    <h1 class="text-2xl font-bold text-gray-900">Modul Pembelajaran</h1>
+                    <p class="text-sm text-gray-500">Pelajari konsep, tonton video, dan kerjakan latihan untuk menguji pemahamanmu.</p>
                 </div>
-            </div>
+                <div id="modul-tab-content">
+                    <div id="course-grid" class="max-w-3xl"></div>
+                </div>
+            </section>
+
+            <!-- HALAMAN: Kuis -->
+            <section id="page-kuis" class="hidden">
+                <div class="mb-4">
+                    <h1 class="text-2xl font-bold text-gray-900">Kuis &amp; Asesmen</h1>
+                    <p class="text-sm text-gray-500">Uji pemahamanmu dengan kuis yang diberikan guru.</p>
+                </div>
+                <div id="kuis-tab-content" class="hidden">
+                    <div id="quiz-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"></div>
+                </div>
+            </section>
+
+            <!-- HALAMAN: Pengumuman -->
+            <section id="page-pengumuman" class="hidden">
+                <div class="mb-4 flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">Pengumuman</h1>
+                        <p class="text-sm text-gray-500">Informasi terbaru dari guru.</p>
+                    </div>
+                    <button id="btn-manage-ann" onclick="app.openAnnouncementsModal()" class="hidden bg-yellow-500 text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-yellow-600 transition items-center gap-2 shadow-sm"><i class="fa-solid fa-bullhorn"></i> Kelola Pengumuman</button>
+                </div>
+                <div id="announcements-all" class="space-y-3 max-w-3xl"></div>
+            </section>
+
+            <!-- HALAMAN: Jadwal (rumah untuk fitur berikutnya) -->
+            <section id="page-jadwal" class="hidden">
+                <h1 class="text-2xl font-bold text-gray-900 mb-4">Jadwal</h1>
+                <div class="max-w-2xl bg-white border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center">
+                    <i class="fa-solid fa-calendar-days text-4xl text-gray-300"></i>
+                    <p class="mt-3 font-bold text-gray-600">Segera hadir</p>
+                    <p class="text-sm text-gray-400 mt-1">Jadwal pelajaran tiap kelas, tautan kelas daring (Meet/Zoom), dan pengingat jam belajar akan tersedia di halaman ini.</p>
+                </div>
+            </section>
+
+            <!-- HALAMAN: Presensi (rumah untuk fitur berikutnya) -->
+            <section id="page-presensi" class="hidden">
+                <h1 class="text-2xl font-bold text-gray-900 mb-4">Presensi</h1>
+                <div class="max-w-2xl bg-white border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center">
+                    <i class="fa-solid fa-square-check text-4xl text-gray-300"></i>
+                    <p class="mt-3 font-bold text-gray-600">Segera hadir</p>
+                    <p class="text-sm text-gray-400 mt-1">Guru membuka presensi per pertemuan, siswa menekan "Saya hadir", dan rekap kehadiran tampil di sini.</p>
+                </div>
+            </section>
         </div>
 
         <!-- VIEW: Learning Flow -->
         <div id="view-learning" class="fade-in hidden">
             <!-- Breadcrumb & Back -->
             <button onclick="app.goHome()" class="text-gray-500 hover:text-brand-blue mb-4 flex items-center gap-2 text-sm font-medium transition">
-                <i class="fa-solid fa-arrow-left"></i> Kembali ke Daftar Modul
+                <i class="fa-solid fa-arrow-left"></i> Kembali
             </button>
 
             <!-- Status Tuntas Banner -->
@@ -234,11 +350,11 @@
             <div class="bg-white rounded-b-2xl rounded-t-2xl shadow-sm border border-gray-200 overflow-hidden mt-0" id="learn-container">
                 
                 <!-- Course Header Info -->
-                <div class="bg-gray-50 border-b border-gray-200 p-6">
-                    <div class="flex justify-between items-start mb-2">
-                        <span id="learn-category" class="bg-blue-100 text-brand-blue text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wide">Kategori</span>
-                    </div>
-                    <h1 id="learn-title" class="text-2xl font-bold text-gray-800">Judul Materi</h1>
+                <div class="relative bg-white border-b border-gray-200 pl-7 pr-6 py-5">
+                    <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-brand-blue"></div>
+                    <p class="text-xs text-gray-500">Modul <span class="mx-1">/</span> <span id="learn-category" class="font-bold text-brand-blue uppercase tracking-wide">Kategori</span></p>
+                    <h1 id="learn-title" class="text-2xl md:text-3xl font-bold text-gray-900 mt-1">Judul Materi</h1>
+                    <p id="learn-meta" class="text-xs text-gray-500 mt-1"></p>
                     <p id="learn-deadline-info" class="hidden text-xs font-bold mt-2 px-2 py-1 rounded inline-block"></p>
                 </div>
 
@@ -458,6 +574,7 @@
         </div>
 
     </main>
+    </div>
 
     <!-- Modal Login, Students, Course, Password, Confirm (TIDAK ADA PERUBAHAN) -->
     <!-- MODAL: Login -->
@@ -4960,8 +5077,341 @@
             });
         }
 
+        // ===================== TAMPILAN BARU: menu samping + halaman =====================
+        // Bagian ini hanya mengatur tata letak. Semua logika belajar, video, unggah, kuis, kunci, dan jadwal
+        // tetap memakai fungsi yang sama dengan versi sebelumnya.
+        Object.assign(app, {
+            toggleSidebar(open) {
+                const sb = document.getElementById('sidebar'), ov = document.getElementById('sidebar-overlay');
+                if (!sb || !ov) return;
+                const show = open === undefined ? sb.classList.contains('-translate-x-full') : !!open;
+                sb.classList.toggle('-translate-x-full', !show);
+                ov.classList.toggle('hidden', !show);
+            },
+
+            // Pindah halaman di dalam kerangka. silent = jangan keluar dari tampilan belajar/kuis.
+            goPage(page, silent) {
+                const pages = ['home', 'modul', 'kuis', 'pengumuman', 'jadwal', 'presensi'];
+                if (!pages.includes(page)) page = 'home';
+                this.state.page = page;
+                if (!silent) {
+                    document.getElementById('view-learning').classList.add('hidden');
+                    document.getElementById('view-quiz-attempt').classList.add('hidden');
+                    document.getElementById('view-dashboard').classList.remove('hidden');
+                    document.getElementById('learn-video').src = '';
+                    this.ivDestroy();
+                }
+                pages.forEach(p => document.getElementById('page-' + p).classList.toggle('hidden', p !== page));
+                const list = page === 'modul' || page === 'kuis';
+                document.getElementById('list-toolbar').classList.toggle('hidden', !list);
+                if (list) {
+                    this.switchDashboardTab(page === 'kuis' ? 'kuis' : 'modul');
+                    this.renderCourses();
+                    this.renderQuizzes();
+                }
+                if (page === 'home') this.renderHome();
+                if (page === 'pengumuman') this.renderAllAnnouncements();
+                this.renderSidebar();
+                this.toggleSidebar(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            },
+
+            renderSidebar() {
+                const nav = document.getElementById('sidebar-nav'); if (!nav) return;
+                const role = this.state.role, cur = this.state.page || 'home';
+                const home = { page: 'home', icon: 'house', label: 'Beranda' };
+                const modul = { page: 'modul', icon: 'book-open', label: 'Modul' };
+                const kuis = { page: 'kuis', icon: 'clipboard-question', label: 'Kuis' };
+                const pengumuman = { page: 'pengumuman', icon: 'bullhorn', label: 'Pengumuman' };
+                const jadwal = { page: 'jadwal', icon: 'calendar-days', label: 'Jadwal', soon: true };
+                const presensi = { page: 'presensi', icon: 'square-check', label: 'Presensi', soon: true };
+                let items;
+                if (role === 'admin') {
+                    items = [home, modul, kuis,
+                        { action: 'app.openManageStudentsModal()', icon: 'users', label: 'Siswa' },
+                        { action: 'app.openReportsModal()', icon: 'chart-column', label: 'Rekap Nilai' },
+                        pengumuman, jadwal, presensi];
+                } else if (role === 'student') {
+                    items = [home, modul, kuis, pengumuman, jadwal];
+                } else {
+                    items = [home, modul, kuis];
+                }
+                nav.innerHTML = items.map(it => {
+                    const active = it.page && it.page === cur;
+                    const cls = active ? 'bg-brand-orange text-white shadow' : 'text-blue-100 hover:bg-white/10';
+                    const click = it.action ? it.action + '; app.toggleSidebar(false)' : `app.goPage('${it.page}')`;
+                    return `<button onclick="${click}" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition ${cls}">
+                        <i class="fa-solid fa-${it.icon} w-5 text-center"></i><span class="flex-1 text-left">${it.label}</span>
+                        ${it.soon ? '<span class="text-[9px] font-bold uppercase bg-white/15 text-blue-100 px-1.5 py-0.5 rounded">Segera</span>' : ''}
+                    </button>`;
+                }).join('');
+                const mi = document.getElementById('mobile-initial');
+                if (mi) {
+                    const u = this.state.currentUser;
+                    mi.innerText = u ? (role === 'admin' ? (u.initial || 'A') : String(u.nama || '?').charAt(0).toUpperCase()) : '?';
+                }
+            },
+
+            renderAnnSlot() {
+                const role = this.state.role, key = role === 'admin' ? 'admin' : role === 'student' ? 'student' : 'guest';
+                const slot = document.getElementById('ann-slot-' + key), sec = document.getElementById('announcements-section');
+                if (slot && sec && sec.parentNode !== slot) slot.appendChild(sec);
+                const has = (this.state.announcements || []).length > 0;
+                ['home-ann-empty', 'home-ann-empty-admin'].forEach(id => { const e = document.getElementById(id); if (e) e.classList.toggle('hidden', has); });
+            },
+
+            renderHome() {
+                const role = this.state.role;
+                const key = role === 'admin' ? 'admin' : role === 'student' ? 'student' : 'guest';
+                ['guest', 'student', 'admin'].forEach(r => document.getElementById('home-' + r).classList.toggle('hidden', r !== key));
+                this.renderAnnSlot();
+                if (key === 'student' && this.state.currentUser) this.renderHomeStudent();
+                else if (key === 'admin') this.renderHomeAdmin();
+            },
+
+            homeRow(icon, iconCls, title, meta, badge, button) {
+                return `<div class="flex items-center gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50/60">
+                    <div class="w-10 h-10 flex-shrink-0 rounded-lg ${iconCls} flex items-center justify-center"><i class="fa-solid fa-${icon}"></i></div>
+                    <div class="min-w-0 flex-1">
+                        <p class="font-bold text-sm text-gray-800 truncate">${title}</p>
+                        <p class="text-xs text-gray-500 truncate">${meta}</p>
+                    </div>
+                    ${badge || ''}${button || ''}
+                </div>`;
+            },
+            homeEmpty(text) {
+                return `<div class="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center text-sm text-gray-400">${text}</div>`;
+            },
+
+            renderHomeStudent() {
+                const cu = this.state.currentUser, nisn = cu.nisn;
+                const me = this.state.users.find(u => u.nisn === nisn) || cu;
+                const esc = t => this.escapeHtml(t);
+                const first = String(me.nama || '').trim().split(/\s+/)[0] || 'Siswa';
+                document.getElementById('home-name').innerText = first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+                const today = new Date(this.nowMs()).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' });
+                document.getElementById('home-sub').innerText = today + (me.kelas ? ' · Kelas ' + me.kelas : '');
+
+                // Modul yang belum selesai, diurutkan dari tenggat terdekat.
+                const mine = this.state.courses.filter(c => !this.isLockedForCurrentUser(c)
+                    && !(c.visibility && c.visibility.mode === 'selected' && !(c.visibility.studentNisns || []).includes(nisn)));
+                const pending = mine.filter(c => !(c.completedBy || []).includes(nisn));
+                const dl = c => this.myDeadline(c) || '9999-12-31';
+                pending.sort((a, b) => dl(a).localeCompare(dl(b)));
+                const todo = document.getElementById('home-todo');
+                if (!pending.length) {
+                    todo.innerHTML = this.homeEmpty(mine.length ? 'Semua modul sudah kamu selesaikan. Mantap!' : 'Belum ada modul untuk kelasmu.');
+                } else {
+                    todo.innerHTML = pending.slice(0, 6).map(c => {
+                        const d = this.myDeadline(c), st = d ? this.getDeadlineStatus(d) : null, notStarted = this.isNotStarted(c);
+                        const dateTxt = d ? new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+                        const meta = notStarted ? 'Dibuka ' + this.fmtStart(this.myStart(c))
+                            : esc(c.category || 'Modul') + (d ? ' · tenggat ' + dateTxt + ', 23.59' : ' · tanpa tenggat');
+                        const badge = (!notStarted && st) ? `<span class="hidden sm:inline-block text-[11px] font-bold px-2 py-1 rounded-full whitespace-nowrap ${st.cls}">${st.text}</span>` : '';
+                        const btn = notStarted
+                            ? '<button disabled class="px-3 py-2 rounded-lg bg-gray-200 text-gray-500 text-xs font-bold cursor-not-allowed whitespace-nowrap">Belum dibuka</button>'
+                            : `<button onclick="app.openCourse(${c.id})" class="px-3 py-2 rounded-lg bg-brand-blue text-white text-xs font-bold hover:bg-blue-800 transition whitespace-nowrap">Kerjakan</button>`;
+                        return this.homeRow('book-open', 'bg-yellow-100 text-yellow-600', esc(c.title), meta, badge, btn);
+                    }).join('');
+                }
+
+                // Kuis yang belum dikerjakan.
+                const quizzes = (this.state.quizzes || []).filter(q => !(q.visibility && q.visibility.mode === 'selected') || (q.visibility.studentNisns || []).includes(nisn));
+                const qp = quizzes.filter(q => !((q.results || {})[nisn]));
+                const qbox = document.getElementById('home-quiz');
+                if (!qp.length) {
+                    qbox.innerHTML = this.homeEmpty(quizzes.length ? 'Semua kuis sudah kamu kerjakan.' : 'Belum ada kuis.');
+                } else {
+                    qbox.innerHTML = qp.slice(0, 5).map(q => this.homeRow('circle-question', 'bg-teal-100 text-teal-600', esc(q.title), (q.questions || []).length + ' soal',
+                        '', `<button onclick="app.openQuiz(${q.id})" class="px-3 py-2 rounded-lg bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 transition whitespace-nowrap">Kerjakan</button>`)).join('');
+                }
+            },
+
+            renderHomeAdmin() {
+                const cs = this.state.courses || [], qs = this.state.quizzes || [], us = this.state.users || [];
+                const esc = t => this.escapeHtml(t);
+                const locked = cs.filter(c => this.isCourseLocked(c)).length;
+                const kelas = new Set(us.map(u => (u.kelas || '').trim()).filter(Boolean));
+                const set = (id, v) => { const e = document.getElementById(id); if (e) e.innerText = v; };
+                set('ha-modul', cs.length); set('ha-modul-sub', locked ? locked + ' terkunci' : 'semua terbuka');
+                set('ha-kuis', qs.length); set('ha-siswa', us.length); set('ha-siswa-sub', kelas.size + ' kelas');
+                set('ha-ann', (this.state.announcements || []).length);
+                set('home-admin-sub', new Date(this.nowMs()).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' }));
+                const box = document.getElementById('ha-modul-list');
+                if (!cs.length) { box.innerHTML = this.homeEmpty('Belum ada modul. Klik "Tambah Modul" untuk memulai.'); return; }
+                box.innerHTML = cs.slice(-5).reverse().map(c => {
+                    const n = this.getVideos(c).length;
+                    const meta = esc(c.category || 'Modul') + ' · ' + n + ' video · ' + (c.completedBy || []).length + ' siswa tuntas';
+                    const badge = this.isCourseLocked(c) ? '<span class="text-[11px] font-bold px-2 py-1 rounded-full bg-gray-200 text-gray-600 whitespace-nowrap"><i class="fa-solid fa-lock"></i> Terkunci</span>' : '';
+                    const btn = `<button onclick="app.openEditModal(${c.id})" class="px-3 py-2 rounded-lg border border-gray-200 text-gray-700 text-xs font-bold hover:bg-gray-100 transition">Edit</button>`;
+                    return this.homeRow('book-open', 'bg-blue-100 text-brand-blue', esc(c.title), meta, badge, btn);
+                }).join('');
+            },
+
+
+            // ===== Tahap 2: daftar modul berbentuk garis waktu =====
+            renderCourses() {
+                const grid = document.getElementById('course-grid');
+                const q = (document.getElementById('search-input').value || '').toLowerCase();
+                const role = this.state.role, cu = this.state.currentUser;
+                let list = this.state.courses.filter(c => {
+                    if (!(c.title || '').toLowerCase().includes(q) && !(c.category || '').toLowerCase().includes(q)) return false;
+                    if (this.isLockedForCurrentUser(c)) return false;   // modul terkunci disembunyikan dari siswa
+                    if (role === 'student' && cu && c.visibility && c.visibility.mode === 'selected') {
+                        return (c.visibility.studentNisns || []).includes(cu.nisn);
+                    }
+                    return true;
+                });
+                list = list.map(c => ({ c, n: this.state.courses.indexOf(c) + 1 })).reverse();   // modul terbaru di atas
+                if (role === 'admin') list.sort((a, b) => (this.isCourseLocked(a.c) ? 1 : 0) - (this.isCourseLocked(b.c) ? 1 : 0));
+                if (!list.length) {
+                    grid.innerHTML = '<div class="text-center py-10 text-gray-500">Tidak ada materi yang ditemukan.</div>';
+                } else {
+                    grid.innerHTML = list.map((it, i) => this.courseRowHtml(it.c, it.n, i === list.length - 1)).join('');
+                }
+                this.updateStudentProgressBanner();
+            },
+
+            courseRowHtml(course, n, isLast) {
+                const role = this.state.role, cu = this.state.currentUser;
+                const esc = t => this.escapeHtml(t);
+                const chip = (text, cls, icon) => `<span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${cls}">${icon ? `<i class="fa-solid fa-${icon}"></i>` : ''}${text}</span>`;
+                const fd = d => new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                const isStudent = role === 'student' && !!cu;
+                const isAdmin = role === 'admin';
+                const done = isStudent && (course.completedBy || []).includes(cu.nisn);
+                const locked = this.isCourseLocked(course);
+                const notStarted = this.isNotStarted(course);
+                const info = this.stepInfo(course);
+
+                // Tanggal / tenggat
+                let dateLine = '', statusChip = '';
+                const myDl = this.myDeadline(course);
+                if (isAdmin) {
+                    const per = (course.classDeadlines || []).filter(x => x.date);
+                    dateLine = per.length ? 'Tenggat per kelas (' + per.length + ' kelas)' : (course.deadline ? 'Tenggat ' + fd(course.deadline) + ', 23.59' : 'Tanpa tenggat');
+                    if (course.startAt || (course.classDeadlines || []).some(x => x.start)) statusChip += chip('Mulai terjadwal', 'bg-blue-50 text-blue-700', 'hourglass-start');
+                } else if (notStarted) {
+                    dateLine = 'Dibuka ' + this.fmtStart(this.myStart(course));
+                } else if (myDl) {
+                    dateLine = 'Tenggat ' + fd(myDl) + ', 23.59';
+                    const st = !done ? this.getDeadlineStatus(myDl) : null;
+                    if (st) statusChip += chip(st.text, st.cls, 'calendar-days');
+                } else {
+                    dateLine = 'Tanpa tenggat';
+                }
+                if (done) statusChip = chip('Selesai', 'bg-green-100 text-green-700', 'check') + statusChip;
+                if (locked && isAdmin) statusChip += chip(course.locked ? 'Terkunci' : 'Terkunci otomatis', 'bg-gray-800 text-white', 'lock');
+                if (locked && this.canReviewLocked(course)) statusChip += chip('Terkunci - hanya tinjau', 'bg-gray-800 text-white', 'lock');
+
+                // Penanda kecil: kategori, jumlah video, wajib/peminatan
+                const tags = chip(esc(course.category || 'Modul'), 'bg-blue-50 text-brand-blue')
+                    + chip(info.k + ' video', 'bg-gray-100 text-gray-600', 'film')
+                    + chip(course.type === 'Compulsory' ? 'Wajib' : 'Peminatan', course.type === 'Compulsory' ? 'bg-red-50 text-red-600' : 'bg-indigo-50 text-indigo-600');
+
+                // Progres checkpoint (siswa)
+                let progress = '';
+                if (isStudent && !done && !notStarted) {
+                    const step = Math.min(this.getProg(cu.nisn, course).step, info.total);
+                    const pct = Math.round(((step - 1) / (info.total - 1)) * 100);
+                    progress = `<div class="mt-3"><div class="flex justify-between text-[11px] text-gray-500 mb-1"><span>${step === 1 ? 'Belum dimulai' : 'Checkpoint ' + step + ' dari ' + info.total}</span><span>${pct}%</span></div>
+                        <div class="w-full bg-gray-100 rounded-full h-1.5"><div class="bg-brand-green h-1.5 rounded-full" style="width:${pct}%"></div></div></div>`;
+                }
+
+                // Tombol aksi
+                let actions;
+                if (isAdmin) {
+                    let learners = (course.completedBy || []).length;
+                    if (course.visibility && course.visibility.mode === 'selected') learners = (course.completedBy || []).filter(x => (course.visibility.studentNisns || []).includes(x)).length;
+                    const target = (course.visibility && course.visibility.mode === 'selected') ? ' · ' + (course.visibility.studentNisns || []).length + ' siswa terpilih' : '';
+                    actions = `<div class="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2 flex-wrap">
+                        <span class="text-xs text-gray-500"><i class="fa-solid fa-user-graduate mr-1"></i>${learners} siswa selesai${target}</span>
+                        <div class="flex gap-1.5">
+                            <button onclick="app.openCourse(${course.id})" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-1.5 px-3 rounded-lg text-xs transition" title="Lihat"><i class="fa-solid fa-eye"></i></button>
+                            <button onclick="app.toggleLock(${course.id})" class="${locked ? 'bg-yellow-100 hover:bg-yellow-200 text-yellow-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} font-bold py-1.5 px-3 rounded-lg text-xs transition" title="${locked ? 'Buka kunci' : 'Kunci modul'}"><i class="fa-solid fa-${locked ? 'lock-open' : 'lock'}"></i></button>
+                            <button onclick="app.copyCourse(${course.id})" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-1.5 px-3 rounded-lg text-xs transition" title="Salin modul"><i class="fa-solid fa-copy"></i></button>
+                            <button onclick="app.openEditModal(${course.id})" class="bg-blue-100 hover:bg-blue-200 text-brand-blue font-bold py-1.5 px-3 rounded-lg text-xs transition" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="app.confirmDeleteCourse(${course.id})" class="bg-red-100 hover:bg-red-200 text-red-600 font-bold py-1.5 px-3 rounded-lg text-xs transition" title="Hapus"><i class="fa-solid fa-trash"></i></button>
+                        </div></div>`;
+                } else if (notStarted) {
+                    actions = '<button disabled class="mt-3 bg-gray-200 text-gray-500 font-bold py-2 px-4 rounded-lg text-xs cursor-not-allowed"><i class="fa-solid fa-hourglass-start mr-1"></i> Belum dibuka</button>';
+                } else {
+                    actions = `<button onclick="app.openCourse(${course.id})" class="mt-3 bg-brand-orange hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg text-xs transition shadow-sm"><i class="fa-solid fa-${done ? 'check-double' : 'play'} mr-1"></i> ${done ? 'Lihat Review' : 'Mulai / Lanjutkan'}</button>`;
+                }
+
+                const circ = done ? 'border-brand-green text-brand-green bg-green-50' : (locked || notStarted) ? 'border-gray-300 text-gray-400' : 'border-brand-blue text-brand-blue';
+                return `<div class="flex gap-3 sm:gap-4">
+                    <div class="flex flex-col items-center flex-shrink-0">
+                        <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 ${circ} bg-white flex flex-col items-center justify-center leading-none">
+                            <span class="text-[8px] sm:text-[9px] font-bold tracking-wider">MODUL</span><span class="text-lg sm:text-xl font-bold">${n}</span>
+                        </div>
+                        ${isLast ? '' : '<div class="flex-1 w-0.5 bg-gray-200 my-1"></div>'}
+                    </div>
+                    <div class="flex-1 min-w-0 pb-4">
+                        <div class="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition ${locked ? 'opacity-70' : ''}">
+                            <div class="flex items-start justify-between gap-2">
+                                <h3 class="font-bold text-base sm:text-lg text-gray-900 leading-snug">${esc(course.title)}</h3>
+                                <div class="flex flex-wrap gap-1 justify-end flex-shrink-0">${statusChip}</div>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">${dateLine}</p>
+                            <div class="flex flex-wrap gap-1.5 mt-2">${tags}</div>
+                            ${progress}
+                            ${actions}
+                        </div>
+                    </div>
+                </div>`;
+            },
+
+            renderAllAnnouncements() {
+                const box = document.getElementById('announcements-all'); if (!box) return;
+                const list = this.state.announcements || [];
+                const mb = document.getElementById('btn-manage-ann');
+                if (mb) { mb.classList.toggle('hidden', this.state.role !== 'admin'); mb.classList.toggle('flex', this.state.role === 'admin'); }
+                box.innerHTML = list.length ? list.map(a => `<div class="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3 shadow-sm">
+                        <i class="fa-solid fa-bullhorn text-yellow-500 mt-1"></i>
+                        <div><p class="text-sm text-gray-800 whitespace-pre-line">${this.escapeHtml(a.text)}</p><p class="text-xs text-gray-400 mt-1">${this.formatAnnouncementDate(a.createdAt)}</p></div>
+                    </div>`).join('') : '<p class="text-sm text-gray-500">Belum ada pengumuman.</p>';
+            }
+        });
+
+        // Hubungkan kerangka baru dengan fungsi lama (tanpa mengubah logikanya).
+        ['renderCourses', 'renderQuizzes'].forEach(fn => {
+            const orig = app[fn];
+            app[fn] = function () {
+                const r = orig.apply(this, arguments);
+                if ((this.state.page || 'home') === 'home') this.renderHome();
+                return r;
+            };
+        });
+        (function () {
+            const origAnn = app.renderPublicAnnouncements;
+            app.renderPublicAnnouncements = function () {
+                origAnn.apply(this, arguments);
+                this.renderAnnSlot();
+                if (this.state.page === 'pengumuman') this.renderAllAnnouncements();
+                if ((this.state.page || 'home') === 'home') this.renderHome();
+            };
+            const origRole = app.setRole;
+            app.setRole = function (role, userData) {
+                origRole.call(this, role, userData);
+                this.goPage('home', true);
+            };
+            const origOpen = app.openCourse;
+            app.openCourse = function (id) {
+                origOpen.apply(this, arguments);
+                const c = this.state.courses.find(x => x.id === id), m = document.getElementById('learn-meta');
+                if (c && m) { const i = this.stepInfo(c); m.innerText = i.k + ' video · ' + i.total + ' checkpoint' + (c.type === 'Compulsory' ? ' · Wajib' : ''); }
+            };
+            const origHome = app.goHome;
+            app.goHome = function () {
+                origHome.call(this);
+                this.goPage(this.state.page || 'home', true);
+            };
+        })();
+
         window.onload = () => {
             app.init();
+            app.goPage('home', true);
         };
     </script>
     <div id="sheet-modal" class="fixed inset-0 z-[105] bg-black/70 hidden items-center justify-center p-3">
