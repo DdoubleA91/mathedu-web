@@ -31,6 +31,7 @@
         /* Spinner untuk efek loading */
         .loader-spin { border: 3px solid #f3f3f3; border-top: 3px solid #1e3a8a; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #iv-box.iv-fs { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 200; aspect-ratio: auto !important; border-radius: 0 !important; max-width: none; }
     </style>
     <script>
         tailwind.config = {
@@ -412,9 +413,15 @@
 
                         <!-- Video Interaktif (YouTube + soal di tengah video, tanpa skip) -->
                         <div id="iv-wrap" class="hidden max-w-4xl mx-auto">
-                            <div class="relative bg-black rounded-lg overflow-hidden shadow-md" style="aspect-ratio:16/9">
+                            <div id="iv-box" class="relative bg-black rounded-lg overflow-hidden shadow-md" style="aspect-ratio:16/9">
                                 <div id="iv-player" class="absolute inset-0 w-full h-full"></div>
                                 <div id="iv-shield" class="absolute inset-0 z-10 cursor-pointer" onclick="app.ivToggle()"></div>
+                                <button type="button" id="iv-fs-btn" onclick="app.ivFullscreen()" class="absolute top-2 right-2 z-30 w-9 h-9 rounded-lg bg-black/55 text-white text-sm hover:bg-black/75 transition" title="Layar penuh" aria-label="Layar penuh"><i class="fa-solid fa-expand"></i></button>
+                                <div id="iv-hud" class="hidden absolute bottom-0 inset-x-0 z-30 bg-gradient-to-t from-black/70 to-transparent px-3 pb-2 pt-6 flex items-center gap-3 text-white">
+                                    <button type="button" id="iv-hud-btn" onclick="app.ivToggle()" class="w-9 h-9 rounded-full bg-white/20 text-white flex-shrink-0"><i class="fa-solid fa-play"></i></button>
+                                    <div class="flex-1 h-1.5 bg-white/30 rounded-full overflow-hidden"><div id="iv-hud-bar" class="h-full bg-brand-green" style="width:0%"></div></div>
+                                    <span id="iv-hud-time" class="text-xs font-mono">0:00</span>
+                                </div>
                                 <div id="iv-question" class="absolute inset-0 z-20 hidden bg-white/95 overflow-y-auto p-4 md:p-8">
                                     <div class="max-w-xl mx-auto">
                                         <p class="text-xs font-bold text-brand-orange mb-1"><i class="fa-solid fa-circle-question mr-1"></i> Soal <span id="iv-q-num"></span> - jawab untuk melanjutkan video</p>
@@ -2576,7 +2583,59 @@
                     }
                 });
             },
+            // ===== LAYAR PENUH =====
+            // Yang diperbesar adalah KOTAK video (bersama lapisan pencegah lompat dan soal), bukan hanya pemutar YouTube,
+            // sehingga aturan tidak bisa skip dan soal interaktif tetap aktif di layar penuh.
+            ivFullscreen() {
+                const box = document.getElementById('iv-box'); if (!box) return;
+                if (box.classList.contains('iv-fs')) { this.ivExitFs(); return; }
+                if (!this._fsBound) {
+                    this._fsBound = true;
+                    const onChange = () => {
+                        const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+                        const b = document.getElementById('iv-box');
+                        if (fsEl && b && fsEl === b) this._fsNative = true;
+                        else if (!fsEl && this._fsNative) { this._fsNative = false; this.ivExitFs(); }   // keluar lewat Esc / gestur kembali
+                    };
+                    document.addEventListener('fullscreenchange', onChange);
+                    document.addEventListener('webkitfullscreenchange', onChange);
+                }
+                box.classList.add('iv-fs');   // layar penuh buatan sendiri (juga jalan di iPhone)
+                document.body.style.overflow = 'hidden';
+                const req = box.requestFullscreen || box.webkitRequestFullscreen;
+                if (req) {
+                    try {
+                        const r = req.call(box);
+                        if (r && r.then) {
+                            r.then(() => { try { if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {}); } catch (e) {} }).catch(() => {});
+                        }
+                    } catch (e) {}
+                }
+                const b = document.getElementById('iv-fs-btn'); if (b) b.innerHTML = '<i class="fa-solid fa-compress"></i>';
+                this.ivSyncHud();
+                if (window.innerHeight > window.innerWidth) this.showToast('Putar HP ke mode lanskap agar video lebih besar.');
+            },
+            ivExitFs() {
+                const box = document.getElementById('iv-box'); if (!box) return;
+                const was = box.classList.contains('iv-fs');
+                box.classList.remove('iv-fs');
+                document.body.style.overflow = '';
+                const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+                if (fsEl) { try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {} }
+                if (was) { try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) {} }
+                const b = document.getElementById('iv-fs-btn'); if (b) b.innerHTML = '<i class="fa-solid fa-expand"></i>';
+                this.ivSyncHud();
+            },
+            // Bilah kontrol kecil di dalam layar penuh (hanya untuk siswa yang belum tuntas; yang tuntas memakai kontrol YouTube).
+            ivSyncHud() {
+                const box = document.getElementById('iv-box'), hud = document.getElementById('iv-hud'), q = document.getElementById('iv-question');
+                if (!box || !hud || !q) return;
+                const iv = this.state.iv;
+                hud.classList.toggle('hidden', !(box.classList.contains('iv-fs') && iv && !iv.free && q.classList.contains('hidden')));
+            },
+
             ivDestroy() {
+                try { this.ivExitFs(); } catch (e) {}
                 const iv = this.state.iv;
                 if (iv) { clearInterval(iv.timer); try { iv.player.destroy(); } catch (e) {} }
                 this.state.iv = null;
@@ -2604,6 +2663,7 @@
                 document.getElementById('iv-q-text').parentElement.parentElement.classList.add('hidden');
                 // Siswa yang sudah tuntas (dan guru) memakai pemutar YouTube biasa: bisa dipercepat, diulang, dan dilompati.
                 const free = done || this.state.role === 'admin';
+                iv.free = free;
                 document.getElementById('iv-shield').classList.toggle('hidden', free);
                 document.getElementById('iv-bar-wrap').classList.toggle('hidden', free);
                 const segNote = (segStart || segEnd) ? ' Bagian video yang ditonton: ' + (this.fmtTime(segStart) || '0:00') + ' - ' + (segEnd ? this.fmtTime(segEnd) : 'akhir') + '.' : '';
@@ -2775,7 +2835,9 @@
             },
             ivState(e) {
                 const iv = this.state.iv; if (!iv) return;
-                document.getElementById('iv-btn').innerHTML = `<i class="fa-solid fa-${e.data === 1 ? 'pause' : 'play'}"></i>`;
+                const pp = `<i class="fa-solid fa-${e.data === 1 ? 'pause' : 'play'}"></i>`;
+                document.getElementById('iv-btn').innerHTML = pp;
+                const hb = document.getElementById('iv-hud-btn'); if (hb) hb.innerHTML = pp;
                 if (e.data === 0 && !iv.wait) this.ivFinish();
             },
             ivTick() {
@@ -2793,6 +2855,9 @@
                 document.getElementById('iv-bar').style.width = (Math.max(0, Math.min(t, top) - base) / span * 100) + '%';
                 const f = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
                 document.getElementById('iv-time').innerText = f(Math.max(0, t - base)) + ' / ' + f(span);
+                const hbar = document.getElementById('iv-hud-bar'); if (hbar) hbar.style.width = document.getElementById('iv-bar').style.width;
+                const htime = document.getElementById('iv-hud-time'); if (htime) htime.innerText = document.getElementById('iv-time').innerText;
+                this.ivSyncHud();
                 if (!done && iv.idx < iv.qs.length && t >= iv.qs[iv.idx].time) this.ivAsk(iv.qs[iv.idx]);
             },
             ivAsk(q) {
@@ -2813,6 +2878,7 @@
                     setTimeout(() => { const f = document.getElementById('iv-short'); if (f) f.focus(); }, 100);
                 }
                 box.classList.remove('hidden');
+                this.ivSyncHud();
             },
             ivSubmitShort() {
                 const iv = this.state.iv; if (!iv) return;
@@ -4104,6 +4170,7 @@
             },
             prevStep() { this.gotoStep(Math.max(1, this.state.activeStep - 1)); },
             leaveVideo() {
+                try { this.ivExitFs(); } catch (e) {}
                 const iv = this.state.iv;
                 if (iv && iv.player && iv.player.pauseVideo) { try { iv.player.pauseVideo(); } catch (e) {} }
                 const f = document.getElementById('learn-video');
