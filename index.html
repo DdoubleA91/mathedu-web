@@ -5259,27 +5259,34 @@
                 const today = new Date(this.nowMs()).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' });
                 document.getElementById('home-sub').innerText = today + (me.kelas ? ' · Kelas ' + me.kelas : '');
 
-                // Modul yang belum selesai, diurutkan dari tenggat terdekat.
+                // Status semua modul siswa: yang belum selesai di atas (tenggat terdekat dulu), yang tuntas di bawah.
+                // Tidak ada tombol di sini; pengerjaan dilakukan lewat menu Modul ("Lihat semua").
                 const mine = this.state.courses.filter(c => !this.isLockedForCurrentUser(c)
                     && !(c.visibility && c.visibility.mode === 'selected' && !(c.visibility.studentNisns || []).includes(nisn)));
-                const pending = mine.filter(c => !(c.completedBy || []).includes(nisn));
+                const isDone = c => (c.completedBy || []).includes(nisn);
                 const dl = c => this.myDeadline(c) || '9999-12-31';
-                pending.sort((a, b) => dl(a).localeCompare(dl(b)));
+                const pending = mine.filter(c => !isDone(c)).sort((a, b) => dl(a).localeCompare(dl(b)));
+                const ordered = [...pending, ...mine.filter(isDone)];
                 const todo = document.getElementById('home-todo');
-                if (!pending.length) {
-                    todo.innerHTML = this.homeEmpty(mine.length ? 'Semua modul sudah kamu selesaikan. Mantap!' : 'Belum ada modul untuk kelasmu.');
+                const statusIcon = (icon, bg, txt, label) => `<div class="flex flex-col items-center flex-shrink-0 w-16 text-center leading-tight">
+                    <div class="w-8 h-8 rounded-full ${bg} flex items-center justify-center"><i class="fa-solid fa-${icon}"></i></div>
+                    <span class="text-[10px] font-bold mt-0.5 ${txt}">${label}</span></div>`;
+                if (!ordered.length) {
+                    todo.innerHTML = this.homeEmpty('Belum ada modul untuk kelasmu.');
                 } else {
-                    todo.innerHTML = pending.slice(0, 6).map(c => {
-                        const d = this.myDeadline(c), st = d ? this.getDeadlineStatus(d) : null, notStarted = this.isNotStarted(c);
+                    todo.innerHTML = ordered.slice(0, 6).map(c => {
+                        const done = isDone(c), d = this.myDeadline(c), notStarted = !done && this.isNotStarted(c);
+                        const st = (!done && !notStarted && d) ? this.getDeadlineStatus(d) : null;
                         const dateTxt = d ? new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
-                        const meta = notStarted ? 'Dibuka ' + this.fmtStart(this.myStart(c))
+                        const meta = done ? esc(c.category || 'Modul') + ' · selesai'
+                            : notStarted ? 'Dibuka ' + this.fmtStart(this.myStart(c))
                             : esc(c.category || 'Modul') + (d ? ' · tenggat ' + dateTxt + ', 23.59' : ' · tanpa tenggat');
-                        const badge = (!notStarted && st) ? `<span class="hidden sm:inline-block text-[11px] font-bold px-2 py-1 rounded-full whitespace-nowrap ${st.cls}">${st.text}</span>` : '';
-                        const btn = notStarted
-                            ? '<button disabled class="px-3 py-2 rounded-lg bg-gray-200 text-gray-500 text-xs font-bold cursor-not-allowed whitespace-nowrap">Belum dibuka</button>'
-                            : `<button onclick="app.openCourse(${c.id})" class="px-3 py-2 rounded-lg bg-brand-blue text-white text-xs font-bold hover:bg-blue-800 transition whitespace-nowrap">Kerjakan</button>`;
-                        return this.homeRow('book-open', 'bg-yellow-100 text-yellow-600', esc(c.title), meta, badge, btn);
-                    }).join('');
+                        const badge = st ? `<span class="hidden sm:inline-block text-[11px] font-bold px-2 py-1 rounded-full whitespace-nowrap ${st.cls}">${st.text}</span>` : '';
+                        const state = done ? statusIcon('check', 'bg-green-100 text-green-600', 'text-green-600', 'Tuntas')
+                            : notStarted ? statusIcon('hourglass-start', 'bg-gray-200 text-gray-500', 'text-gray-500', 'Belum dibuka')
+                            : statusIcon('hourglass-half', 'bg-orange-100 text-orange-500', 'text-orange-500', 'Belum');
+                        return this.homeRow('book-open', done ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600', esc(c.title), meta, badge, state);
+                    }).join('') + (ordered.length > 6 ? `<p class="text-xs text-gray-400 text-center pt-1">+ ${ordered.length - 6} modul lainnya ada di menu Modul</p>` : '');
                 }
 
                 // Kuis yang belum dikerjakan.
