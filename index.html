@@ -815,9 +815,9 @@
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Tenggat Waktu Umum (Opsional)</label>
-                        <input type="date" id="f-deadline" class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-blue">
-                        <p class="text-[10px] text-gray-500 mt-1">Kosongkan jika modul ini tidak punya batas waktu pengerjaan.</p>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tenggat Waktu Umum - Tanggal &amp; Jam (Opsional)</label>
+                        <input type="datetime-local" id="f-deadline" class="w-full border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-brand-blue">
+                        <p class="text-[10px] text-gray-500 mt-1">Jam dibaca sebagai WIB. Modul ditutup tepat pada jam ini (bukan otomatis pukul 24.00). Kosongkan jika modul ini tidak punya batas waktu pengerjaan.</p>
                         <div class="mt-2 bg-amber-50 border border-amber-200 rounded-md p-2">
                             <p class="text-xs font-bold text-amber-900"><i class="fa-solid fa-calendar-check mr-1"></i> Jadwal per kelas: waktu mulai &amp; tenggat (opsional)</p>
                             <p class="text-[10px] text-gray-600 mb-1.5 leading-tight">Isi jadwal berbeda untuk tiap kelas. Kolom yang dikosongkan memakai pengaturan umum di atas. Tenggat per kelas berlaku juga untuk kunci otomatis.</p>
@@ -897,7 +897,7 @@
                             <input type="checkbox" id="f-auto-lock" class="mt-1 w-4 h-4 rounded border-gray-300">
                             <div>
                                 <span class="text-sm font-bold text-gray-800"><i class="fa-solid fa-clock mr-1"></i> Kunci otomatis setelah deadline lewat</span>
-                                <p class="text-[10px] text-gray-600 leading-tight mt-0.5">Wajib mengisi tenggat umum atau tenggat per kelas. Modul otomatis terkunci mulai pukul 00.00 WIB sehari setelah tenggat kelas itu. Mengubah tanggal deadline ke depan membukanya lagi.</p>
+                                <p class="text-[10px] text-gray-600 leading-tight mt-0.5">Wajib mengisi tenggat umum atau tenggat per kelas. Modul otomatis terkunci tepat pada tanggal &amp; jam tenggat kelas itu (WIB). Mengubah tenggat ke waktu yang lebih akhir membukanya lagi.</p>
                             </div>
                         </label>
                     </div>
@@ -945,6 +945,13 @@
                                 </div>
                             </div>
                             <input type="text" id="f-student-search" placeholder="Cari nama atau kelas siswa..." class="w-full border border-gray-300 rounded-md p-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-brand-blue" oninput="app.renderStudentTargetOptions()">
+                            <div class="flex items-center justify-between gap-2 mb-2">
+                                <span id="f-target-count" class="text-xs font-bold text-purple-800">0 siswa dipilih</span>
+                                <span class="flex gap-2">
+                                    <button type="button" onclick="app.selectAllTargets()" class="text-xs font-bold border border-purple-400 text-purple-700 rounded-md px-2 py-1 hover:bg-purple-50">Pilih Semua Siswa</button>
+                                    <button type="button" onclick="app.clearAllTargets()" class="text-xs font-bold border border-red-300 text-red-600 rounded-md px-2 py-1 hover:bg-red-50"><i class="fa-solid fa-eraser mr-1"></i> Hapus Semua Pilihan</button>
+                                </span>
+                            </div>
                             <div id="f-student-target-list" class="max-h-48 overflow-y-auto border border-purple-200 rounded-md bg-white p-2 space-y-1 text-sm">
                                 <!-- Diisi oleh JavaScript -->
                             </div>
@@ -2200,14 +2207,14 @@
                 const deadlineEl = document.getElementById('learn-deadline-info');
                 const myDl = this.myDeadline(course);
                 if (this.state.role === 'admin' && (course.classDeadlines || []).some(x => x.date)) {
-                    const fd = d => new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+                    const fd = d => this.fmtDl(d, false);
                     const parts = course.classDeadlines.filter(x => x.date).map(x => `${x.kelas}: ${fd(x.date)}`);
                     if (course.deadline) parts.push(`lainnya: ${fd(course.deadline)}`);
                     deadlineEl.innerHTML = '<i class="fa-solid fa-calendar-days mr-1"></i> Tenggat per kelas - ' + parts.join(' | ');
                     deadlineEl.className = 'text-xs font-bold mt-2 px-2 py-1 rounded inline-block bg-amber-50 text-amber-700';
                 } else if (myDl && !isCompleted) {
                     const status = this.getDeadlineStatus(myDl);
-                    const formattedDate = new Date(myDl + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                    const formattedDate = this.fmtDl(myDl, true, true);
                     deadlineEl.innerHTML = `<i class="fa-solid fa-calendar-days mr-1"></i> Tenggat: ${formattedDate} (${status.text})`;
                     deadlineEl.className = `text-xs font-bold mt-2 px-2 py-1 rounded inline-block ${status.cls}`;
                 } else {
@@ -2310,12 +2317,13 @@
                     const vids = this.getVideos(course);
                     let firstUndone = -1;
                     for (let i = 0; i < vids.length; i++) {
-                        if (vids[i].qs.length && this.ytId(vids[i].url) && !(prog.vDone && prog.vDone[i]) && !this.state.isExerciseUploaded) { firstUndone = i; break; }
+                        if (vids[i].qs.length && this.ytId(vids[i].url) && !(prog.vDone && prog.vDone[i]) && (!this.state.isExerciseUploaded || prog.reopen)) { firstUndone = i; break; }
                     }
                     // Mulai dari Checkpoint 1. Naik hanya berdasarkan progres milik siswa ini sendiri
                     // atau bukti nyata berupa file yang sudah ia kumpulkan.
                     let resumeStep = prog.step;
-                    if (this.state.isExerciseUploaded) resumeStep = Math.max(resumeStep, info.review);
+                    const reopenPending = !!(prog.reopen && (prog.vDone || []).some(x => !x));   // ada video baru yang belum ditonton
+                    if (this.state.isExerciseUploaded && !reopenPending) resumeStep = Math.max(resumeStep, info.review);
                     else if (this.state.isSummaryUploaded) resumeStep = Math.max(resumeStep, 2);
                     if (firstUndone >= 0) resumeStep = Math.min(resumeStep, 2 + firstUndone);
                     this.state.activeStep = Math.min(Math.max(resumeStep, 1), info.total);
@@ -2787,7 +2795,7 @@
                     if (p[kk.idx] !== undefined) return { idx: p[kk.idx], time: p[kk.time] || 0 };
                     return i === 0 ? ((course.videoPartial && course.videoPartial[n]) || null) : null;
                 });
-                return { step, vDone, parts, videoDone: vDone[0], part: parts[0] };
+                return { step, vDone, parts, videoDone: vDone[0], part: parts[0], reopen: !!p.reopen };
             },
             setProg(nisn, course, patch) {
                 const n = String(nisn), cid = String(course.id);
@@ -2799,6 +2807,28 @@
                     if (patch.step !== undefined) this.saveCourseField(course, 'stepProgress', n, patch.step);
                     if (patch.videoDone) this.saveCourseField(course, 'videoProgress', n, { completedAt: new Date().toISOString() });
                     if (patch.vIdx !== undefined) this.saveCourseField(course, 'videoPartial', n, { idx: patch.vIdx, time: patch.vTime || 0 });
+                });
+            },
+            // Daftar NISN yang sudah tuntas / sudah sampai Latihan-Review pada modul ini (dipakai saat guru menambah video baru).
+            studentsPastVideos(course, oldK) {
+                const cid = String(course.id), oldExercise = oldK + 2;
+                const set = new Set((course.completedBy || []).map(String));
+                Object.keys(this.state.progress || {}).forEach(n => {
+                    const p = this.state.progress[n] && this.state.progress[n][cid];
+                    if (p && (p.stage === 'l' || p.stage === 'r' || (!p.stage && parseInt(p.step) >= oldExercise))) set.add(n);
+                });
+                Object.keys(course.submissions || {}).forEach(n => { const s = course.submissions[n]; if (s && s.tugas) set.add(String(n)); });
+                return [...set];
+            },
+            // Arahkan siswa tersebut kembali ke video baru pertama; video lama tetap dianggap selesai.
+            reopenForNewVideos(course, oldK, list) {
+                const cid = String(course.id);
+                const patch = { stage: 'v' + (oldK + 1), step: oldK + 2, reopen: true };
+                if (!this.state.progress) this.state.progress = {};
+                list.forEach(n => {
+                    if (!this.state.progress[n]) this.state.progress[n] = {};
+                    this.state.progress[n][cid] = Object.assign({}, this.state.progress[n][cid], patch);
+                    try { database.ref('progress/' + n + '/' + cid).update(patch).catch(() => {}); } catch (e) {}
                 });
             },
             saveStepProgress(course, step) {
@@ -3233,6 +3263,23 @@
 
             // Waktu server Firebase (kebal terhadap jam HP siswa yang diubah-ubah).
             nowMs() { return Date.now() + (this.state.serverOffset || 0); },
+            // ===== TENGGAT (tanggal + jam, WIB) =====
+            // Format baru "YYYY-MM-DDTHH:mm". Data lama hanya "YYYY-MM-DD" = berlaku sampai 23.59 (tutup 00.00 hari berikutnya).
+            dlMs(str) {
+                if (!str) return null;
+                return str.length <= 10
+                    ? new Date(str + 'T00:00:00+07:00').getTime() + 86400000
+                    : new Date(str.slice(0, 16) + ':00+07:00').getTime();
+            },
+            dlHasTime(str) { return !!str && str.length > 10; },
+            dlDateOnly(str) { return str ? str.slice(0, 10) : ''; },
+            dlInput(str) { return !str ? '' : (str.length <= 10 ? str + 'T23:59' : str.slice(0, 16)); },
+            fmtDl(str, withYear, longMonth) {
+                if (!str) return '';
+                const d = new Date(this.dlDateOnly(str) + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: longMonth ? 'long' : 'short', ...(withYear ? { year: 'numeric' } : {}) });
+                const t = str.length > 10 ? str.slice(11, 16).replace(':', '.') : '23.59';
+                return d + ', ' + t + ' WIB';
+            },
             // Tenggat efektif: tenggat khusus kelas jika ada, jika tidak tenggat umum modul.
             effectiveDeadline(course, kelas) {
                 const cd = (course.classDeadlines || []).find(x => x.kelas === kelas && x.date);
@@ -3272,7 +3319,7 @@
             },
             isAutoLocked(c) {
                 if (!c || !c.autoLock) return false;
-                const passed = d => !!d && this.nowMs() >= new Date(d + 'T00:00:00+07:00').getTime() + 86400000;   // 00.00 WIB hari berikutnya
+                const passed = d => !!d && this.nowMs() >= this.dlMs(d);   // tepat pada jam tenggat (data lama: 00.00 WIB hari berikutnya)
                 if (this.state.role === 'student' && this.state.currentUser) return passed(this.myDeadline(c));
                 // Guru: terkunci otomatis hanya jika semua kelas sasaran sudah melewati tenggatnya.
                 const kelas = this.targetClasses(c);
@@ -4043,9 +4090,11 @@
                 if (!deadlineStr) return null;
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
-                const due = new Date(deadlineStr + 'T00:00:00');
+                const due = new Date(this.dlDateOnly(deadlineStr) + 'T00:00:00');
                 const diffDays = Math.round((due - today) / 86400000);
 
+                if (this.dlHasTime(deadlineStr) && diffDays >= 0 && this.nowMs() >= this.dlMs(deadlineStr)) return { text: 'Waktu tenggat habis', cls: 'bg-red-50 text-red-600' };
+                if (this.dlHasTime(deadlineStr) && diffDays === 0) return { text: 'Tenggat hari ini, ' + deadlineStr.slice(11, 16).replace(':', '.'), cls: 'bg-orange-50 text-orange-600' };
                 if (diffDays < 0) return { text: `Terlambat ${Math.abs(diffDays)} hari`, cls: 'bg-red-50 text-red-600' };
                 if (diffDays === 0) return { text: 'Tenggat hari ini', cls: 'bg-orange-50 text-orange-600' };
                 if (diffDays === 1) return { text: 'Tenggat besok', cls: 'bg-orange-50 text-orange-600' };
@@ -4512,7 +4561,7 @@
                 document.getElementById('f-category').value = course.category;
                 document.getElementById('f-type').value = course.type === 'Compulsory' ? 'Wajib' : 'Peminatan';
                 document.getElementById('f-duration').value = course.duration || '';
-                document.getElementById('f-deadline').value = course.deadline || '';
+                document.getElementById('f-deadline').value = this.dlInput(course.deadline);
                 document.getElementById('f-start').value = course.startAt || '';
                 
                 document.getElementById('f-require-summary').checked = course.requireSummary || false;
@@ -4635,7 +4684,7 @@
                         <span class="text-xs font-bold text-gray-700">${esc(k)}</span>
                         <div class="grid grid-cols-2 gap-1.5 mt-1">
                             <label class="text-[10px] text-gray-500">Mulai<input type="datetime-local" class="cs-start w-full border border-gray-300 rounded-md p-1 text-xs" value="${esc(v.start)}"></label>
-                            <label class="text-[10px] text-gray-500">Tenggat<input type="date" class="cd-date w-full border border-gray-300 rounded-md p-1 text-xs" value="${esc(v.date)}"></label>
+                            <label class="text-[10px] text-gray-500">Tenggat (tanggal &amp; jam)<input type="datetime-local" class="cd-date w-full border border-gray-300 rounded-md p-1 text-xs" value="${esc(this.dlInput(v.date))}"></label>
                         </div></div>`; }).join('')
                     : '<p class="text-[10px] text-gray-500">Belum ada data kelas siswa.</p>';
             },
@@ -4652,8 +4701,33 @@
                 } else {
                     this.state.tempTargetNisns = this.state.tempTargetNisns.filter(n => n !== nisn);
                 }
+                this.updateTargetCount();
             },
 
+            selectClassCheckboxes(kelas) {
+                this.state.users.filter(u => (u.kelas || 'Tanpa Kelas') === kelas).forEach(u => {
+                    if (!this.state.tempTargetNisns.includes(u.nisn)) this.state.tempTargetNisns.push(u.nisn);
+                });
+                this.renderStudentTargetOptions();
+            },
+            clearClassCheckboxes(kelas) {
+                const ids = new Set(this.state.users.filter(u => (u.kelas || 'Tanpa Kelas') === kelas).map(u => u.nisn));
+                this.state.tempTargetNisns = this.state.tempTargetNisns.filter(n => !ids.has(n));
+                this.renderStudentTargetOptions();
+            },
+            selectAllTargets() {
+                this.state.tempTargetNisns = [...new Set([...this.state.tempTargetNisns, ...this.state.users.map(u => u.nisn)])];
+                this.renderStudentTargetOptions();
+            },
+            clearAllTargets() {
+                this.state.tempTargetNisns = [];
+                this.renderStudentTargetOptions();
+                this.showToast('Semua pilihan siswa dihapus. Silakan pilih ulang.');
+            },
+            updateTargetCount() {
+                const el = document.getElementById('f-target-count');
+                if (el) el.innerText = this.state.tempTargetNisns.length + ' siswa dipilih';
+            },
             toggleClassCheckboxes(kelas) {
                 const studentsInClass = this.state.users.filter(u => (u.kelas || 'Tanpa Kelas') === kelas);
                 const allSelected = studentsInClass.length > 0 && studentsInClass.every(u => this.state.tempTargetNisns.includes(u.nisn));
@@ -4694,7 +4768,10 @@
                     html += `<div class="mb-2">
                         <div class="flex items-center justify-between bg-gray-100 px-2 py-1 rounded font-bold text-gray-700 text-xs">
                             <span>${kelas}</span>
-                            <button type="button" onclick="app.toggleClassCheckboxes('${kelas.replace(/'/g, "\\'")}')" class="text-brand-blue hover:underline font-semibold normal-case">Pilih Semua</button>
+                            <span class="flex gap-3">
+                                <button type="button" onclick="app.selectClassCheckboxes('${kelas.replace(/'/g, "\\'")}')" class="text-brand-blue hover:underline font-semibold normal-case">Pilih Semua</button>
+                                <button type="button" onclick="app.clearClassCheckboxes('${kelas.replace(/'/g, "\\'")}')" class="text-red-600 hover:underline font-semibold normal-case">Hapus Semua</button>
+                            </span>
                         </div>`;
                     studentsInClass.forEach(u => {
                         const checked = this.state.tempTargetNisns.includes(u.nisn) ? 'checked' : '';
@@ -4707,6 +4784,7 @@
                 });
 
                 listEl.innerHTML = html || '<p class="text-gray-400 text-xs p-2">Tidak ada siswa yang cocok dengan pencarian.</p>';
+                this.updateTargetCount();
             },
 
             saveCourse() {
@@ -4723,7 +4801,7 @@
                     start: r.querySelector('.cs-start').value || null
                 })).filter(x => x.date || x.start);
                 // Waktu mulai harus sebelum tenggat (umum dan per kelas).
-                const eod = d => new Date(d + 'T00:00:00+07:00').getTime() + 86400000;
+                const eod = d => this.dlMs(d);
                 const badStart = (label, st, dl) => (st && dl && this.startMs(st) >= eod(dl)) ? `${label}: waktu mulai harus sebelum tenggat.` : null;
                 const startErr = badStart('Pengaturan umum', startAt, deadline)
                     || classDeadlines.map(x => badStart('Kelas ' + x.kelas, x.start || startAt, x.date || deadline)).find(Boolean);
@@ -4791,6 +4869,27 @@
                     if (err) { this.showToast(err, true); this.vtLoad(i); return; }
                     extraVideos.push({ title: (t.title || '').trim(), url: url, videoQuestions: qs, failMode: t.failMode || 'start', start: st || null, end: en || null });
                 }
+                // Jika guru MENAMBAH video pada modul yang sudah dikerjakan: siswa yang sudah tuntas / sudah sampai Latihan
+                // dilanjutkan ke video baru, dan status tuntasnya jadi "Belum Tuntas" sampai video baru selesai.
+                let reopenList = [], reopenOldK = 0;
+                if (this.state.editingCourseId) {
+                    const prev = this.state.courses.find(c => c.id === this.state.editingCourseId);
+                    if (prev) {
+                        reopenOldK = this.getVideos(prev).length;
+                        if (1 + extraVideos.length > reopenOldK) {
+                            let pool = this.studentsPastVideos(prev, reopenOldK);
+                            if (visibility.mode === 'selected') pool = pool.filter(n => visibility.studentNisns.includes(n));
+                            reopenList = pool;
+                        }
+                    }
+                    if (reopenList.length && !this.state.reopenConfirmed) {
+                        this.showConfirm('Video Baru Ditambahkan',
+                            reopenList.length + ' siswa sudah tuntas / sudah sampai tahap Latihan. Jika dilanjutkan, mereka akan otomatis dilanjutkan ke video baru saja (video lama tidak diulang), status di Rekap berubah menjadi Belum Tuntas sampai video baru selesai, dan tugas yang sudah dikumpulkan tetap tersimpan. Lanjutkan menyimpan?',
+                            () => { this.state.reopenConfirmed = true; this.saveCourse(); });
+                        return;
+                    }
+                }
+                this.state.reopenConfirmed = false;
                 const allQ = (c) => [...(c.videoQuestions || []), ...((c.extraVideos || []).flatMap(v => v.videoQuestions || []))];
                 if (this.state.editingCourseId) {
                     const old = this.state.courses.find(c => c.id === this.state.editingCourseId);
@@ -4803,8 +4902,12 @@
                 if (this.state.editingCourseId) {
                     const index = this.state.courses.findIndex(c => c.id === this.state.editingCourseId);
                     if (index > -1) {
+                        if (reopenList.length) {
+                            this.reopenForNewVideos(this.state.courses[index], reopenOldK, reopenList);
+                        }
                         this.state.courses[index] = {
                             ...this.state.courses[index],
+                            ...(reopenList.length ? { completedBy: (this.state.courses[index].completedBy || []).filter(n => !reopenList.includes(String(n))) } : {}),
                             title: title,
                             category: category,
                             type: type === 'Wajib' ? 'Compulsory' : 'Advanced',
@@ -4832,7 +4935,7 @@
                             attachment: this.state.tempAttachment,
                             visibility: visibility
                         };
-                        this.showToast('Modul diperbarui ke Cloud!');
+                        this.showToast(reopenList.length ? ('Modul diperbarui. ' + reopenList.length + ' siswa dilanjutkan ke video baru (status: Belum Tuntas).') : 'Modul diperbarui ke Cloud!');
                     }
                 } else {
                     const newCourse = {
@@ -5264,8 +5367,8 @@
                 const mine = this.state.courses.filter(c => !this.isLockedForCurrentUser(c)
                     && !(c.visibility && c.visibility.mode === 'selected' && !(c.visibility.studentNisns || []).includes(nisn)));
                 const isDone = c => (c.completedBy || []).includes(nisn);
-                const dl = c => this.myDeadline(c) || '9999-12-31';
-                const pending = mine.filter(c => !isDone(c)).sort((a, b) => dl(a).localeCompare(dl(b)));
+                const dl = c => this.dlMs(this.myDeadline(c)) || 8.64e15;
+                const pending = mine.filter(c => !isDone(c)).sort((a, b) => dl(a) - dl(b));
                 const ordered = [...pending, ...mine.filter(isDone)];
                 const todo = document.getElementById('home-todo');
                 const statusIcon = (icon, bg, txt, label) => `<div class="flex flex-col items-center flex-shrink-0 w-16 text-center leading-tight">
@@ -5277,10 +5380,10 @@
                     todo.innerHTML = ordered.slice(0, 6).map(c => {
                         const done = isDone(c), d = this.myDeadline(c), notStarted = !done && this.isNotStarted(c);
                         const st = (!done && !notStarted && d) ? this.getDeadlineStatus(d) : null;
-                        const dateTxt = d ? new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+                        const dateTxt = d ? this.fmtDl(d, true) : '';
                         const meta = done ? esc(c.category || 'Modul') + ' · selesai'
                             : notStarted ? 'Dibuka ' + this.fmtStart(this.myStart(c))
-                            : esc(c.category || 'Modul') + (d ? ' · tenggat ' + dateTxt + ', 23.59' : ' · tanpa tenggat');
+                            : esc(c.category || 'Modul') + (d ? ' · tenggat ' + dateTxt : ' · tanpa tenggat');
                         const badge = st ? `<span class="hidden sm:inline-block text-[11px] font-bold px-2 py-1 rounded-full whitespace-nowrap ${st.cls}">${st.text}</span>` : '';
                         const state = done ? statusIcon('check', 'bg-green-100 text-green-600', 'text-green-600', 'Tuntas')
                             : notStarted ? statusIcon('hourglass-start', 'bg-gray-200 text-gray-500', 'text-gray-500', 'Belum dibuka')
@@ -5350,7 +5453,7 @@
                 const role = this.state.role, cu = this.state.currentUser;
                 const esc = t => this.escapeHtml(t);
                 const chip = (text, cls, icon) => `<span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${cls}">${icon ? `<i class="fa-solid fa-${icon}"></i>` : ''}${text}</span>`;
-                const fd = d => new Date(d + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                const fd = d => this.fmtDl(d, true);
                 const isStudent = role === 'student' && !!cu;
                 const isAdmin = role === 'admin';
                 const done = isStudent && (course.completedBy || []).includes(cu.nisn);
@@ -5363,12 +5466,12 @@
                 const myDl = this.myDeadline(course);
                 if (isAdmin) {
                     const per = (course.classDeadlines || []).filter(x => x.date);
-                    dateLine = per.length ? 'Tenggat per kelas (' + per.length + ' kelas)' : (course.deadline ? 'Tenggat ' + fd(course.deadline) + ', 23.59' : 'Tanpa tenggat');
+                    dateLine = per.length ? 'Tenggat per kelas (' + per.length + ' kelas)' : (course.deadline ? 'Tenggat ' + fd(course.deadline) : 'Tanpa tenggat');
                     if (course.startAt || (course.classDeadlines || []).some(x => x.start)) statusChip += chip('Mulai terjadwal', 'bg-blue-50 text-blue-700', 'hourglass-start');
                 } else if (notStarted) {
                     dateLine = 'Dibuka ' + this.fmtStart(this.myStart(course));
                 } else if (myDl) {
-                    dateLine = 'Tenggat ' + fd(myDl) + ', 23.59';
+                    dateLine = 'Tenggat ' + fd(myDl);
                     const st = !done ? this.getDeadlineStatus(myDl) : null;
                     if (st) statusChip += chip(st.text, st.cls, 'calendar-days');
                 } else {
