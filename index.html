@@ -752,12 +752,14 @@
                 <div class="flex flex-wrap gap-2 items-center">
                     <span id="grades-dirty" class="text-xs font-bold text-orange-600 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i> Belum disimpan</span>
                     <button onclick="app.addGradeColumn()" class="border border-gray-300 bg-white text-gray-700 px-3 py-2 rounded-md text-sm font-bold hover:bg-gray-100 flex items-center gap-2"><i class="fa-solid fa-plus"></i> Kolom Nilai</button>
+                    <button onclick="app.triggerGradesUpload()" class="border border-blue-500 text-blue-700 bg-white px-3 py-2 rounded-md text-sm font-bold hover:bg-blue-50 flex items-center gap-2"><i class="fa-solid fa-file-arrow-up"></i> Unggah Excel</button>
+                    <input type="file" id="grades-file-input" accept=".xlsx,.xls,.csv" class="hidden" onchange="app.handleGradesFile(event)">
                     <button onclick="app.exportGradesToExcel()" class="border border-green-600 text-green-700 bg-white px-3 py-2 rounded-md text-sm font-bold hover:bg-green-50 flex items-center gap-2"><i class="fa-solid fa-file-excel"></i> Unduh Excel</button>
                     <button onclick="app.saveGrades()" class="bg-brand-green text-white px-4 py-2 rounded-md text-sm font-bold hover:bg-green-700 flex items-center gap-2"><i class="fa-solid fa-floppy-disk"></i> Simpan</button>
                 </div>
             </div>
             <div class="px-4 pt-3 text-xs text-gray-500 flex-shrink-0">
-                <i class="fa-solid fa-circle-info mr-1"></i> Salin sel dari Excel (Ctrl+C), klik sel nilai pertama di tabel ini, lalu tempel (Ctrl+V). Urutan baris Excel harus sama dengan urutan nama di bawah (urut abjad). Tempel di kotak judul kolom untuk mengisi judul sekaligus. Koma desimal (85,5) otomatis diterima. Tekan Enter / panah atas-bawah untuk pindah baris.
+                <i class="fa-solid fa-circle-info mr-1"></i> Salin sel dari Excel (Ctrl+C), klik sel nilai pertama di tabel ini, lalu tempel (Ctrl+V). Urutan baris Excel harus sama dengan urutan nama di bawah (urut abjad). Atau pakai tombol Unggah Excel (baris judul wajib punya kolom NISN atau Nama; kolom lain dianggap kolom nilai). Tempel di kotak judul kolom untuk mengisi judul sekaligus. Koma desimal (85,5) otomatis diterima. Tekan Enter / panah atas-bawah untuk pindah baris.
             </div>
             <div class="p-4 overflow-auto flex-grow">
                 <div id="grades-table-wrap"></div>
@@ -1737,6 +1739,109 @@
                 const avgEl = document.getElementById('grades-avg-' + r);
                 if (avgEl) avgEl.innerText = this.fmtGrade(this.gradeAvg(u.nisn));
             },
+            // ---------- Unggah file Excel/CSV ----------
+            triggerGradesUpload() {
+                if (!this.state.gradesLoaded) { this.showToast('Tabel belum selesai dimuat.', true); return; }
+                if (typeof XLSX === 'undefined') { this.showToast('Pustaka Excel belum termuat. Periksa koneksi internet lalu muat ulang halaman.', true); return; }
+                const inp = document.getElementById('grades-file-input');
+                inp.value = '';
+                inp.click();
+            },
+            handleGradesFile(ev) {
+                const f = ev.target.files && ev.target.files[0];
+                if (!f) return;
+                const reader = new FileReader();
+                reader.onload = e => {
+                    try {
+                        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                        const ws = wb.Sheets[wb.SheetNames[0]];
+                        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
+                        this.planGradesImport(rows, f.name);
+                    } catch (err) {
+                        console.error(err);
+                        this.showToast('File tidak bisa dibaca. Gunakan format .xlsx, .xls, atau .csv.', true);
+                    }
+                };
+                reader.onerror = () => this.showToast('Gagal membaca file.', true);
+                reader.readAsArrayBuffer(f);
+            },
+            planGradesImport(rows, fileName) {
+                const normH = v => String(v == null ? '' : v).trim().toLowerCase().replace(/\s+/g, ' ');
+                const NISN_H = ['nisn', 'nis'], NAMA_H = ['nama', 'nama siswa', 'name'];
+                const IGNORE_H = ['no', 'no.', 'nomor', 'kelas', 'rata-rata', 'rata rata', 'rerata', 'average', 'mean', 'jumlah'];
+                let hr = -1;
+                for (let i = 0; i < Math.min(rows.length, 15); i++) {
+                    if ((rows[i] || []).some(c => NISN_H.includes(normH(c)) || NAMA_H.includes(normH(c)))) { hr = i; break; }
+                }
+                if (hr < 0) { this.showToast('Baris judul tidak ditemukan. Pastikan ada kolom bernama "NISN" atau "Nama".', true); return; }
+                const head = rows[hr];
+                const iNisn = head.findIndex(c => NISN_H.includes(normH(c)));
+                const iNama = head.findIndex(c => NAMA_H.includes(normH(c)));
+                const gradeCols = [];
+                head.forEach((c, i) => {
+                    const t = String(c == null ? '' : c).trim();
+                    if (!t || i === iNisn || i === iNama || IGNORE_H.includes(normH(t))) return;
+                    gradeCols.push({ idx: i, title: t });
+                });
+                if (!gradeCols.length) { this.showToast('Tidak ada kolom nilai. Tambahkan kolom selain NISN/Nama, misalnya "Tugas 1".', true); return; }
+
+                const students = this.gradesStudents(this.state.gradesKelas);
+                const nNisn = v => String(v == null ? '' : v).trim().replace(/\D/g, '').replace(/^0+/, '');
+                const nNama = v => String(v == null ? '' : v).toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+                const byNisn = {}, byName = {};
+                students.forEach((u, i) => {
+                    const k = nNisn(u.nisn); if (k) byNisn[k] = i;
+                    const m = nNama(u.nama); byName[m] = (m in byName) ? -1 : i;   // -1 = nama kembar, tidak dipakai
+                });
+
+                const updates = [], unmatched = [];
+                let matched = 0;
+                const seen = new Set();
+                for (let r = hr + 1; r < rows.length; r++) {
+                    const row = rows[r] || [];
+                    const kn = iNisn >= 0 ? nNisn(row[iNisn]) : '', nm = iNama >= 0 ? nNama(row[iNama]) : '';
+                    if (!kn && !nm) continue;
+                    let si;
+                    if (kn && kn in byNisn) si = byNisn[kn];
+                    else if (nm && nm in byName && byName[nm] >= 0) si = byName[nm];
+                    if (si === undefined) { unmatched.push(String(row[iNama >= 0 ? iNama : iNisn]).trim()); continue; }
+                    if (seen.has(si)) continue;
+                    seen.add(si); matched++;
+                    gradeCols.forEach(gc => {
+                        const v = row[gc.idx];
+                        if (v === '' || v === null || v === undefined || String(v).trim() === '') return;
+                        updates.push({ si, title: gc.title, val: v });
+                    });
+                }
+                if (!matched) { this.showToast('Tidak ada baris yang cocok dengan siswa kelas ' + this.state.gradesKelas + ' (dicocokkan lewat NISN atau Nama).', true); return; }
+
+                const existing = this.state.gradesCols.map(c => String(c.title || '').trim().toLowerCase());
+                const newTitles = gradeCols.filter(gc => !existing.includes(gc.title.toLowerCase())).map(gc => gc.title);
+                const msg = `File: ${fileName}\nKelas ${this.state.gradesKelas}: ${matched} dari ${students.length} siswa cocok, ${updates.length} nilai akan diisi.`
+                    + `\nKolom: ${gradeCols.map(g => g.title).join(', ')}`
+                    + (newTitles.length ? `\nKolom baru yang dibuat: ${newTitles.join(', ')}` : '')
+                    + (unmatched.length ? `\n${unmatched.length} baris tidak ditemukan di kelas ini (mis. ${unmatched.slice(0, 3).join(', ')}) dan dilewati.` : '')
+                    + `\nSel kosong di file tidak menghapus nilai yang sudah ada. Perubahan baru tersimpan setelah klik Simpan.`;
+                this.showConfirm('Impor Nilai dari Excel', msg, () => {
+                    const colIndexByTitle = {};
+                    gradeCols.forEach(gc => {
+                        const k = gc.title.toLowerCase();
+                        if (k in colIndexByTitle) return;
+                        let ci = this.state.gradesCols.findIndex(c => String(c.title || '').trim().toLowerCase() === k);
+                        if (ci < 0) {
+                            this.ensureGradeCols(this.state.gradesCols.length + 1);
+                            ci = this.state.gradesCols.length - 1;
+                            this.state.gradesCols[ci].title = gc.title;
+                        }
+                        colIndexByTitle[k] = ci;
+                    });
+                    updates.forEach(u => this.setGradeCell(u.si, colIndexByTitle[u.title.toLowerCase()], u.val, students));
+                    this.setGradesDirty(true);
+                    this.renderGradesTable();
+                    this.showToast(`Impor selesai: ${matched} siswa. Klik Simpan untuk menyimpan.`);
+                });
+            },
+
             addGradeColumn() {
                 if (!this.state.gradesLoaded) return;
                 this.ensureGradeCols(this.state.gradesCols.length + 1);
