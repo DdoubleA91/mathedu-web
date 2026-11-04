@@ -31,6 +31,11 @@
         /* Spinner untuk efek loading */
         .loader-spin { border: 3px solid #f3f3f3; border-top: 3px solid #1e3a8a; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* Animasi loading grafik trigonometri */
+        @keyframes mt-gambar { 0% { stroke-dashoffset: 100; } 70%, 100% { stroke-dashoffset: 0; } }
+        @keyframes mt-lompat { 0%, 100% { transform: translateY(0); opacity: .45; } 50% { transform: translateY(-9px); opacity: 1; } }
+        .mt-kurva { stroke-dasharray: 100; stroke-dashoffset: 100; animation: mt-gambar 1.8s linear infinite; }
+        .mt-sym { display: inline-block; animation: mt-lompat 1.2s ease-in-out infinite; }
         #iv-box.iv-fs { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 200; aspect-ratio: auto !important; border-radius: 0 !important; max-width: none; }
     </style>
     <script>
@@ -58,21 +63,17 @@
 
     <!-- Layar Loading Bertema Matematika (tampil saat data awal dari Firebase masih dimuat) -->
     <div id="app-loading-screen" class="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center transition-opacity duration-500">
-        <svg width="180" height="110" viewBox="-100 -55 200 110" xmlns:xlink="http://www.w3.org/1999/xlink">
-            <path id="infinity-track" fill="none" stroke="#dbeafe" stroke-width="7" stroke-linecap="round"
-                d="M 80.0,0.0 L 79.5,5.0 L 78.1,9.8 L 75.9,14.2 L 73.0,18.1 L 69.5,21.5 L 65.5,24.1 L 61.3,26.1 L 56.9,27.4 L 52.5,28.1 L 48.1,28.3 L 43.8,27.9 L 39.7,27.2 L 35.8,26.1 L 32.0,24.7 L 28.4,23.0 L 25.0,21.1 L 21.8,19.1 L 18.7,16.9 L 15.8,14.7 L 13.0,12.3 L 10.3,9.9 L 7.6,7.5 L 5.1,5.0 L 2.5,2.5 L 0.0,0.0 L -2.5,-2.5 L -5.1,-5.0 L -7.6,-7.5 L -10.3,-9.9 L -13.0,-12.3 L -15.8,-14.7 L -18.7,-16.9 L -21.8,-19.1 L -25.0,-21.1 L -28.4,-23.0 L -32.0,-24.7 L -35.8,-26.1 L -39.7,-27.2 L -43.8,-27.9 L -48.1,-28.3 L -52.5,-28.1 L -56.9,-27.4 L -61.3,-26.1 L -65.5,-24.1 L -69.5,-21.5 L -73.0,-18.1 L -75.9,-14.2 L -78.1,-9.8 L -79.5,-5.0 L -80.0,-0.0 L -79.5,5.0 L -78.1,9.8 L -75.9,14.2 L -73.0,18.1 L -69.5,21.5 L -65.5,24.1 L -61.3,26.1 L -56.9,27.4 L -52.5,28.1 L -48.1,28.3 L -43.8,27.9 L -39.7,27.2 L -35.8,26.1 L -32.0,24.7 L -28.4,23.0 L -25.0,21.1 L -21.8,19.1 L -18.7,16.9 L -15.8,14.7 L -13.0,12.3 L -10.3,9.9 L -7.6,7.5 L -5.1,5.0 L -2.5,2.5 L -0.0,0.0 L 2.5,-2.5 L 5.1,-5.0 L 7.6,-7.5 L 10.3,-9.9 L 13.0,-12.3 L 15.8,-14.7 L 18.7,-16.9 L 21.8,-19.1 L 25.0,-21.1 L 28.4,-23.0 L 32.0,-24.7 L 35.8,-26.1 L 39.7,-27.2 L 43.8,-27.9 L 48.1,-28.3 L 52.5,-28.1 L 56.9,-27.4 L 61.3,-26.1 L 65.5,-24.1 L 69.5,-21.5 L 73.0,-18.1 L 75.9,-14.2 L 78.1,-9.8 L 79.5,-5.0 L 80.0,-0.0 Z" />
-            <circle r="6" fill="#2563eb">
-                <animateMotion dur="2.6s" repeatCount="indefinite" rotate="auto">
-                    <mpath href="#infinity-track" xlink:href="#infinity-track"/>
-                </animateMotion>
-            </circle>
-            <circle r="4.5" fill="#f97316">
-                <animateMotion dur="2.6s" repeatCount="indefinite" begin="-1.3s" rotate="auto">
-                    <mpath href="#infinity-track" xlink:href="#infinity-track"/>
-                </animateMotion>
-            </circle>
-        </svg>
+        <svg viewBox="0 0 200 80" class="w-48 h-20 mx-auto"><line x1="5" y1="40" x2="195" y2="40" stroke="#cbd5e1" stroke-width="1"/><line x1="10" y1="5" x2="10" y2="75" stroke="#cbd5e1" stroke-width="1"/><path class="mt-kurva" pathLength="100" d="M10 40 C 30 0, 50 0, 70 40 S 110 80, 130 40 S 170 0, 190 40" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/><circle r="5" fill="#f97316"><animateMotion dur="1.8s" repeatCount="indefinite" calcMode="linear" keyPoints="0;1;1" keyTimes="0;0.7;1" path="M10 40 C 30 0, 50 0, 70 40 S 110 80, 130 40 S 170 0, 190 40"/></circle></svg><div class="flex justify-center gap-4 text-2xl font-serif text-blue-600 mt-1"><span class="mt-sym" style="animation-delay:0.0s">π</span><span class="mt-sym" style="animation-delay:0.15s">∑</span><span class="mt-sym" style="animation-delay:0.3s">√</span><span class="mt-sym" style="animation-delay:0.45s">∫</span><span class="mt-sym" style="animation-delay:0.6s">∞</span></div>
         <p class="mt-3 text-sm font-bold text-gray-400 tracking-wide animate-pulse">Memuat MathEdu...</p>
+    </div>
+
+    <!-- Overlay loading (dipakai saat menyimpan / menarik data) -->
+    <div id="loading-overlay" class="hidden fixed inset-0 bg-slate-900/50 z-[90] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl px-8 py-6 text-center max-w-xs w-full">
+            <svg viewBox="0 0 200 80" class="w-48 h-20 mx-auto"><line x1="5" y1="40" x2="195" y2="40" stroke="#cbd5e1" stroke-width="1"/><line x1="10" y1="5" x2="10" y2="75" stroke="#cbd5e1" stroke-width="1"/><path class="mt-kurva" pathLength="100" d="M10 40 C 30 0, 50 0, 70 40 S 110 80, 130 40 S 170 0, 190 40" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/><circle r="5" fill="#f97316"><animateMotion dur="1.8s" repeatCount="indefinite" calcMode="linear" keyPoints="0;1;1" keyTimes="0;0.7;1" path="M10 40 C 30 0, 50 0, 70 40 S 110 80, 130 40 S 170 0, 190 40"/></circle></svg><div class="flex justify-center gap-4 text-2xl font-serif text-blue-600 mt-1"><span class="mt-sym" style="animation-delay:0.0s">π</span><span class="mt-sym" style="animation-delay:0.15s">∑</span><span class="mt-sym" style="animation-delay:0.3s">√</span><span class="mt-sym" style="animation-delay:0.45s">∫</span><span class="mt-sym" style="animation-delay:0.6s">∞</span></div>
+            <p id="loading-pesan" class="mt-3 text-sm font-semibold text-gray-700"></p>
+            <p class="text-xs text-gray-400 mt-1">Mohon tunggu, jangan klik berulang kali</p>
+        </div>
     </div>
 
     <!-- Tombol Install PWA (muncul otomatis kalau browser mendukung) -->
@@ -449,20 +450,7 @@
                         <!-- Form Upload Rangkuman -->
                         <div id="summary-upload-section" class="mt-8 border-2 border-dashed border-brand-orange rounded-lg p-6 text-center bg-orange-50 hidden relative">
                             <div id="summary-upload-overlay" class="absolute inset-0 bg-white/80 z-10 hidden flex-col items-center justify-center rounded-lg">
-                                <svg width="90" height="55" viewBox="-100 -55 200 110" xmlns:xlink="http://www.w3.org/1999/xlink" class="mb-1">
-                                    <path id="infinity-track-mini-1" fill="none" stroke="#dbeafe" stroke-width="9" stroke-linecap="round"
-                                        d="M 80.0,0.0 L 79.5,5.0 L 78.1,9.8 L 75.9,14.2 L 73.0,18.1 L 69.5,21.5 L 65.5,24.1 L 61.3,26.1 L 56.9,27.4 L 52.5,28.1 L 48.1,28.3 L 43.8,27.9 L 39.7,27.2 L 35.8,26.1 L 32.0,24.7 L 28.4,23.0 L 25.0,21.1 L 21.8,19.1 L 18.7,16.9 L 15.8,14.7 L 13.0,12.3 L 10.3,9.9 L 7.6,7.5 L 5.1,5.0 L 2.5,2.5 L 0.0,0.0 L -2.5,-2.5 L -5.1,-5.0 L -7.6,-7.5 L -10.3,-9.9 L -13.0,-12.3 L -15.8,-14.7 L -18.7,-16.9 L -21.8,-19.1 L -25.0,-21.1 L -28.4,-23.0 L -32.0,-24.7 L -35.8,-26.1 L -39.7,-27.2 L -43.8,-27.9 L -48.1,-28.3 L -52.5,-28.1 L -56.9,-27.4 L -61.3,-26.1 L -65.5,-24.1 L -69.5,-21.5 L -73.0,-18.1 L -75.9,-14.2 L -78.1,-9.8 L -79.5,-5.0 L -80.0,-0.0 L -79.5,5.0 L -78.1,9.8 L -75.9,14.2 L -73.0,18.1 L -69.5,21.5 L -65.5,24.1 L -61.3,26.1 L -56.9,27.4 L -52.5,28.1 L -48.1,28.3 L -43.8,27.9 L -39.7,27.2 L -35.8,26.1 L -32.0,24.7 L -28.4,23.0 L -25.0,21.1 L -21.8,19.1 L -18.7,16.9 L -15.8,14.7 L -13.0,12.3 L -10.3,9.9 L -7.6,7.5 L -5.1,5.0 L -2.5,2.5 L -0.0,0.0 L 2.5,-2.5 L 5.1,-5.0 L 7.6,-7.5 L 10.3,-9.9 L 13.0,-12.3 L 15.8,-14.7 L 18.7,-16.9 L 21.8,-19.1 L 25.0,-21.1 L 28.4,-23.0 L 32.0,-24.7 L 35.8,-26.1 L 39.7,-27.2 L 43.8,-27.9 L 48.1,-28.3 L 52.5,-28.1 L 56.9,-27.4 L 61.3,-26.1 L 65.5,-24.1 L 69.5,-21.5 L 73.0,-18.1 L 75.9,-14.2 L 78.1,-9.8 L 79.5,-5.0 L 80.0,-0.0 Z" />
-                                    <circle r="7" fill="#2563eb">
-                                        <animateMotion dur="2.6s" repeatCount="indefinite" rotate="auto">
-                                            <mpath href="#infinity-track-mini-1" xlink:href="#infinity-track-mini-1"/>
-                                        </animateMotion>
-                                    </circle>
-                                    <circle r="5.5" fill="#f97316">
-                                        <animateMotion dur="2.6s" repeatCount="indefinite" begin="-1.3s" rotate="auto">
-                                            <mpath href="#infinity-track-mini-1" xlink:href="#infinity-track-mini-1"/>
-                                        </animateMotion>
-                                    </circle>
-                                </svg>
+                                <svg viewBox="0 0 200 80" class="w-28 h-12 mx-auto mb-1"><line x1="5" y1="40" x2="195" y2="40" stroke="#cbd5e1" stroke-width="1"/><line x1="10" y1="5" x2="10" y2="75" stroke="#cbd5e1" stroke-width="1"/><path class="mt-kurva" pathLength="100" d="M10 40 C 30 0, 50 0, 70 40 S 110 80, 130 40 S 170 0, 190 40" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/><circle r="5" fill="#f97316"><animateMotion dur="1.8s" repeatCount="indefinite" calcMode="linear" keyPoints="0;1;1" keyTimes="0;0.7;1" path="M10 40 C 30 0, 50 0, 70 40 S 110 80, 130 40 S 170 0, 190 40"/></circle></svg>
                                 <span class="text-sm font-bold text-brand-blue">Mengirim ke Google Drive...</span>
                             </div>
                             <i class="fa-solid fa-book-open-reader text-3xl text-brand-orange mb-2"></i>
@@ -494,20 +482,7 @@
                         <!-- Real Form Pengumpulan ke Drive -->
                         <div id="student-upload-section" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50 hover:bg-gray-100 transition-colors relative">
                             <div id="upload-overlay" class="absolute inset-0 bg-white/80 z-10 hidden flex-col items-center justify-center rounded-lg">
-                                <svg width="90" height="55" viewBox="-100 -55 200 110" xmlns:xlink="http://www.w3.org/1999/xlink" class="mb-1">
-                                    <path id="infinity-track-mini-2" fill="none" stroke="#dbeafe" stroke-width="9" stroke-linecap="round"
-                                        d="M 80.0,0.0 L 79.5,5.0 L 78.1,9.8 L 75.9,14.2 L 73.0,18.1 L 69.5,21.5 L 65.5,24.1 L 61.3,26.1 L 56.9,27.4 L 52.5,28.1 L 48.1,28.3 L 43.8,27.9 L 39.7,27.2 L 35.8,26.1 L 32.0,24.7 L 28.4,23.0 L 25.0,21.1 L 21.8,19.1 L 18.7,16.9 L 15.8,14.7 L 13.0,12.3 L 10.3,9.9 L 7.6,7.5 L 5.1,5.0 L 2.5,2.5 L 0.0,0.0 L -2.5,-2.5 L -5.1,-5.0 L -7.6,-7.5 L -10.3,-9.9 L -13.0,-12.3 L -15.8,-14.7 L -18.7,-16.9 L -21.8,-19.1 L -25.0,-21.1 L -28.4,-23.0 L -32.0,-24.7 L -35.8,-26.1 L -39.7,-27.2 L -43.8,-27.9 L -48.1,-28.3 L -52.5,-28.1 L -56.9,-27.4 L -61.3,-26.1 L -65.5,-24.1 L -69.5,-21.5 L -73.0,-18.1 L -75.9,-14.2 L -78.1,-9.8 L -79.5,-5.0 L -80.0,-0.0 L -79.5,5.0 L -78.1,9.8 L -75.9,14.2 L -73.0,18.1 L -69.5,21.5 L -65.5,24.1 L -61.3,26.1 L -56.9,27.4 L -52.5,28.1 L -48.1,28.3 L -43.8,27.9 L -39.7,27.2 L -35.8,26.1 L -32.0,24.7 L -28.4,23.0 L -25.0,21.1 L -21.8,19.1 L -18.7,16.9 L -15.8,14.7 L -13.0,12.3 L -10.3,9.9 L -7.6,7.5 L -5.1,5.0 L -2.5,2.5 L -0.0,0.0 L 2.5,-2.5 L 5.1,-5.0 L 7.6,-7.5 L 10.3,-9.9 L 13.0,-12.3 L 15.8,-14.7 L 18.7,-16.9 L 21.8,-19.1 L 25.0,-21.1 L 28.4,-23.0 L 32.0,-24.7 L 35.8,-26.1 L 39.7,-27.2 L 43.8,-27.9 L 48.1,-28.3 L 52.5,-28.1 L 56.9,-27.4 L 61.3,-26.1 L 65.5,-24.1 L 69.5,-21.5 L 73.0,-18.1 L 75.9,-14.2 L 78.1,-9.8 L 79.5,-5.0 L 80.0,-0.0 Z" />
-                                    <circle r="7" fill="#2563eb">
-                                        <animateMotion dur="2.6s" repeatCount="indefinite" rotate="auto">
-                                            <mpath href="#infinity-track-mini-2" xlink:href="#infinity-track-mini-2"/>
-                                        </animateMotion>
-                                    </circle>
-                                    <circle r="5.5" fill="#f97316">
-                                        <animateMotion dur="2.6s" repeatCount="indefinite" begin="-1.3s" rotate="auto">
-                                            <mpath href="#infinity-track-mini-2" xlink:href="#infinity-track-mini-2"/>
-                                        </animateMotion>
-                                    </circle>
-                                </svg>
+                                <svg viewBox="0 0 200 80" class="w-28 h-12 mx-auto mb-1"><line x1="5" y1="40" x2="195" y2="40" stroke="#cbd5e1" stroke-width="1"/><line x1="10" y1="5" x2="10" y2="75" stroke="#cbd5e1" stroke-width="1"/><path class="mt-kurva" pathLength="100" d="M10 40 C 30 0, 50 0, 70 40 S 110 80, 130 40 S 170 0, 190 40" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/><circle r="5" fill="#f97316"><animateMotion dur="1.8s" repeatCount="indefinite" calcMode="linear" keyPoints="0;1;1" keyTimes="0;0.7;1" path="M10 40 C 30 0, 50 0, 70 40 S 110 80, 130 40 S 170 0, 190 40"/></circle></svg>
                                 <span class="text-sm font-bold text-brand-blue">Mengirim ke Google Drive...</span>
                             </div>
 
@@ -1609,6 +1584,26 @@
                 document.getElementById('modal-students').classList.remove('hidden');
             },
 
+            // ---- Loading bertema grafik trigonometri ----
+            animMini() {
+                return '<svg viewBox="0 0 200 80" class="w-28 h-12 mx-auto"><line x1="5" y1="40" x2="195" y2="40" stroke="#cbd5e1" stroke-width="1"/><line x1="10" y1="5" x2="10" y2="75" stroke="#cbd5e1" stroke-width="1"/><path class="mt-kurva" pathLength="100" d="M10 40 C 30 0, 50 0, 70 40 S 110 80, 130 40 S 170 0, 190 40" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/><circle r="5" fill="#f97316"><animateMotion dur="1.8s" repeatCount="indefinite" calcMode="linear" keyPoints="0;1;1" keyTimes="0;0.7;1" path="M10 40 C 30 0, 50 0, 70 40 S 110 80, 130 40 S 170 0, 190 40"/></circle></svg>';
+            },
+            mulaiLoading(pesan) {
+                this._loadingN = (this._loadingN || 0) + 1;
+                document.getElementById('loading-pesan').innerText = pesan || 'Memproses...';
+                if (this._loadingN === 1) {
+                    // tampil setelah 150 ms agar proses yang sangat cepat tidak berkedip
+                    this._loadingTimer = setTimeout(() => document.getElementById('loading-overlay').classList.remove('hidden'), 150);
+                }
+            },
+            akhiriLoading() {
+                this._loadingN = Math.max(0, (this._loadingN || 0) - 1);
+                if (this._loadingN === 0) {
+                    clearTimeout(this._loadingTimer);
+                    document.getElementById('loading-overlay').classList.add('hidden');
+                }
+            },
+
             // ===================== UJIAN ONLINE (mesin ujian = aplikasi Apps Script terpisah) =====================
             async ujianPost(body) {
                 const res = await fetch(ujianUrl, { method: 'POST', body: JSON.stringify(body) });
@@ -1666,7 +1661,7 @@
                     grid.innerHTML = '';
                     st.innerHTML = this.state.ujianError
                         ? `<span class="text-red-500">${esc(this.state.ujianError)}</span> <button onclick="app.muatUjian(true)" class="underline font-bold text-brand-blue">Coba lagi</button>`
-                        : 'Memuat daftar ujian...';
+                        : this.animMini() + 'Memuat daftar ujian...';
                     return;
                 }
                 const list = this.state.ujianList;
@@ -1768,6 +1763,7 @@
                 if (!ids.length) { info.innerText = 'Pilih minimal satu ujian.'; return; }
                 const btn = document.getElementById('tarik-btn');
                 btn.disabled = true;
+                this.mulaiLoading('Menarik nilai dari Ujian Online...');
                 const students = this.gradesStudents(this.state.gradesKelas);
                 const nk = v => String(v == null ? '' : v).replace(/\s+/g, '').toLowerCase().replace(/^0+(?=\d)/, '');
                 const nm = v => String(v == null ? '' : v).toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -1779,7 +1775,7 @@
                         info.innerText = 'Menarik nilai... (' + (e + 1) + '/' + ids.length + ')\n' + laporan.join('\n');
                         const j = await this.ujianPost({ action: 'rekap', token: this.state.ujianToken, examId: ids[e] });
                         if (!j || !j.ok) {
-                            if (j && /Sesi admin berakhir/.test(j.pesan || '')) { this.state.ujianToken = null; this.tampilTarikLogin('Sesi berakhir. Masukkan kata sandi lagi.'); btn.disabled = false; return; }
+                            if (j && /Sesi admin berakhir/.test(j.pesan || '')) { this.state.ujianToken = null; this.tampilTarikLogin('Sesi berakhir. Masukkan kata sandi lagi.'); btn.disabled = false; this.akhiriLoading(); return; }
                             throw new Error((j && j.pesan) || 'Gagal menarik rekap');
                         }
                         const judul = String(j.judul || 'Ujian').trim();
@@ -1812,6 +1808,7 @@
                     if (laporan.length) { this.setGradesDirty(true); this.renderGradesTable(); }
                 }
                 btn.disabled = false;
+                this.akhiriLoading();
             },
 
             // ===================== REKAP NILAI (input manual, tempel dari Excel) =====================
@@ -1856,7 +1853,7 @@
                 const kelas = document.getElementById('grades-class-select').value;
                 this.state.gradesKelas = kelas;
                 this.state.gradesLoaded = false;
-                document.getElementById('grades-table-wrap').innerHTML = '<p class="text-sm text-gray-400 py-6 text-center">Memuat nilai...</p>';
+                document.getElementById('grades-table-wrap').innerHTML = '<div class="py-6">' + this.animMini() + '<p class="text-sm text-gray-400 text-center">Memuat nilai...</p></div>';
                 database.ref('manualGrades/' + this.gradesKey(kelas)).once('value').then(snap => {
                     if (this.state.gradesKelas !== kelas) return;
                     const d = snap.val() || {};
@@ -2108,10 +2105,13 @@
                     if (Object.keys(row).length) scores[n] = row;
                 });
                 const payload = { kelas, columns: this.state.gradesCols.map(c => ({ id: c.id, title: (c.title || '').trim() })), scores, updatedAt: new Date().toISOString() };
+                this.mulaiLoading('Menyimpan nilai...');
                 database.ref('manualGrades/' + this.gradesKey(kelas)).set(payload).then(() => {
+                    this.akhiriLoading();
                     this.setGradesDirty(false);
                     this.showToast('Nilai kelas ' + kelas + ' tersimpan.');
                 }).catch(err => {
+                    this.akhiriLoading();
                     console.error(err);
                     this.showToast('Gagal menyimpan. Pastikan Rules Firebase untuk manualGrades sudah ditambahkan.', true);
                 });
