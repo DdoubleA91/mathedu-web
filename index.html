@@ -67,6 +67,37 @@
         <p class="mt-3 text-sm font-bold text-gray-400 tracking-wide animate-pulse">Memuat MathEdu...</p>
     </div>
 
+    <!-- HALAMAN: Panel Ujian Online (aplikasi ujian ditampilkan di dalam LMS, dengan tombol kembali) -->
+    <div id="view-panel-ujian" class="fixed inset-0 z-[80] bg-white hidden flex-col">
+        <div class="flex items-center gap-1 px-3 py-2 border-b border-gray-200 bg-white flex-shrink-0">
+            <button onclick="app.tutupPanelUjian('home')" class="text-sm font-bold text-gray-700 hover:text-brand-blue px-2 py-1.5 rounded-lg hover:bg-gray-100"><i class="fa-solid fa-arrow-left mr-1"></i> Dashboard</button>
+            <button onclick="app.tutupPanelUjian('kuis')" class="text-sm font-bold text-gray-700 hover:text-brand-blue px-2 py-1.5 rounded-lg hover:bg-gray-100"><i class="fa-solid fa-clipboard-question mr-1"></i> Menu Ujian</button>
+            <span class="flex-1 text-center text-sm font-bold text-gray-800 hidden sm:block">Panel Ujian Online</span>
+        </div>
+        <div class="relative flex-1 min-h-0">
+            <div id="panel-ujian-loading" class="absolute inset-0 flex flex-col items-center justify-center bg-white text-gray-400 text-sm text-center px-6">
+                <div id="panel-ujian-anim"></div>
+                <p class="mt-2">Memuat panel ujian...</p>
+                <button id="panel-ujian-tabbaru" onclick="app.bukaPanelDiTabBaru()" class="hidden mt-4 text-xs font-bold text-brand-blue underline">Tidak tampil? Buka di tab baru</button>
+            </div>
+            <iframe id="panel-ujian-frame" title="Panel Ujian Online" class="w-full h-full border-0" allow="clipboard-write; fullscreen"></iframe>
+        </div>
+    </div>
+
+    <!-- MODAL: login singkat ke Ujian Online (hanya jika sesi berakhir) -->
+    <div id="modal-ujian-login" class="fixed inset-0 bg-black bg-opacity-50 z-[70] hidden flex items-center justify-center fade-in">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-2 p-5 space-y-3">
+            <h3 class="font-bold text-gray-800"><i class="fa-solid fa-key text-teal-600 mr-2"></i> Masuk ke Panel Ujian</h3>
+            <p class="text-xs text-gray-500">Sesi Ujian Online berakhir. Masukkan kata sandi admin untuk melanjutkan.</p>
+            <input type="password" id="ujian-login-pw" class="w-full border border-gray-300 rounded-md p-2 text-sm" onkeydown="if(event.key==='Enter') app.submitUjianLogin()">
+            <p id="ujian-login-info" class="text-xs text-red-600"></p>
+            <div class="flex justify-end gap-2">
+                <button onclick="app.tutupUjianLogin()" class="px-4 py-2 rounded-md text-sm font-bold text-gray-600 hover:bg-gray-100">Batal</button>
+                <button onclick="app.submitUjianLogin()" class="px-4 py-2 rounded-md text-sm font-bold bg-teal-600 text-white hover:bg-teal-700">Masuk</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Overlay loading (dipakai saat menyimpan / menarik data) -->
     <div id="loading-overlay" class="hidden fixed inset-0 bg-slate-900/50 z-[90] flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl px-8 py-6 text-center max-w-xs w-full">
@@ -299,7 +330,7 @@
                 <div class="mb-4 flex items-start justify-between gap-3 flex-wrap">
                     <div>
                         <h1 class="text-2xl font-bold text-gray-900">Ujian Online</h1>
-                        <p class="text-sm text-gray-500">Ulangan dan asesmen dari guru. Ujian dibuka di tab baru.</p>
+                        <p class="text-sm text-gray-500">Ulangan dan asesmen dari guru. Setelah selesai, kembali ke sini lewat tombol di halaman ujian.</p>
                     </div>
                     <button onclick="app.muatUjian(true)" class="text-xs font-bold text-gray-600 border border-gray-300 bg-white rounded-lg px-3 py-2 hover:bg-gray-50"><i class="fa-solid fa-rotate mr-1"></i> Muat ulang</button>
                 </div>
@@ -1295,6 +1326,7 @@
                     if (!this.state.sessionChecked) {
                         this.checkSession();
                         this.state.sessionChecked = true;
+                        this.bukaDariHash();
                     }
                     
                     if (!document.getElementById('modal-students').classList.contains('hidden')) {
@@ -1505,6 +1537,7 @@
                     sessionStorage.setItem('mathedu_session', JSON.stringify({ role: 'admin', nisn: nisn }));
                     this.closeModals();
                     this.showToast('Berhasil login sebagai Admin');
+                    this.ujianLoginSenyap(pass);   // satu kali login: kata sandi yang sama berlaku di Ujian Online
                     return;
                 }
 
@@ -1538,6 +1571,7 @@
                 this.state.forcePw = false;
                 document.getElementById('modal-password').classList.add('hidden');
                 sessionStorage.removeItem('mathedu_session');
+                this.ujianTokenSet(null);
                 this.setRole('guest', null);
                 this.goHome();
                 this.showToast('Berhasil keluar');
@@ -1604,6 +1638,118 @@
                 }
             },
 
+            // ---- Satu login untuk semua: token Ujian Online & panel di dalam LMS ----
+            ujianTokenGet() { try { return sessionStorage.getItem('mathedu_ujian_token'); } catch (e) { return null; } },
+            ujianTokenSet(t) { try { if (t) sessionStorage.setItem('mathedu_ujian_token', t); else sessionStorage.removeItem('mathedu_ujian_token'); } catch (e) { /* abaikan */ } },
+            async ujianLoginSenyap(pass) {
+                // Kata sandi admin LMS juga berlaku di Ujian Online (dicocokkan lewat hash di server).
+                try {
+                    const j = await this.ujianPost({ action: 'login', password: pass });
+                    this.ujianTokenSet(j && j.ok ? j.token : null);
+                } catch (e) { console.warn('Login otomatis ke Ujian Online gagal:', e); }
+            },
+            bukaDariHash() {
+                if (location.hash === '#ujian' && this.state.role && this.state.role !== 'guest') {
+                    this.goPage('kuis');
+                    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* abaikan */ }
+                }
+            },
+            tampilUjianLogin(pesan) {
+                document.getElementById('ujian-login-info').innerText = pesan || '';
+                document.getElementById('ujian-login-pw').value = '';
+                document.getElementById('modal-ujian-login').classList.remove('hidden');
+                setTimeout(() => { const e = document.getElementById('ujian-login-pw'); if (e) e.focus(); }, 50);
+            },
+            tutupUjianLogin() {
+                document.getElementById('modal-ujian-login').classList.add('hidden');
+                this.state.aksiSetelahLoginUjian = null;
+            },
+            async submitUjianLogin() {
+                const pw = document.getElementById('ujian-login-pw').value;
+                if (!pw) return;
+                const info = document.getElementById('ujian-login-info');
+                info.innerText = 'Memeriksa kata sandi...';
+                try {
+                    const j = await this.ujianPost({ action: 'login', password: pw });
+                    if (!j || !j.ok) { info.innerText = (j && j.pesan) || 'Kata sandi salah.'; return; }
+                    this.ujianTokenSet(j.token);
+                    document.getElementById('modal-ujian-login').classList.add('hidden');
+                    const aksi = this.state.aksiSetelahLoginUjian;
+                    this.state.aksiSetelahLoginUjian = null;
+                    if (aksi) aksi();
+                } catch (err) {
+                    console.error(err);
+                    info.innerText = 'Tidak dapat menghubungi aplikasi Ujian Online. Periksa koneksi internet.';
+                }
+            },
+            // Meminta tiket sekali pakai (berlaku 60 detik) agar panel ujian terbuka tanpa login ulang.
+            async mintaTiketUjian() {
+                const token = this.ujianTokenGet();
+                if (!token) return null;
+                const j = await this.ujianPost({ action: 'tiket', token: token });
+                if (j && j.ok) return j.tiket;
+                if (j && /Sesi admin berakhir/.test(j.pesan || '')) { this.ujianTokenSet(null); return null; }
+                throw new Error((j && j.pesan) || 'Gagal meminta tiket');
+            },
+            async bukaPanelUjian() {
+                this.mulaiLoading('Membuka panel ujian...');
+                let tiket = null;
+                try { tiket = await this.mintaTiketUjian(); }
+                catch (err) {
+                    this.akhiriLoading();
+                    console.error(err);
+                    this.showToast('Tidak dapat membuka panel ujian. Periksa koneksi internet.', true);
+                    return;
+                }
+                this.akhiriLoading();
+                if (!tiket) {   // sesi Ujian Online tidak ada / berakhir: minta kata sandi sekali
+                    this.state.aksiSetelahLoginUjian = () => this.bukaPanelUjian();
+                    this.tampilUjianLogin(this.ujianTokenGet() === null ? 'Sesi Ujian Online berakhir. Masukkan kata sandi admin.' : '');
+                    return;
+                }
+                const v = document.getElementById('view-panel-ujian');
+                const f = document.getElementById('panel-ujian-frame');
+                const loading = document.getElementById('panel-ujian-loading');
+                document.getElementById('panel-ujian-anim').innerHTML = this.animMini();
+                loading.classList.remove('hidden');
+                document.getElementById('panel-ujian-tabbaru').classList.add('hidden');
+                clearTimeout(this._panelTimer);
+                this._panelTimer = setTimeout(() => document.getElementById('panel-ujian-tabbaru').classList.remove('hidden'), 8000);
+                f.onload = () => { clearTimeout(this._panelTimer); loading.classList.add('hidden'); };
+                f.src = ujianUrl + '?page=admin&embed=1&tiket=' + encodeURIComponent(tiket);
+                v.classList.remove('hidden');
+                v.classList.add('flex');
+                this.state.panelUjianBuka = true;
+                try { history.pushState({ panelUjian: true }, ''); } catch (e) { /* abaikan */ }   // tombol Kembali HP/browser menutup panel, bukan keluar dari LMS
+            },
+            async bukaPanelDiTabBaru() {
+                const w = window.open('', '_blank');
+                try {
+                    const tiket = await this.mintaTiketUjian();
+                    if (!tiket) { if (w) w.close(); this.showToast('Sesi Ujian Online berakhir. Buka panel dari tombol Buka Panel Ujian.', true); return; }
+                    const url = ujianUrl + '?page=admin&tiket=' + encodeURIComponent(tiket);
+                    if (w) w.location.href = url; else location.href = url;
+                } catch (err) { if (w) w.close(); this.showToast('Gagal membuka tab baru.', true); }
+            },
+            tutupPanelUjian(tujuan) {
+                this.state.tujuanSetelahPanel = tujuan || 'kuis';
+                if (history.state && history.state.panelUjian) history.back();   // popstate menutup panel
+                else this._tutupPanelNyata();
+            },
+            _tutupPanelNyata() {
+                if (!this.state.panelUjianBuka) return;
+                this.state.panelUjianBuka = false;
+                clearTimeout(this._panelTimer);
+                const v = document.getElementById('view-panel-ujian');
+                const f = document.getElementById('panel-ujian-frame');
+                f.onload = null;
+                f.src = 'about:blank';
+                v.classList.add('hidden');
+                v.classList.remove('flex');
+                this.goPage(this.state.tujuanSetelahPanel || 'kuis');
+                if (this.state.role === 'admin') this.muatUjian(true);
+            },
+
             // ===================== UJIAN ONLINE (mesin ujian = aplikasi Apps Script terpisah) =====================
             async ujianPost(body) {
                 const res = await fetch(ujianUrl, { method: 'POST', body: JSON.stringify(body) });
@@ -1651,7 +1797,7 @@
                                 <p class="text-xs text-gray-500 mt-1">Buat ujian, atur akses &amp; jadwal, edit soal (PG, PG kompleks, benar/salah, menjodohkan), dan lihat rekap di aplikasi Ujian Online. Daftar di bawah adalah ujian yang saat ini dibuka untuk siswa.</p>
                             </div>
                             <div class="flex flex-wrap gap-2">
-                                <a href="${ujianUrl}?page=admin" target="_blank" rel="noopener" class="bg-teal-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-teal-700 transition"><i class="fa-solid fa-up-right-from-square mr-1"></i> Buka Panel Ujian</a>
+                                <button onclick="app.bukaPanelUjian()" class="bg-teal-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-teal-700 transition"><i class="fa-solid fa-gear mr-1"></i> Buka Panel Ujian</button>
                                 <button onclick="app.openGradesModal()" class="border border-gray-300 bg-white text-gray-700 px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-50 transition"><i class="fa-solid fa-table-list mr-1"></i> Rekap Nilai</button>
                             </div>
                         </div>`;
@@ -1673,7 +1819,7 @@
                     } else if (u.status === 'selesai') {
                         aksi = `<span class="inline-flex items-center gap-1 bg-green-50 text-green-700 border border-green-200 text-xs font-bold px-3 py-2 rounded-lg"><i class="fa-solid fa-circle-check"></i> Sudah dikerjakan</span>`;
                     } else if (u.bisa) {
-                        aksi = `<a href="${this.ujianTautan(u)}" target="_blank" rel="noopener" class="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition"><i class="fa-solid fa-play"></i> ${u.status === 'berjalan' ? 'Lanjutkan' : 'Kerjakan'}</a>`;
+                        aksi = `<a href="${this.ujianTautan(u)}" class="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition"><i class="fa-solid fa-play"></i> ${u.status === 'berjalan' ? 'Lanjutkan' : 'Kerjakan'}</a>`;
                     } else {
                         aksi = `<span class="inline-flex flex-col bg-gray-100 text-gray-500 text-xs font-bold px-3 py-2 rounded-lg">Belum dibuka${u.mulai ? '<span class="font-normal">' + esc(this.fmtUjianWaktu(u.mulai)) + '</span>' : ''}</span>`;
                     }
@@ -1697,7 +1843,7 @@
                 const aktif = list.filter(u => u.bisa && u.status !== 'selesai');
                 if (!aktif.length) { box.innerHTML = this.homeEmpty(list.length ? 'Tidak ada ujian yang perlu dikerjakan sekarang.' : 'Belum ada ujian yang dibuka.'); return; }
                 box.innerHTML = aktif.slice(0, 5).map(u => this.homeRow('circle-question', 'bg-teal-100 text-teal-600', esc(u.judul), u.jumlahSoal + ' soal \u00b7 ' + u.durasi + ' menit',
-                    '', `<a href="${this.ujianTautan(u)}" target="_blank" rel="noopener" class="px-3 py-2 rounded-lg bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 transition whitespace-nowrap">${u.status === 'berjalan' ? 'Lanjutkan' : 'Kerjakan'}</a>`)).join('');
+                    '', `<a href="${this.ujianTautan(u)}" class="px-3 py-2 rounded-lg bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 transition whitespace-nowrap">${u.status === 'berjalan' ? 'Lanjutkan' : 'Kerjakan'}</a>`)).join('');
             },
 
             // ---- Tarik nilai Ujian Online ke Rekap Nilai ----
@@ -1706,7 +1852,7 @@
                 document.getElementById('tarik-kelas').innerText = this.state.gradesKelas;
                 document.getElementById('tarik-info').innerText = '';
                 document.getElementById('modal-ujian-tarik').classList.remove('hidden');
-                if (this.state.ujianToken) this.muatDaftarAdminUjian();
+                if (this.ujianTokenGet()) this.muatDaftarAdminUjian();
                 else this.tampilTarikLogin();
             },
             closeTarikUjian() { document.getElementById('modal-ujian-tarik').classList.add('hidden'); },
@@ -1725,7 +1871,7 @@
                 try {
                     const j = await this.ujianPost({ action: 'login', password: pw });
                     if (!j || !j.ok) { info.innerText = (j && j.pesan) || 'Kata sandi salah.'; return; }
-                    this.state.ujianToken = j.token;
+                    this.ujianTokenSet(j.token);
                     document.getElementById('tarik-pw').value = '';
                     await this.muatDaftarAdminUjian();
                 } catch (err) {
@@ -1737,9 +1883,9 @@
                 const info = document.getElementById('tarik-info');
                 info.innerText = 'Memuat daftar ujian...';
                 try {
-                    const j = await this.ujianPost({ action: 'daftarAdmin', token: this.state.ujianToken });
+                    const j = await this.ujianPost({ action: 'daftarAdmin', token: this.ujianTokenGet() });
                     if (!j || !j.ok) {
-                        if (j && /Sesi admin berakhir/.test(j.pesan || '')) { this.state.ujianToken = null; this.tampilTarikLogin('Sesi berakhir. Masukkan kata sandi lagi.'); return; }
+                        if (j && /Sesi admin berakhir/.test(j.pesan || '')) { this.ujianTokenSet(null); this.tampilTarikLogin('Sesi berakhir. Masukkan kata sandi lagi.'); return; }
                         throw new Error((j && j.pesan) || 'Gagal');
                     }
                     const esc = t => this.escapeHtml(t);
@@ -1773,9 +1919,9 @@
                 try {
                     for (let e = 0; e < ids.length; e++) {
                         info.innerText = 'Menarik nilai... (' + (e + 1) + '/' + ids.length + ')\n' + laporan.join('\n');
-                        const j = await this.ujianPost({ action: 'rekap', token: this.state.ujianToken, examId: ids[e] });
+                        const j = await this.ujianPost({ action: 'rekap', token: this.ujianTokenGet(), examId: ids[e] });
                         if (!j || !j.ok) {
-                            if (j && /Sesi admin berakhir/.test(j.pesan || '')) { this.state.ujianToken = null; this.tampilTarikLogin('Sesi berakhir. Masukkan kata sandi lagi.'); btn.disabled = false; this.akhiriLoading(); return; }
+                            if (j && /Sesi admin berakhir/.test(j.pesan || '')) { this.ujianTokenSet(null); this.tampilTarikLogin('Sesi berakhir. Masukkan kata sandi lagi.'); btn.disabled = false; this.akhiriLoading(); return; }
                             throw new Error((j && j.pesan) || 'Gagal menarik rekap');
                         }
                         const judul = String(j.judul || 'Ujian').trim();
@@ -5777,6 +5923,7 @@
                 document.getElementById('modal-reports').classList.add('hidden');
                 document.getElementById('modal-grades').classList.add('hidden');
                 document.getElementById('modal-ujian-tarik').classList.add('hidden');
+                document.getElementById('modal-ujian-login').classList.add('hidden');
                 document.getElementById('modal-announcements').classList.add('hidden');
                 document.getElementById('modal-grade-archive').classList.add('hidden');
                 document.getElementById('modal-quiz-form').classList.add('hidden');
@@ -6172,6 +6319,7 @@
             };
         })();
 
+        window.addEventListener('popstate', () => { if (app.state.panelUjianBuka) app._tutupPanelNyata(); });
         window.onload = () => {
             app.init();
             app.goPage('home', true);
