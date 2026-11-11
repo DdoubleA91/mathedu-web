@@ -251,10 +251,8 @@
                         <div class="space-y-6">
                             <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
                                 <h2 class="font-bold text-gray-800 mb-3"><i class="fa-solid fa-calendar-day text-brand-orange mr-2"></i> Jadwal hari ini</h2>
-                                <div class="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center">
-                                    <p class="text-sm font-bold text-gray-500">Segera hadir</p>
-                                    <p class="text-xs text-gray-400 mt-1">Jadwal pelajaran dan tautan kelas daring akan tampil di sini.</p>
-                                </div>
+                                <div id="home-jadwal" class="space-y-2"></div>
+                                <button onclick="app.goPage('jadwal')" class="mt-3 text-xs font-bold text-brand-blue hover:underline">Lihat jadwal lengkap</button>
                             </div>
                             <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
                                 <div class="flex items-center justify-between mb-3">
@@ -273,6 +271,32 @@
                     <div class="mb-6">
                         <h1 class="text-3xl font-bold text-gray-900">Beranda Guru</h1>
                         <p id="home-admin-sub" class="text-sm text-gray-500 mt-1"></p>
+                    </div>
+                    <!-- Tahun Pelajaran -->
+                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 mb-4 flex flex-wrap items-end gap-3">
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-500 mb-1">Tahun Pelajaran</label>
+                            <select id="tp-tahun" onchange="app.tpUbah()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white font-semibold"></select>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-bold text-gray-500 mb-1">Semester</label>
+                            <select id="tp-semester" onchange="app.tpUbah()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white font-semibold"><option value="Ganjil">Ganjil</option><option value="Genap">Genap</option></select>
+                        </div>
+                        <button onclick="app.tpTambah()" class="bg-brand-blue text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-800 transition"><i class="fa-solid fa-plus mr-1"></i> Tahun Pelajaran</button>
+                        <p id="tp-info" class="text-xs w-full sm:w-auto"></p>
+                    </div>
+                    <!-- Ringkasan hari ini -->
+                    <div class="bg-gradient-to-r from-brand-blue to-blue-600 text-white rounded-2xl p-5 mb-4 shadow-sm flex flex-wrap items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-bold tracking-wider text-blue-200">RINGKASAN HARI INI</p>
+                            <p id="ha-sapa" class="text-xl font-bold mt-0.5">Selamat datang!</p>
+                            <p id="ha-next" class="text-sm text-blue-100 mt-1"></p>
+                            <p class="text-xs text-blue-200 mt-1"><i class="fa-solid fa-chalkboard-user mr-1"></i> Kelas hari ini: <b id="ha-kelas-hari">0</b></p>
+                        </div>
+                        <div class="bg-white/15 rounded-xl px-4 py-2 text-center">
+                            <p class="text-[10px] font-bold text-blue-100"><span class="inline-block w-1.5 h-1.5 rounded-full bg-green-300 mr-1"></span>LIVE · WIB</p>
+                            <p id="clock-wib" class="text-2xl font-bold font-mono">--:--:--</p>
+                        </div>
                     </div>
                     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                         <div class="bg-brand-blue text-white rounded-2xl p-4 shadow-sm"><p class="text-xs text-blue-200">Modul</p><p id="ha-modul" class="text-3xl font-bold mt-1">0</p><p id="ha-modul-sub" class="text-[11px] text-blue-200 mt-1"></p></div>
@@ -303,8 +327,18 @@
                         </div>
                         <div class="space-y-6">
                             <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
-                                <h2 class="font-bold text-gray-800 mb-3"><i class="fa-solid fa-square-check text-brand-green mr-2"></i> Presensi hari ini</h2>
-                                <div class="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center"><p class="text-sm font-bold text-gray-500">Segera hadir</p><p class="text-xs text-gray-400 mt-1">Buka presensi dan lihat kehadiran siswa per pertemuan.</p></div>
+                                <div class="flex items-center justify-between mb-3">
+                                    <h2 class="font-bold text-gray-800"><i class="fa-solid fa-calendar-day text-brand-orange mr-2"></i> Jadwal mengajar hari ini</h2>
+                                    <button onclick="app.goPage('jadwal')" class="text-xs font-bold text-brand-blue hover:underline">Kelola</button>
+                                </div>
+                                <div id="ha-jadwal" class="space-y-2"></div>
+                            </div>
+                            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+                                <div class="flex items-center justify-between mb-3">
+                                    <h2 class="font-bold text-gray-800"><i class="fa-solid fa-square-check text-brand-green mr-2"></i> Presensi hari ini</h2>
+                                    <button onclick="app.goPage('presensi')" class="text-xs font-bold text-brand-blue hover:underline">Buka</button>
+                                </div>
+                                <div id="ha-presensi" class="space-y-2"></div>
                             </div>
                             <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
                                 <h2 class="font-bold text-gray-800 mb-3"><i class="fa-solid fa-pen-to-square text-brand-orange mr-2"></i> Perlu dikoreksi</h2>
@@ -373,24 +407,91 @@
                 <div id="announcements-all" class="space-y-3 max-w-3xl"></div>
             </section>
 
-            <!-- HALAMAN: Jadwal (rumah untuk fitur berikutnya) -->
+            <!-- HALAMAN: Jadwal -->
             <section id="page-jadwal" class="hidden">
-                <h1 class="text-2xl font-bold text-gray-900 mb-4">Jadwal</h1>
-                <div class="max-w-2xl bg-white border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center">
-                    <i class="fa-solid fa-calendar-days text-4xl text-gray-300"></i>
-                    <p class="mt-3 font-bold text-gray-600">Segera hadir</p>
-                    <p class="text-sm text-gray-400 mt-1">Jadwal pelajaran tiap kelas, tautan kelas daring (Meet/Zoom), dan pengingat jam belajar akan tersedia di halaman ini.</p>
+                <div class="mb-4 flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">Jadwal</h1>
+                        <p id="jad-sub" class="text-sm text-gray-500"></p>
+                    </div>
+                    <div id="jad-admin-btns" class="hidden flex gap-2 flex-wrap">
+                        <button onclick="app.jadwalPdf()" class="border border-red-300 text-red-600 bg-white px-3 py-2 rounded-xl text-sm font-bold hover:bg-red-50"><i class="fa-solid fa-file-pdf mr-1"></i> Unduh PDF</button>
+                        <button onclick="app.jadwalCetak()" class="border border-gray-300 text-gray-700 bg-white px-3 py-2 rounded-xl text-sm font-bold hover:bg-gray-50"><i class="fa-solid fa-print mr-1"></i> Cetak</button>
+                        <button onclick="app.jadBuka()" class="bg-brand-orange text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-orange-600 shadow-sm"><i class="fa-solid fa-plus mr-1"></i> Jadwal</button>
+                    </div>
+                </div>
+                <div id="jad-arsip" class="mb-3"></div>
+                <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-4">
+                    <div class="flex flex-wrap items-center gap-3 mb-4">
+                        <div id="jad-kelas-wrap" class="hidden"><select id="jad-kelas" onchange="app.renderJadwal()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></select></div>
+                        <div class="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+                            <button id="jad-v-minggu" onclick="app.jadView('minggu')" class="px-4 py-2 text-xs font-bold">Mingguan</button>
+                            <button id="jad-v-hari" onclick="app.jadView('hari')" class="px-4 py-2 text-xs font-bold border-l border-gray-300">Harian</button>
+                        </div>
+                        <div id="jad-hari-wrap" class="hidden"><select id="jad-hari" onchange="app.renderJadwal()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></select></div>
+                    </div>
+                    <div id="jad-body" class="overflow-x-auto"></div>
                 </div>
             </section>
 
-            <!-- HALAMAN: Presensi (rumah untuk fitur berikutnya) -->
+            <!-- HALAMAN: Presensi (guru) / Kehadiranku (siswa) -->
             <section id="page-presensi" class="hidden">
-                <h1 class="text-2xl font-bold text-gray-900 mb-4">Presensi</h1>
-                <div class="max-w-2xl bg-white border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center">
-                    <i class="fa-solid fa-square-check text-4xl text-gray-300"></i>
-                    <p class="mt-3 font-bold text-gray-600">Segera hadir</p>
-                    <p class="text-sm text-gray-400 mt-1">Guru membuka presensi per pertemuan, siswa menekan "Saya hadir", dan rekap kehadiran tampil di sini.</p>
+                <div class="mb-4">
+                    <h1 id="pres-title" class="text-2xl font-bold text-gray-900">Presensi</h1>
+                    <p id="pres-sub" class="text-sm text-gray-500"></p>
                 </div>
+                <div id="pres-arsip" class="mb-3"></div>
+
+                <div id="pres-admin" class="hidden max-w-4xl">
+                    <div class="flex flex-wrap items-center gap-3 mb-4">
+                        <select id="pres-kelas" onchange="app.presTab(app.state.presTab)" class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white font-semibold"></select>
+                        <div class="flex flex-wrap gap-2">
+                            <button data-pt="harian" onclick="app.presTab('harian')">Absen Harian</button>
+                            <button data-pt="riwayat" onclick="app.presTab('riwayat')">Riwayat Sesi</button>
+                            <button data-pt="rekap" onclick="app.presTab('rekap')">Rekap</button>
+                        </div>
+                    </div>
+
+                    <div id="pres-p-harian" class="bg-white border border-gray-200 rounded-2xl shadow-sm p-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div><label class="block text-xs font-bold text-gray-600 mb-1">Tanggal</label><input type="date" id="pres-tgl" onchange="app.presMuatForm()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></div>
+                            <div><label class="block text-xs font-bold text-gray-600 mb-1">Jenis pertemuan</label>
+                                <select id="pres-jenis" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"><option>Tatap muka</option><option>Daring</option><option>Ulangan / asesmen</option><option>Penugasan</option></select></div>
+                            <div><label class="block text-xs font-bold text-gray-600 mb-1">Topik / keterangan</label><input type="text" id="pres-topik" maxlength="120" placeholder="Contoh: Ulangan Harian Bab 2" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></div>
+                        </div>
+                        <p id="pres-status-line" class="text-xs mt-3"></p>
+                        <div class="flex items-center justify-between gap-2 flex-wrap mt-4 mb-2">
+                            <h3 class="font-bold text-gray-800">Daftar Siswa <span id="pres-count" class="text-gray-400 font-medium"></span></h3>
+                            <div class="flex gap-2">
+                                <button onclick="app.presSemua('H')" class="px-3 py-1.5 rounded-lg bg-green-50 text-green-700 text-xs font-bold hover:bg-green-100">Semua Hadir</button>
+                                <button onclick="app.presSemua('')" class="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 text-xs font-bold hover:bg-gray-200">Kosongkan</button>
+                            </div>
+                        </div>
+                        <div id="pres-sum" class="flex gap-2 flex-wrap text-xs mb-2"></div>
+                        <div id="pres-list" class="divide-y divide-gray-100"></div>
+                        <div class="flex gap-2 mt-4 pt-3 border-t border-gray-100">
+                            <button onclick="app.presSimpan()" class="flex-1 sm:flex-none bg-brand-blue text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition"><i class="fa-solid fa-floppy-disk mr-1"></i> Simpan Absen</button>
+                            <button id="pres-hapus" onclick="app.presHapus()" class="hidden px-4 py-2.5 rounded-xl border border-red-200 text-red-600 text-sm font-bold hover:bg-red-50"><i class="fa-solid fa-trash mr-1"></i> Hapus Sesi</button>
+                        </div>
+                    </div>
+
+                    <div id="pres-p-riwayat" class="hidden space-y-2"><div id="riw-list" class="space-y-2"></div></div>
+
+                    <div id="pres-p-rekap" class="hidden bg-white border border-gray-200 rounded-2xl shadow-sm p-4">
+                        <div class="flex flex-wrap items-end gap-3 mb-3">
+                            <div><label class="block text-xs font-bold text-gray-600 mb-1">Periode</label><select id="rek-bulan" onchange="app.presRenderRekap()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"></select></div>
+                            <span id="rek-ringkas" class="text-xs text-gray-500 pb-2"></span>
+                            <div class="flex gap-2 ml-auto">
+                                <button onclick="app.presRekapExcel()" class="border border-green-600 text-green-700 bg-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-green-50"><i class="fa-solid fa-file-excel mr-1"></i> Excel</button>
+                                <button onclick="app.presRekapCetak()" class="border border-gray-300 text-gray-700 bg-white px-3 py-2 rounded-lg text-sm font-bold hover:bg-gray-50"><i class="fa-solid fa-print mr-1"></i> Cetak</button>
+                            </div>
+                        </div>
+                        <div id="rek-tabel" class="overflow-x-auto"></div>
+                        <p class="text-[11px] text-gray-400 mt-3">H = Hadir, S = Sakit, I = Izin, A = Alpa. Persentase dihitung dari pertemuan yang tercatat untuk siswa itu.</p>
+                    </div>
+                </div>
+
+                <div id="pres-student" class="hidden max-w-3xl"><div id="pres-siswa-isi"></div></div>
             </section>
         </div>
 
@@ -654,8 +755,9 @@
                 <button onclick="app.closeModals()" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-times text-xl"></i></button>
             </div>
             
-            <div class="p-5 border-b border-gray-100 bg-gray-50 flex-shrink-0">
-                <form id="form-add-student" onsubmit="event.preventDefault(); app.addStudent();" class="flex gap-3 items-end flex-wrap">
+            <details class="p-5 border-b border-gray-100 bg-gray-50 flex-shrink-0">
+                <summary class="cursor-pointer text-sm font-bold text-gray-700 select-none"><i class="fa-solid fa-user-plus text-brand-green mr-2"></i> Tambah siswa, impor Excel, dan hapus massal</summary>
+                <form id="form-add-student" onsubmit="event.preventDefault(); app.addStudent();" class="flex gap-3 items-end flex-wrap mt-4">
                     <div class="flex-1 min-w-[150px]">
                         <label class="block text-xs font-medium text-gray-700 mb-1">NISN (Username)</label>
                         <input type="text" id="s-nisn" required class="w-full border border-gray-300 rounded-md p-2 text-sm">
@@ -703,16 +805,36 @@
                         </button>
                     </div>
                 </div>
+            </details>
+
+            <div class="px-5 pt-4 pb-3 border-b border-gray-100 flex-shrink-0 space-y-3">
+                <div class="flex flex-wrap gap-2 items-center">
+                    <div class="relative flex-1 min-w-[160px]">
+                        <input type="text" id="stu-q" oninput="app.stuFilter()" placeholder="Cari nama atau NISN..." class="w-full border border-gray-300 rounded-md pl-8 pr-2 py-2 text-sm">
+                        <i class="fa-solid fa-search absolute left-2.5 top-3 text-gray-400 text-xs"></i>
+                    </div>
+                    <select id="stu-f-kelas" onchange="app.stuFilter()" class="border border-gray-300 rounded-md p-2 text-sm bg-white"><option value="">Semua kelas</option></select>
+                    <select id="stu-urut" onchange="app.stuFilter()" class="border border-gray-300 rounded-md p-2 text-sm bg-white"><option value="nama">Urutkan A-Z</option><option value="kelas">Urutkan per kelas</option></select>
+                    <button onclick="app.stuExcel()" class="border border-green-600 text-green-700 bg-white px-3 py-2 rounded-md text-sm font-bold hover:bg-green-50"><i class="fa-solid fa-file-excel mr-1"></i> Excel</button>
+                </div>
+                <p id="stu-info" class="text-xs text-gray-500"></p>
+                <div id="stu-bulk" class="hidden flex flex-wrap items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg p-2">
+                    <span id="stu-bulk-n" class="text-xs font-bold text-brand-blue"></span>
+                    <input type="text" id="stu-kelas-baru" placeholder="Kelas baru" class="border border-gray-300 rounded-md px-2 py-1.5 text-sm w-32">
+                    <button onclick="app.stuPindahKelas()" class="bg-brand-blue text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-blue-800">Pindahkan ke kelas ini</button>
+                    <button onclick="app.stuBatalPilih()" class="px-3 py-1.5 rounded-md text-xs font-bold text-gray-600 hover:bg-white">Batal pilih</button>
+                </div>
             </div>
 
             <div class="p-5 overflow-y-auto flex-grow">
                 <table class="w-full text-sm text-left">
                     <thead class="text-xs text-gray-700 uppercase bg-gray-100">
                         <tr>
-                            <th class="px-4 py-2 rounded-tl-md">NISN</th>
-                            <th class="px-4 py-2">Nama</th>
-                            <th class="px-4 py-2">Kelas</th>
-                            <th class="px-4 py-2 text-center rounded-tr-md">Aksi</th>
+                            <th class="px-3 py-2 w-8 rounded-tl-md"><input type="checkbox" id="stu-all" onchange="app.stuPilihSemua(this.checked)" class="w-4 h-4" title="Pilih semua yang tampil"></th>
+                            <th class="px-3 py-2">NISN</th>
+                            <th class="px-3 py-2">Nama</th>
+                            <th class="px-3 py-2">Kelas</th>
+                            <th class="px-3 py-2 text-center rounded-tr-md">Aksi</th>
                         </tr>
                     </thead>
                     <tbody id="student-list" class="divide-y divide-gray-200">
@@ -1201,6 +1323,49 @@
                 <button type="submit" class="w-full bg-brand-blue text-white font-bold py-2 rounded-md hover:bg-blue-800 transition mt-2">Simpan</button>
                 <button type="button" id="pw-cancel" onclick="app.closeModals()" class="w-full mt-2 bg-gray-100 text-gray-700 font-medium py-2 rounded-md hover:bg-gray-200">Batal</button>
             </form>
+        </div>
+    </div>
+
+    <!-- MODAL: Ubah data siswa -->
+    <div id="modal-edit-student" class="fixed inset-0 bg-black bg-opacity-50 z-[60] hidden flex items-center justify-center fade-in p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-5 space-y-3">
+            <h3 class="font-bold text-gray-800"><i class="fa-solid fa-pen text-brand-blue mr-2"></i> Ubah Data Siswa</h3>
+            <p class="text-xs text-gray-500">NISN <b id="es-nisn"></b> tidak dapat diubah. Riwayat nilai dan modul tetap terhubung lewat NISN.</p>
+            <div><label class="block text-xs font-bold text-gray-600 mb-1">Nama lengkap</label><input type="text" id="es-nama" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"></div>
+            <div><label class="block text-xs font-bold text-gray-600 mb-1">Kelas</label><input type="text" id="es-kelas" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"></div>
+            <div class="flex justify-end gap-2 pt-1">
+                <button onclick="document.getElementById('modal-edit-student').classList.add('hidden')" class="px-4 py-2 rounded-md text-sm font-bold text-gray-600 hover:bg-gray-100">Batal</button>
+                <button onclick="app.stuEditSimpan()" class="px-4 py-2 rounded-md text-sm font-bold bg-brand-blue text-white hover:bg-blue-800">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Tambah / ubah jadwal -->
+    <div id="modal-jadwal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center fade-in p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[92vh] overflow-y-auto p-5 space-y-3">
+            <h3 id="jm-judul" class="font-bold text-gray-800 text-lg">Tambah Jadwal</h3>
+            <div class="grid grid-cols-3 gap-3">
+                <div class="col-span-3 sm:col-span-1"><label class="block text-xs font-bold text-gray-600 mb-1">Hari</label>
+                    <select id="jm-hari" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm bg-white"><option value="1">Senin</option><option value="2">Selasa</option><option value="3">Rabu</option><option value="4">Kamis</option><option value="5">Jumat</option><option value="6">Sabtu</option></select></div>
+                <div class="col-span-3 sm:col-span-1 grid grid-cols-2 sm:contents gap-3">
+                    <div><label class="block text-xs font-bold text-gray-600 mb-1">Mulai</label><input type="time" id="jm-mulai" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm"></div>
+                    <div><label class="block text-xs font-bold text-gray-600 mb-1">Selesai</label><input type="time" id="jm-selesai" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm"></div>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div><label class="block text-xs font-bold text-gray-600 mb-1">Kelas</label><select id="jm-kelas" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm bg-white"></select></div>
+                <div><label class="block text-xs font-bold text-gray-600 mb-1">Ruang</label><input type="text" id="jm-ruang" maxlength="30" placeholder="Contoh: R. 12" class="w-full border border-gray-300 rounded-md px-2 py-2 text-sm"></div>
+            </div>
+            <div><label class="block text-xs font-bold text-gray-600 mb-1">Mata pelajaran</label><input type="text" id="jm-mapel" maxlength="40" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"></div>
+            <div><label class="block text-xs font-bold text-gray-600 mb-1">Tautan kelas daring (opsional)</label><input type="url" id="jm-link" placeholder="https://meet.google.com/..." class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"></div>
+            <div><label class="block text-xs font-bold text-gray-600 mb-1">Catatan (opsional)</label><input type="text" id="jm-catatan" maxlength="80" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"></div>
+            <div class="flex items-center justify-between gap-2 pt-1">
+                <button id="jm-hapus" onclick="app.jadHapus()" class="hidden px-3 py-2 rounded-md text-sm font-bold text-red-600 hover:bg-red-50"><i class="fa-solid fa-trash mr-1"></i> Hapus</button>
+                <div class="flex gap-2 ml-auto">
+                    <button onclick="app.closeModals()" class="px-4 py-2 rounded-md text-sm font-bold text-gray-600 hover:bg-gray-100">Batal</button>
+                    <button onclick="app.jadSimpan()" class="px-4 py-2 rounded-md text-sm font-bold bg-brand-blue text-white hover:bg-blue-800">Simpan</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -2660,31 +2825,6 @@
                 }).join('');
 
                 container.scrollTop = container.scrollHeight;
-            },
-
-            renderStudentList() {
-                const tbody = document.getElementById('student-list');
-                tbody.innerHTML = '';
-                this.populateBulkDeleteClassDropdown();
-                
-                if (this.state.users.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-6 text-center text-gray-500">Belum ada data siswa.</td></tr>`;
-                    return;
-                }
-
-                this.state.users.forEach(user => {
-                    tbody.innerHTML += `
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-4 py-3 font-medium text-gray-800">${user.nisn}</td>
-                            <td class="px-4 py-3">${user.nama}</td>
-                            <td class="px-4 py-3">${user.kelas}</td>
-                            <td class="px-4 py-3 text-center">
-                                <button onclick="app.confirmResetPassword('${user.nisn}')" class="text-orange-500 hover:bg-orange-50 p-1.5 rounded mr-1" title="Reset Password ke 123456"><i class="fa-solid fa-key"></i></button>
-                                <button onclick="app.confirmDeleteStudent('${user.nisn}')" class="text-red-500 hover:bg-red-50 p-1.5 rounded" title="Hapus Siswa"><i class="fa-solid fa-trash"></i></button>
-                            </td>
-                        </tr>
-                    `;
-                });
             },
 
             async addStudent() {
@@ -5995,6 +6135,8 @@
                 document.getElementById('modal-grade-archive').classList.add('hidden');
                 document.getElementById('modal-quiz-form').classList.add('hidden');
                 document.getElementById('modal-quiz-results').classList.add('hidden');
+                document.getElementById('modal-edit-student').classList.add('hidden');
+                document.getElementById('modal-jadwal').classList.add('hidden');
                 this.closeConfirmModal();
                 if (this.state.forcePw) document.getElementById('modal-password').classList.remove('hidden');
             },
@@ -6099,17 +6241,18 @@
                 const modul = { page: 'modul', icon: 'book-open', label: 'Modul' };
                 const kuis = { page: 'kuis', icon: 'clipboard-question', label: 'Ujian' };
                 const pengumuman = { page: 'pengumuman', icon: 'bullhorn', label: 'Pengumuman' };
-                const jadwal = { page: 'jadwal', icon: 'calendar-days', label: 'Jadwal', soon: true };
-                const presensi = { page: 'presensi', icon: 'square-check', label: 'Presensi', soon: true };
+                const jadwal = { page: 'jadwal', icon: 'calendar-days', label: 'Jadwal' };
+                const presensi = { page: 'presensi', icon: 'square-check', label: 'Presensi' };
+                const kehadiran = { page: 'presensi', icon: 'square-check', label: 'Kehadiran' };
                 let items;
                 if (role === 'admin') {
                     items = [home, modul, kuis,
                         { action: 'app.openManageStudentsModal()', icon: 'users', label: 'Siswa' },
                         { action: 'app.openReportsModal()', icon: 'chart-column', label: 'Rekap Tugas' },
                         { action: 'app.openGradesModal()', icon: 'table-list', label: 'Rekap Nilai' },
-                        pengumuman, jadwal, presensi];
+                        jadwal, presensi, pengumuman];
                 } else if (role === 'student') {
-                    items = [home, modul, kuis, pengumuman, jadwal];
+                    items = [home, modul, kuis, jadwal, kehadiran, pengumuman];
                 } else {
                     items = [home, modul, kuis];
                 }
@@ -6384,6 +6527,858 @@
                 origHome.call(this);
                 this.goPage(this.state.page || 'home', true);
             };
+        })();
+
+        // ===================== AKADEMIK: Tahun Pelajaran, Data Siswa, Presensi, Jadwal =====================
+        // Data baru di Firebase (semua diawali periode agar tahun-tahun berikutnya tidak tercampur):
+        //   settings/tahunPelajaran      = { list:[...], aktif:'2026/2027', semester:'Ganjil' }
+        //   schedule/<2026-2027_Ganjil>/<id> = { hari(1-6), mulai, selesai, kelas, mapel, ruang, link, catatan }
+        //   attendance/<2026-2027>/<kelas>/<YYYY-MM-DD> = { jenis, topik, updatedAt, status:{ nisn:'H|S|I|A' } }
+        Object.assign(app, {
+            NAMA_HARI: ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'],
+            NAMA_BULAN: ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'],
+            STATUS_HADIR: {
+                H: ['Hadir', 'bg-green-600 text-white', 'text-green-700 bg-green-50'],
+                S: ['Sakit', 'bg-yellow-500 text-white', 'text-yellow-700 bg-yellow-50'],
+                I: ['Izin', 'bg-blue-500 text-white', 'text-blue-700 bg-blue-50'],
+                A: ['Alpa', 'bg-red-500 text-white', 'text-red-700 bg-red-50']
+            },
+            WARNA_KELAS: [
+                'bg-blue-100 text-blue-800 border-blue-200', 'bg-green-100 text-green-800 border-green-200',
+                'bg-orange-100 text-orange-800 border-orange-200', 'bg-purple-100 text-purple-800 border-purple-200',
+                'bg-pink-100 text-pink-800 border-pink-200', 'bg-teal-100 text-teal-800 border-teal-200',
+                'bg-yellow-100 text-yellow-800 border-yellow-200', 'bg-indigo-100 text-indigo-800 border-indigo-200'
+            ],
+
+            // ---------- Waktu (selalu WIB, memakai jam server Firebase) ----------
+            tglWIB(ms) { return new Date((ms === undefined ? this.nowMs() : ms) + 25200000).toISOString().slice(0, 10); },
+            jamWIB(ms) { return new Date((ms === undefined ? this.nowMs() : ms) + 25200000).toISOString().slice(11, 16); },
+            detikWIB(ms) { return new Date((ms === undefined ? this.nowMs() : ms) + 25200000).toISOString().slice(11, 19); },
+            hariWIB(ms) { return new Date((ms === undefined ? this.nowMs() : ms) + 25200000).getUTCDay(); },
+            hariDariTgl(ymd) { const p = ymd.split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2])).getUTCDay(); },
+            fmtTgl(ymd, pendek) {
+                const p = ymd.split('-').map(Number), h = this.NAMA_HARI[this.hariDariTgl(ymd)];
+                return pendek ? `${h}, ${p[2]} ${this.NAMA_BULAN[p[1] - 1].slice(0, 3)}` : `${h}, ${p[2]} ${this.NAMA_BULAN[p[1] - 1]} ${p[0]}`;
+            },
+            fmtBulan(ym) { const p = ym.split('-').map(Number); return this.NAMA_BULAN[p[1] - 1] + ' ' + p[0]; },
+            menitDariJam(hhmm) { const p = String(hhmm).split(':').map(Number); return p[0] * 60 + p[1]; },
+            tahunKey(t) { return String(t || '').replace(/[.$#\[\]\/]/g, '-'); },
+            periodKey(t, s) { return this.tahunKey(t) + '_' + s; },
+            attKey(tahun, kelas) { return this.tahunKey(tahun) + '|' + this.gradesKey(kelas); },
+
+            // ---------- Data kelas ----------
+            classList() {
+                return [...new Set((this.state.users || []).filter(u => u && u.nisn !== undefined).map(u => String(u.kelas || '').trim()).filter(Boolean))]
+                    .sort((a, b) => a.localeCompare(b, 'id', { numeric: true }));
+            },
+            siswaKelas(kelas) {
+                return (this.state.users || []).filter(u => u && u.nisn !== undefined && String(u.kelas || '').trim() === kelas)
+                    .sort((a, b) => String(a.nama || '').localeCompare(String(b.nama || ''), 'id'));
+            },
+            warnaKelas(kelas) {
+                let i = this.classList().indexOf(String(kelas || '').trim());
+                if (i < 0) i = 0;
+                return this.WARNA_KELAS[i % this.WARNA_KELAS.length];
+            },
+            kelasSiswaIni() {
+                const cu = this.state.currentUser, u = this.state.users.find(x => cu && x.nisn === cu.nisn) || cu || {};
+                return String(u.kelas || '').trim();
+            },
+
+            // ---------- Inisialisasi ----------
+            initAkademik() {
+                database.ref('settings/tahunPelajaran').on('value', (snap) => {
+                    const d = snap.val();
+                    if (d && d.aktif) {
+                        const list = Array.isArray(d.list) ? d.list.filter(Boolean) : (d.list ? Object.values(d.list) : []);
+                        if (!list.includes(d.aktif)) list.push(d.aktif);
+                        this.state.tahun = { list: list.sort(), aktif: d.aktif, semester: d.semester === 'Genap' ? 'Genap' : 'Ganjil', dariServer: true };
+                    } else {
+                        const def = this.tpDefault();
+                        this.state.tahun = { list: [def.tahun], aktif: def.tahun, semester: def.semester, dariServer: false };
+                        this.tpSeed();
+                    }
+                    this.onTahunBerubah();
+                }, () => { this.onTahunBerubah(); });
+
+                // klik di daftar (satu pendengar per daftar, tidak dipasang ulang saat daftar digambar ulang)
+                document.getElementById('pres-list').addEventListener('click', (e) => {
+                    const b = e.target.closest('[data-st]');
+                    if (b) this.presSet(b.dataset.n, b.dataset.st);
+                });
+                const tb = document.getElementById('student-list');
+                tb.addEventListener('change', (e) => {
+                    const c = e.target.closest('[data-pil]');
+                    if (!c) return;
+                    this.state.stuF.pilih[c.dataset.pil] = c.checked;
+                    this.stuUpdateBulk();
+                });
+                tb.addEventListener('click', (e) => {
+                    const b = e.target.closest('[data-edit]');
+                    if (b) this.stuEdit(b.dataset.edit);
+                });
+                setInterval(() => this.tickAkademik(), 1000);
+            },
+
+            tickAkademik() {
+                const el = document.getElementById('clock-wib');
+                if (!el || this.state.role !== 'admin' || (this.state.page || 'home') !== 'home') return;
+                el.innerText = this.detikWIB() + ' WIB';
+                this._tickN = (this._tickN || 0) + 1;
+                if (this._tickN % 20 === 1) this.renderHomeInfo();
+            },
+
+            // ---------- Tahun Pelajaran ----------
+            tpDefault() {
+                const d = new Date(this.nowMs() + 25200000), y = d.getUTCFullYear(), m = d.getUTCMonth() + 1;
+                return m >= 7 ? { tahun: `${y}/${y + 1}`, semester: 'Ganjil' } : { tahun: `${y - 1}/${y}`, semester: 'Genap' };
+            },
+            periodNow() {
+                const t = this.state.tahun;
+                if (this.state.role === 'admin' && this.state.view) return this.state.view;
+                return { tahun: t.aktif, semester: t.semester };
+            },
+            isArsip() { return this.state.role === 'admin' && !!this.state.view; },
+            tpSeed() {
+                const t = this.state.tahun;
+                if (this.state.role !== 'admin' || t.dariServer || this._tpSeeded) return;
+                this._tpSeeded = true;
+                database.ref('settings/tahunPelajaran').set({ list: t.list, aktif: t.aktif, semester: t.semester }).catch(() => {
+                    this._tpSeeded = false;
+                    this.showToast('Gagal menyimpan Tahun Pelajaran. Pastikan Rules Firebase untuk node "settings", "schedule", dan "attendance" sudah ditambahkan.', true);
+                });
+            },
+            onTahunBerubah() {
+                this.renderTahunCard();
+                this.listenSchedule();
+                const p = this.state.page || 'home';
+                if (p === 'home') this.renderHome();
+                else if (p === 'jadwal') this.renderJadwal();
+                else if (p === 'presensi') this.renderPresensi();
+            },
+            renderTahunCard() {
+                const selT = document.getElementById('tp-tahun');
+                if (!selT) return;
+                const t = this.state.tahun, p = this.periodNow();
+                const list = [...new Set([...t.list, p.tahun])].sort();
+                selT.innerHTML = list.map(x => `<option value="${x}" ${x === p.tahun ? 'selected' : ''}>${x}${x === t.aktif ? ' (aktif)' : ''}</option>`).join('');
+                document.getElementById('tp-semester').value = p.semester;
+                document.getElementById('tp-info').innerHTML = this.isArsip()
+                    ? `<span class="text-amber-700 font-bold"><i class="fa-solid fa-clock-rotate-left mr-1"></i>Sedang melihat periode lain. Siswa tetap melihat ${t.aktif} ${t.semester}.</span> <button onclick="app.tpJadikanAktif()" class="underline font-bold text-brand-blue ml-1">Jadikan periode aktif</button>`
+                    : '<span class="text-green-700 font-bold"><i class="fa-solid fa-circle-check mr-1"></i>Periode aktif: dipakai siswa dan untuk data baru.</span>';
+            },
+            tpUbah() {
+                const t = this.state.tahun;
+                const tahun = document.getElementById('tp-tahun').value, semester = document.getElementById('tp-semester').value;
+                this.state.view = (tahun === t.aktif && semester === t.semester) ? null : { tahun, semester };
+                this.onTahunBerubah();
+            },
+            tpTambah() {
+                const v = (window.prompt('Tahun pelajaran baru (contoh: 2027/2028):') || '').trim();
+                if (!v) return;
+                const m = /^(\d{4})\/(\d{4})$/.exec(v);
+                if (!m || Number(m[2]) !== Number(m[1]) + 1) { this.showToast('Format salah. Contoh yang benar: 2027/2028.', true); return; }
+                const t = this.state.tahun;
+                if (t.list.includes(v)) { this.showToast('Tahun pelajaran itu sudah ada.', true); return; }
+                const list = [...t.list, v].sort();
+                database.ref('settings/tahunPelajaran').update({ list, aktif: t.aktif, semester: t.semester }).then(() => {
+                    this.state.view = { tahun: v, semester: 'Ganjil' };
+                    this.onTahunBerubah();
+                    this.showToast(`Tahun pelajaran ${v} ditambahkan. Klik "Jadikan periode aktif" bila sudah siap dipakai siswa.`);
+                }).catch(() => this.showToast('Gagal menyimpan. Pastikan Rules Firebase untuk node "settings" sudah ditambahkan.', true));
+            },
+            tpJadikanAktif() {
+                const v = this.state.view;
+                if (!v) return;
+                this.showConfirm('Jadikan Periode Aktif', `Periode aktif menjadi ${v.tahun} Semester ${v.semester}. Siswa akan melihat jadwal dan kehadiran periode ini. Data periode sebelumnya tetap tersimpan.`, () => {
+                    const t = this.state.tahun, list = [...new Set([...t.list, v.tahun])].sort();
+                    database.ref('settings/tahunPelajaran').update({ list, aktif: v.tahun, semester: v.semester }).then(() => {
+                        this.state.view = null;
+                        this.onTahunBerubah();
+                        this.showToast('Periode aktif diperbarui.');
+                    }).catch(() => this.showToast('Gagal menyimpan periode aktif.', true));
+                });
+            },
+            arsipBadgeHtml() {
+                if (!this.isArsip()) return '';
+                const v = this.state.view;
+                return `<div class="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-xl p-3"><i class="fa-solid fa-clock-rotate-left mr-1"></i> Anda melihat <b>${v.tahun} Semester ${v.semester}</b>, bukan periode aktif. Data yang disimpan sekarang masuk ke periode ini. Ganti periode di Beranda.</div>`;
+            },
+
+            // ---------- Data Siswa: cari, filter, edit massal ----------
+            stuFilterKelasOptions() {
+                const sel = document.getElementById('stu-f-kelas');
+                if (!sel) return;
+                const cur = sel.value, kelas = this.classList();
+                sel.innerHTML = '<option value="">Semua kelas</option>' + kelas.map(k => `<option value="${this.escapeHtml(k)}">${this.escapeHtml(k)}</option>`).join('');
+                if (kelas.includes(cur)) sel.value = cur;
+            },
+            stuFilter() {
+                const f = this.state.stuF;
+                f.q = document.getElementById('stu-q').value;
+                f.kelas = document.getElementById('stu-f-kelas').value;
+                f.urut = document.getElementById('stu-urut').value;
+                this.renderStudentList();
+            },
+            stuDaftar() {
+                const f = this.state.stuF, q = f.q.trim().toLowerCase();
+                let list = (this.state.users || []).filter(u => u && u.nisn !== undefined);
+                if (f.kelas) list = list.filter(u => String(u.kelas || '').trim() === f.kelas);
+                if (q) list = list.filter(u => String(u.nama || '').toLowerCase().includes(q) || String(u.nisn).toLowerCase().includes(q));
+                const byNama = (a, b) => String(a.nama || '').localeCompare(String(b.nama || ''), 'id');
+                list.sort(f.urut === 'kelas'
+                    ? (a, b) => String(a.kelas || '').localeCompare(String(b.kelas || ''), 'id', { numeric: true }) || byNama(a, b)
+                    : byNama);
+                return list;
+            },
+            renderStudentList() {
+                const tbody = document.getElementById('student-list');
+                if (!tbody) return;
+                if (!this.state.stuF) this.state.stuF = { q: '', kelas: '', urut: 'nama', pilih: {} };
+                const f = this.state.stuF, esc = t => this.escapeHtml(t);
+                this.populateBulkDeleteClassDropdown();
+                this.stuFilterKelasOptions();
+                const total = (this.state.users || []).length, list = this.stuDaftar();
+                this.state.stuTampil = list;
+                document.getElementById('stu-info').innerText = total ? `${list.length} siswa ditampilkan dari ${total} siswa.` : '';
+                if (!list.length) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-gray-500">${total ? 'Tidak ada siswa yang cocok dengan pencarian.' : 'Belum ada data siswa.'}</td></tr>`;
+                } else {
+                    tbody.innerHTML = list.map(u => {
+                        const n = esc(u.nisn), nq = String(u.nisn).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                        return `<tr class="hover:bg-gray-50">
+                            <td class="px-3 py-2.5"><input type="checkbox" data-pil="${n}" ${f.pilih[u.nisn] ? 'checked' : ''} class="w-4 h-4"></td>
+                            <td class="px-3 py-2.5 font-medium text-gray-800">${n}</td>
+                            <td class="px-3 py-2.5">${esc(u.nama)}</td>
+                            <td class="px-3 py-2.5">${esc(u.kelas)}</td>
+                            <td class="px-3 py-2.5 text-center whitespace-nowrap">
+                                <button data-edit="${n}" class="text-brand-blue hover:bg-blue-50 p-1.5 rounded mr-1" title="Ubah nama / kelas"><i class="fa-solid fa-pen"></i></button>
+                                <button onclick="app.confirmResetPassword('${nq}')" class="text-orange-500 hover:bg-orange-50 p-1.5 rounded mr-1" title="Reset Password ke 123456"><i class="fa-solid fa-key"></i></button>
+                                <button onclick="app.confirmDeleteStudent('${nq}')" class="text-red-500 hover:bg-red-50 p-1.5 rounded" title="Hapus Siswa"><i class="fa-solid fa-trash"></i></button>
+                            </td></tr>`;
+                    }).join('');
+                }
+                this.stuUpdateBulk();
+            },
+            stuPilihTerlihat() { return (this.state.stuTampil || []).filter(u => this.state.stuF.pilih[u.nisn]); },
+            stuUpdateBulk() {
+                const f = this.state.stuF, tampil = this.state.stuTampil || [];
+                const n = Object.keys(f.pilih).filter(k => f.pilih[k]).length;
+                document.getElementById('stu-bulk').classList.toggle('hidden', n === 0);
+                document.getElementById('stu-bulk-n').innerText = n + ' siswa dipilih';
+                const all = document.getElementById('stu-all');
+                all.checked = tampil.length > 0 && tampil.every(u => f.pilih[u.nisn]);
+            },
+            stuPilihSemua(cek) {
+                (this.state.stuTampil || []).forEach(u => { this.state.stuF.pilih[u.nisn] = cek; });
+                this.renderStudentList();
+            },
+            stuBatalPilih() { this.state.stuF.pilih = {}; this.renderStudentList(); },
+            stuPindahKelas() {
+                const f = this.state.stuF, kelasBaru = document.getElementById('stu-kelas-baru').value.trim();
+                const ids = Object.keys(f.pilih).filter(k => f.pilih[k]);
+                if (!ids.length) { this.showToast('Pilih siswa dulu.', true); return; }
+                if (!kelasBaru) { this.showToast('Isi nama kelas baru.', true); return; }
+                this.showConfirm('Pindahkan Kelas', `${ids.length} siswa akan dipindahkan ke kelas "${kelasBaru}". Riwayat nilai dan modul tidak berubah (tetap terhubung lewat NISN).`, async () => {
+                    this.mulaiLoading('Memindahkan kelas...');
+                    for (const n of ids) {
+                        const u = this.state.users.find(x => x.nisn === n);
+                        if (u) { u.kelas = kelasBaru; await this.saveUserField(n, 'kelas', kelasBaru); }
+                    }
+                    this.akhiriLoading();
+                    f.pilih = {};
+                    document.getElementById('stu-kelas-baru').value = '';
+                    this.renderStudentList();
+                    this.showToast(`${ids.length} siswa dipindahkan ke ${kelasBaru}.`);
+                });
+            },
+            stuEdit(nisn) {
+                const u = this.state.users.find(x => String(x.nisn) === String(nisn));
+                if (!u) return;
+                this.state.stuEditNisn = u.nisn;
+                document.getElementById('es-nisn').innerText = u.nisn;
+                document.getElementById('es-nama').value = u.nama || '';
+                document.getElementById('es-kelas').value = u.kelas || '';
+                document.getElementById('modal-edit-student').classList.remove('hidden');
+            },
+            async stuEditSimpan() {
+                const nisn = this.state.stuEditNisn, u = this.state.users.find(x => x.nisn === nisn);
+                const nama = document.getElementById('es-nama').value.trim(), kelas = document.getElementById('es-kelas').value.trim();
+                if (!u) return;
+                if (!nama || !kelas) { this.showToast('Nama dan kelas wajib diisi.', true); return; }
+                u.nama = nama; u.kelas = kelas;
+                await this.saveUserField(nisn, 'nama', nama);
+                await this.saveUserField(nisn, 'kelas', kelas);
+                document.getElementById('modal-edit-student').classList.add('hidden');
+                this.renderStudentList();
+                this.showToast('Data siswa diperbarui.');
+            },
+            stuExcel() {
+                const list = this.state.stuTampil || [];
+                if (!list.length) { this.showToast('Tidak ada data untuk diekspor.', true); return; }
+                if (typeof XLSX === 'undefined') { this.showToast('Pustaka Excel belum termuat.', true); return; }
+                const aoa = [['No', 'NISN', 'Nama', 'Kelas']].concat(list.map((u, i) => [i + 1, String(u.nisn), u.nama, u.kelas]));
+                const ws = XLSX.utils.aoa_to_sheet(aoa), wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Data Siswa');
+                XLSX.writeFile(wb, 'Data_Siswa' + (this.state.stuF.kelas ? '_' + this.state.stuF.kelas.replace(/[\\/:*?"<>|]/g, '-') : '') + '.xlsx');
+            },
+
+            // ---------- Cetak (jendela cetak sederhana, bisa disimpan sebagai PDF dari dialog cetak) ----------
+            cetakHtml(judul, sub, isi, landscape) {
+                const w = window.open('', '_blank');
+                if (!w) { this.showToast('Pop-up diblokir browser. Izinkan pop-up lalu coba lagi.', true); return; }
+                w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${this.escapeHtml(judul)}</title><style>@page{size:A4 ${landscape ? 'landscape' : 'portrait'};margin:10mm}body{font-family:Arial,sans-serif;color:#111;margin:0}h1{font-size:18px;margin:0}p{margin:2px 0 12px;font-size:12px;color:#444}table{border-collapse:collapse;width:100%;font-size:11px}th,td{border:1px solid #888;padding:4px 6px;text-align:center}td.l,th.l{text-align:left}th{background:#e8eefc}</style></head><body><h1>${this.escapeHtml(judul)}</h1><p>${this.escapeHtml(sub)}</p>${isi}</body></html>`);
+                w.document.close();
+                w.focus();
+                setTimeout(() => w.print(), 400);
+            },
+
+            // ---------- Presensi (guru) ----------
+            renderPresensi() {
+                const role = this.state.role;
+                const admin = role === 'admin', siswa = role === 'student';
+                document.getElementById('pres-title').innerText = admin ? 'Presensi' : 'Kehadiranku';
+                document.getElementById('pres-sub').innerText = admin
+                    ? 'Isi absen per pertemuan, lihat riwayat, dan unduh rekap kehadiran.'
+                    : 'Rekap kehadiranmu pada pelajaran Matematika.';
+                document.getElementById('pres-arsip').innerHTML = this.arsipBadgeHtml();
+                document.getElementById('pres-admin').classList.toggle('hidden', !admin);
+                document.getElementById('pres-student').classList.toggle('hidden', !siswa);
+                if (admin) this.presRenderAdmin();
+                else if (siswa) this.presRenderSiswa();
+            },
+            presKelasVal() { return document.getElementById('pres-kelas').value; },
+            presBuka(kelas, tgl) {
+                this.state.presPendingKelas = kelas;
+                this.state.presPendingTgl = tgl || this.tglWIB();
+                this.state.presTab = 'harian';
+                this.goPage('presensi');
+            },
+            presRenderAdmin() {
+                const sel = document.getElementById('pres-kelas'), kelasList = this.classList();
+                const cur = this.state.presPendingKelas || sel.value;
+                sel.innerHTML = kelasList.length
+                    ? kelasList.map(k => `<option value="${this.escapeHtml(k)}">${this.escapeHtml(k)}</option>`).join('')
+                    : '<option value="">(belum ada siswa)</option>';
+                if (kelasList.includes(cur)) sel.value = cur;
+                const tg = document.getElementById('pres-tgl');
+                tg.max = this.tglWIB();
+                if (this.state.presPendingTgl) tg.value = this.state.presPendingTgl;
+                else if (!tg.value) tg.value = this.tglWIB();
+                this.state.presPendingKelas = null;
+                this.state.presPendingTgl = null;
+                this.presTab(this.state.presTab || 'harian');
+            },
+            presTab(t) {
+                this.state.presTab = t;
+                ['harian', 'riwayat', 'rekap'].forEach(x => {
+                    document.getElementById('pres-p-' + x).classList.toggle('hidden', x !== t);
+                    const b = document.querySelector(`[data-pt="${x}"]`);
+                    if (b) b.className = 'px-4 py-2 rounded-lg text-sm font-bold transition ' + (x === t ? 'bg-brand-blue text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50');
+                });
+                if (t === 'harian') this.presMuatForm();
+                else if (t === 'riwayat') this.presRenderRiwayat();
+                else this.presRenderRekap();
+            },
+            async loadAtt(tahun, kelas, paksa) {
+                const key = this.attKey(tahun, kelas);
+                if (!paksa && this.state.att[key]) return this.state.att[key];
+                try {
+                    const snap = await database.ref('attendance/' + this.tahunKey(tahun) + '/' + this.gradesKey(kelas)).once('value');
+                    this.state.att[key] = snap.val() || {};
+                    return this.state.att[key];
+                } catch (e) {
+                    console.error(e);
+                    this.showToast('Gagal memuat data kehadiran. Pastikan Rules Firebase untuk node "attendance" sudah ditambahkan.', true);
+                    return {};
+                }
+            },
+            hitungStatus(rec) {
+                const c = { H: 0, S: 0, I: 0, A: 0 };
+                Object.values((rec && rec.status) || {}).forEach(s => { if (c[s] !== undefined) c[s]++; });
+                return c;
+            },
+            async presMuatForm() {
+                const kelas = this.presKelasVal(), tg = document.getElementById('pres-tgl');
+                const box = document.getElementById('pres-list');
+                if (!tg.value) tg.value = this.tglWIB();
+                if (!kelas) {
+                    this.state.presDraft = null;
+                    box.innerHTML = '<p class="text-sm text-gray-400 py-6 text-center">Belum ada siswa terdaftar. Tambahkan siswa dulu lewat menu Siswa.</p>';
+                    return;
+                }
+                const tgl = tg.value, tahun = this.periodNow().tahun, token = this._presTok = (this._presTok || 0) + 1;
+                box.innerHTML = '<div class="py-6">' + this.animMini() + '</div>';
+                const att = await this.loadAtt(tahun, kelas);
+                if (token !== this._presTok) return;
+                const rec = att[tgl], siswa = this.siswaKelas(kelas), status = {};
+                siswa.forEach(u => { status[u.nisn] = rec ? ((rec.status || {})[u.nisn] || '') : 'H'; });   // pertemuan baru: semua Hadir, guru tinggal menandai yang tidak hadir
+                this.state.presDraft = { kelas, tgl, tahun, siswa, status, ada: !!rec };
+                document.getElementById('pres-jenis').value = rec ? (rec.jenis || 'Tatap muka') : 'Tatap muka';
+                document.getElementById('pres-topik').value = rec ? (rec.topik || '') : '';
+                this.presRenderList();
+            },
+            presRenderList() {
+                const d = this.state.presDraft, box = document.getElementById('pres-list');
+                if (!d) return;
+                const esc = t => this.escapeHtml(t);
+                document.getElementById('pres-hapus').classList.toggle('hidden', !d.ada);
+                document.getElementById('pres-count').innerText = `(${d.siswa.length})`;
+                document.getElementById('pres-status-line').innerHTML = d.ada
+                    ? '<span class="text-green-700 font-bold"><i class="fa-solid fa-circle-check mr-1"></i>Sudah tersimpan untuk tanggal ini. Perubahan baru tersimpan setelah klik Simpan.</span>'
+                    : '<span class="text-orange-600 font-bold"><i class="fa-solid fa-circle-exclamation mr-1"></i>Belum disimpan. Semua siswa diisi Hadir; tandai yang tidak hadir lalu klik Simpan.</span>';
+                if (!d.siswa.length) { box.innerHTML = '<p class="text-sm text-gray-400 py-6 text-center">Tidak ada siswa di kelas ini.</p>'; document.getElementById('pres-sum').innerHTML = ''; return; }
+                const cnt = { H: 0, S: 0, I: 0, A: 0, '': 0 };
+                box.innerHTML = d.siswa.map((u, i) => {
+                    const cur = d.status[u.nisn] || '';
+                    cnt[cur]++;
+                    const btns = ['H', 'S', 'I', 'A'].map(c => `<button type="button" data-n="${esc(u.nisn)}" data-st="${c}" title="${this.STATUS_HADIR[c][0]}" class="w-9 h-9 rounded-lg text-xs font-bold transition ${cur === c ? this.STATUS_HADIR[c][1] : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}">${c}</button>`).join('');
+                    return `<div class="flex items-center gap-2 py-2"><span class="w-6 text-xs text-gray-400">${i + 1}</span><span class="flex-1 min-w-0 text-sm font-medium text-gray-800 truncate">${esc(u.nama)}</span><div class="flex gap-1 flex-shrink-0">${btns}</div></div>`;
+                }).join('');
+                document.getElementById('pres-sum').innerHTML = ['H', 'S', 'I', 'A'].map(c => `<span class="px-2.5 py-1 rounded-full font-bold ${this.STATUS_HADIR[c][2]}">${this.STATUS_HADIR[c][0]}: ${cnt[c]}</span>`).join('')
+                    + (cnt[''] ? `<span class="px-2.5 py-1 rounded-full font-bold bg-gray-100 text-gray-500">Belum diisi: ${cnt['']}</span>` : '');
+            },
+            presSet(nisn, st) {
+                const d = this.state.presDraft;
+                if (!d || d.status[nisn] === undefined) return;
+                d.status[nisn] = d.status[nisn] === st ? '' : st;
+                this.presRenderList();
+            },
+            presSemua(kode) {
+                const d = this.state.presDraft;
+                if (!d) return;
+                d.siswa.forEach(u => { d.status[u.nisn] = kode; });
+                this.presRenderList();
+            },
+            presSimpan() {
+                const d = this.state.presDraft;
+                if (!d || !d.siswa.length) { this.showToast('Tidak ada siswa untuk diabsen.', true); return; }
+                if (d.tgl > this.tglWIB()) { this.showToast('Tanggal ini belum tiba. Absen hanya untuk hari ini atau sebelumnya.', true); return; }
+                const lama = (this.state.att[this.attKey(d.tahun, d.kelas)] || {})[d.tgl];
+                const status = Object.assign({}, (lama && lama.status) || {});   // siswa yang sudah pindah kelas tidak ikut terhapus
+                d.siswa.forEach(u => { if (d.status[u.nisn]) status[u.nisn] = d.status[u.nisn]; else delete status[u.nisn]; });
+                if (!Object.keys(status).length) { this.showToast('Belum ada siswa yang diberi status.', true); return; }
+                const rec = {
+                    jenis: document.getElementById('pres-jenis').value,
+                    topik: document.getElementById('pres-topik').value.trim().slice(0, 120),
+                    status, updatedAt: new Date().toISOString()
+                };
+                this.mulaiLoading('Menyimpan absen...');
+                database.ref('attendance/' + this.tahunKey(d.tahun) + '/' + this.gradesKey(d.kelas) + '/' + d.tgl).set(rec).then(() => {
+                    this.akhiriLoading();
+                    const key = this.attKey(d.tahun, d.kelas);
+                    if (!this.state.att[key]) this.state.att[key] = {};
+                    this.state.att[key][d.tgl] = rec;
+                    d.ada = true;
+                    this.presRenderList();
+                    this._hariIni = null;
+                    this.showToast(`Absen ${d.kelas} tanggal ${this.fmtTgl(d.tgl, true)} tersimpan.`);
+                }).catch((err) => {
+                    this.akhiriLoading();
+                    console.error(err);
+                    this.showToast('Gagal menyimpan absen. Pastikan Rules Firebase untuk node "attendance" sudah ditambahkan.', true);
+                });
+            },
+            presHapus() {
+                const d = this.state.presDraft;
+                if (d && d.ada) this.presHapusTgl(d.tgl);
+            },
+            presHapusTgl(tgl) {
+                const kelas = this.presKelasVal(), tahun = this.periodNow().tahun;
+                this.showConfirm('Hapus Sesi Absen', `Hapus seluruh data absen kelas ${kelas} tanggal ${this.fmtTgl(tgl)}? Tindakan ini tidak bisa dibatalkan.`, () => {
+                    database.ref('attendance/' + this.tahunKey(tahun) + '/' + this.gradesKey(kelas) + '/' + tgl).remove().then(() => {
+                        const att = this.state.att[this.attKey(tahun, kelas)];
+                        if (att) delete att[tgl];
+                        this._hariIni = null;
+                        this.showToast('Sesi absen dihapus.');
+                        this.presTab(this.state.presTab || 'harian');
+                    }).catch(() => this.showToast('Gagal menghapus sesi.', true));
+                });
+            },
+            async presRenderRiwayat() {
+                const kelas = this.presKelasVal(), box = document.getElementById('riw-list'), esc = t => this.escapeHtml(t);
+                if (!kelas) { box.innerHTML = '<p class="text-sm text-gray-400 py-6 text-center">Belum ada kelas.</p>'; return; }
+                box.innerHTML = '<div class="py-6">' + this.animMini() + '</div>';
+                const att = await this.loadAtt(this.periodNow().tahun, kelas);
+                if (this.state.presTab !== 'riwayat') return;
+                const tgls = Object.keys(att).sort().reverse();
+                if (!tgls.length) { box.innerHTML = '<p class="text-sm text-gray-400 py-6 text-center">Belum ada sesi absen untuk kelas ini pada periode ini.</p>'; return; }
+                box.innerHTML = tgls.map(t => {
+                    const r = att[t], c = this.hitungStatus(r);
+                    const chips = ['H', 'S', 'I', 'A'].map(k => `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${this.STATUS_HADIR[k][2]}">${k} ${c[k]}</span>`).join(' ');
+                    return `<div class="flex items-center gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50/60">
+                        <div class="min-w-0 flex-1"><p class="font-bold text-sm text-gray-800">${this.fmtTgl(t)}</p>
+                        <p class="text-xs text-gray-500 truncate">${esc(r.jenis || 'Tatap muka')}${r.topik ? ' · ' + esc(r.topik) : ''}</p>
+                        <div class="flex gap-1 mt-1.5 flex-wrap">${chips}</div></div>
+                        <button onclick="app.presBukaTgl('${t}')" class="px-3 py-2 rounded-lg border border-gray-200 text-gray-700 text-xs font-bold hover:bg-gray-100">Buka</button>
+                        <button onclick="app.presHapusTgl('${t}')" class="px-3 py-2 rounded-lg text-red-500 text-xs font-bold hover:bg-red-50" title="Hapus sesi"><i class="fa-solid fa-trash"></i></button>
+                    </div>`;
+                }).join('');
+            },
+            presBukaTgl(tgl) {
+                document.getElementById('pres-tgl').value = tgl;
+                this.presTab('harian');
+            },
+
+            // ---------- Rekap & rekapitulasi ----------
+            presRekapData(att, siswa, bulan) {
+                const dates = Object.keys(att).filter(d => bulan === 'all' || d.startsWith(bulan)).sort();
+                const rows = siswa.map(u => {
+                    const c = { H: 0, S: 0, I: 0, A: 0 };
+                    const cells = dates.map(d => { const s = ((att[d] || {}).status || {})[u.nisn] || ''; if (s && c[s] !== undefined) c[s]++; return s; });
+                    const tot = c.H + c.S + c.I + c.A;
+                    return { u, cells, c, tot, pct: tot ? Math.round(c.H / tot * 100) : null };
+                });
+                return { dates, rows };
+            },
+            async presRenderRekap() {
+                const kelas = this.presKelasVal(), box = document.getElementById('rek-tabel'), esc = t => this.escapeHtml(t);
+                const selB = document.getElementById('rek-bulan');
+                if (!kelas) { box.innerHTML = '<p class="text-sm text-gray-400 py-6 text-center">Belum ada kelas.</p>'; return; }
+                box.innerHTML = '<div class="py-6">' + this.animMini() + '</div>';
+                const att = await this.loadAtt(this.periodNow().tahun, kelas);
+                if (this.state.presTab !== 'rekap') return;
+                const bulanAda = [...new Set(Object.keys(att).map(d => d.slice(0, 7)))].sort().reverse();
+                const cur = selB.value;
+                selB.innerHTML = bulanAda.map(b => `<option value="${b}">${this.fmtBulan(b)}</option>`).join('') + '<option value="all">Seluruh periode (rekapitulasi)</option>';
+                if (cur && (cur === 'all' || bulanAda.includes(cur))) selB.value = cur;
+                else selB.value = bulanAda.includes(this.tglWIB().slice(0, 7)) ? this.tglWIB().slice(0, 7) : (bulanAda[0] || 'all');
+                if (!bulanAda.length) { box.innerHTML = '<p class="text-sm text-gray-400 py-6 text-center">Belum ada data absen untuk kelas ini pada periode ini.</p>'; return; }
+                const bulan = selB.value, { dates, rows } = this.presRekapData(att, this.siswaKelas(kelas), bulan);
+                const warna = { H: 'text-green-700', S: 'text-yellow-600', I: 'text-blue-600', A: 'text-red-600' };
+                let h = '<table class="text-xs border-collapse min-w-full"><thead><tr class="bg-gray-100 text-gray-700"><th class="border border-gray-200 px-2 py-1.5">No</th><th class="border border-gray-200 px-2 py-1.5 text-left min-w-[150px]">Nama</th>';
+                if (bulan !== 'all') dates.forEach(d => { h += `<th class="border border-gray-200 px-1.5 py-1.5" title="${this.fmtTgl(d)}">${d.slice(8)}</th>`; });
+                h += '<th class="border border-gray-200 px-2 py-1.5 bg-green-50 text-green-700">H</th><th class="border border-gray-200 px-2 py-1.5 bg-yellow-50 text-yellow-700">S</th><th class="border border-gray-200 px-2 py-1.5 bg-blue-50 text-blue-700">I</th><th class="border border-gray-200 px-2 py-1.5 bg-red-50 text-red-700">A</th><th class="border border-gray-200 px-2 py-1.5">% Hadir</th></tr></thead><tbody>';
+                rows.forEach((r, i) => {
+                    h += `<tr><td class="border border-gray-200 px-2 py-1 text-center text-gray-400">${i + 1}</td><td class="border border-gray-200 px-2 py-1 font-medium text-gray-800 whitespace-nowrap">${esc(r.u.nama)}</td>`;
+                    if (bulan !== 'all') r.cells.forEach(s => { h += `<td class="border border-gray-200 px-1.5 py-1 text-center font-bold ${warna[s] || 'text-gray-300'}">${s || '·'}</td>`; });
+                    h += `<td class="border border-gray-200 px-2 py-1 text-center font-bold">${r.c.H}</td><td class="border border-gray-200 px-2 py-1 text-center">${r.c.S}</td><td class="border border-gray-200 px-2 py-1 text-center">${r.c.I}</td><td class="border border-gray-200 px-2 py-1 text-center ${r.c.A ? 'text-red-600 font-bold' : ''}">${r.c.A}</td><td class="border border-gray-200 px-2 py-1 text-center font-bold ${r.pct !== null && r.pct < 75 ? 'text-red-600' : 'text-green-700'}">${r.pct === null ? '-' : r.pct + '%'}</td></tr>`;
+                });
+                box.innerHTML = h + '</tbody></table>';
+                document.getElementById('rek-ringkas').innerText = `${dates.length} pertemuan · ${rows.length} siswa`;
+            },
+            presRekapNilai() {
+                const kelas = this.presKelasVal(), att = this.state.att[this.attKey(this.periodNow().tahun, kelas)] || {};
+                const bulan = document.getElementById('rek-bulan').value || 'all';
+                return Object.assign({ kelas, bulan }, this.presRekapData(att, this.siswaKelas(kelas), bulan));
+            },
+            presRekapExcel() {
+                const r = this.presRekapNilai();
+                if (!r.rows.length || !r.dates.length) { this.showToast('Tidak ada data untuk diekspor.', true); return; }
+                if (typeof XLSX === 'undefined') { this.showToast('Pustaka Excel belum termuat.', true); return; }
+                const tglHead = r.bulan === 'all' ? [] : r.dates.map(d => d.slice(8) + '/' + d.slice(5, 7));
+                const aoa = [['No', 'NISN', 'Nama'].concat(tglHead, ['Hadir', 'Sakit', 'Izin', 'Alpa', 'Jumlah Pertemuan', '% Hadir'])];
+                r.rows.forEach((x, i) => aoa.push([i + 1, String(x.u.nisn), x.u.nama].concat(r.bulan === 'all' ? [] : x.cells, [x.c.H, x.c.S, x.c.I, x.c.A, x.tot, x.pct === null ? '' : x.pct])));
+                const ws = XLSX.utils.aoa_to_sheet(aoa), wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Rekap Absensi');
+                XLSX.writeFile(wb, `Rekap_Absensi_${r.kelas.replace(/[\\/:*?"<>|]/g, '-')}_${r.bulan}.xlsx`);
+            },
+            presRekapCetak() {
+                const r = this.presRekapNilai(), p = this.periodNow();
+                if (!r.rows.length || !r.dates.length) { this.showToast('Tidak ada data untuk dicetak.', true); return; }
+                const esc = t => this.escapeHtml(t);
+                let h = '<table><thead><tr><th>No</th><th class="l">Nama</th>';
+                if (r.bulan !== 'all') r.dates.forEach(d => { h += `<th>${d.slice(8)}</th>`; });
+                h += '<th>H</th><th>S</th><th>I</th><th>A</th><th>% Hadir</th></tr></thead><tbody>';
+                r.rows.forEach((x, i) => {
+                    h += `<tr><td>${i + 1}</td><td class="l">${esc(x.u.nama)}</td>`;
+                    if (r.bulan !== 'all') x.cells.forEach(s => { h += `<td>${s}</td>`; });
+                    h += `<td>${x.c.H}</td><td>${x.c.S}</td><td>${x.c.I}</td><td>${x.c.A}</td><td>${x.pct === null ? '-' : x.pct + '%'}</td></tr>`;
+                });
+                this.cetakHtml('Rekap Kehadiran Kelas ' + r.kelas, `${r.bulan === 'all' ? 'Seluruh periode' : this.fmtBulan(r.bulan)} · Semester ${p.semester} ${p.tahun} · ${r.dates.length} pertemuan`, h + '</tbody></table>', r.bulan !== 'all');
+            },
+
+            // ---------- Kehadiran (siswa, hanya baca) ----------
+            async presRenderSiswa() {
+                const cu = this.state.currentUser, kelas = this.kelasSiswaIni(), box = document.getElementById('pres-siswa-isi'), esc = t => this.escapeHtml(t);
+                if (!cu || !kelas) { box.innerHTML = '<p class="text-sm text-gray-400 py-6 text-center">Data kelasmu belum tersedia.</p>'; return; }
+                box.innerHTML = '<div class="py-6">' + this.animMini() + '</div>';
+                const att = await this.loadAtt(this.periodNow().tahun, kelas);
+                if (this.state.page !== 'presensi') return;
+                const tgls = Object.keys(att).filter(t => ((att[t].status || {})[cu.nisn])).sort().reverse();
+                const c = { H: 0, S: 0, I: 0, A: 0 };
+                tgls.forEach(t => { c[att[t].status[cu.nisn]]++; });
+                const tot = tgls.length, pct = tot ? Math.round(c.H / tot * 100) : null;
+                if (!tot) { box.innerHTML = '<div class="bg-white border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center text-sm text-gray-400">Belum ada data kehadiran pada semester ini.</div>'; return; }
+                const kartu = ['H', 'S', 'I', 'A'].map(k => `<div class="rounded-2xl p-4 text-center ${this.STATUS_HADIR[k][2]}"><p class="text-2xl font-bold">${c[k]}</p><p class="text-xs font-bold">${this.STATUS_HADIR[k][0]}</p></div>`).join('');
+                box.innerHTML = `<div class="grid grid-cols-4 gap-3 mb-3">${kartu}</div>
+                    <div class="bg-white border border-gray-200 rounded-2xl p-4 mb-4"><div class="flex justify-between text-sm mb-1"><span class="font-bold text-gray-700">Persentase kehadiran</span><span class="font-bold ${pct < 75 ? 'text-red-600' : 'text-green-700'}">${pct}%</span></div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5"><div class="${pct < 75 ? 'bg-red-500' : 'bg-brand-green'} h-2.5 rounded-full" style="width:${pct}%"></div></div>
+                    <p class="text-[11px] text-gray-400 mt-1">${tot} pertemuan tercatat.</p></div>
+                    <div class="bg-white border border-gray-200 rounded-2xl divide-y divide-gray-100">${tgls.slice(0, 40).map(t => {
+                        const s = att[t].status[cu.nisn];
+                        return `<div class="flex items-center gap-3 p-3"><span class="px-2.5 py-1 rounded-full text-xs font-bold ${this.STATUS_HADIR[s][2]}">${this.STATUS_HADIR[s][0]}</span><div class="min-w-0 flex-1"><p class="text-sm font-medium text-gray-800">${this.fmtTgl(t)}</p><p class="text-xs text-gray-500 truncate">${esc(att[t].topik || att[t].jenis || '')}</p></div></div>`;
+                    }).join('')}</div>`;
+            },
+
+            // ---------- Jadwal ----------
+            listenSchedule() {
+                if (this.state.role === 'guest') {
+                    if (this._schedRef) { this._schedRef.off(); this._schedRef = null; this._schedKey = null; }
+                    this.state.schedule = [];
+                    return;
+                }
+                const p = this.periodNow(), key = this.periodKey(p.tahun, p.semester);
+                if (this._schedKey === key) return;
+                if (this._schedRef) this._schedRef.off();
+                this._schedKey = key;
+                this.state.schedule = [];
+                this._schedRef = database.ref('schedule/' + key);
+                this._schedRef.on('value', (snap) => {
+                    const d = snap.val() || {};
+                    this.state.schedule = Object.keys(d).map(id => Object.assign({ id }, d[id]));
+                    this._hariIni = null;
+                    const pg = this.state.page || 'home';
+                    if (pg === 'jadwal') this.renderJadwal();
+                    else if (pg === 'home') this.renderHome();
+                }, () => {
+                    this.state.schedule = [];
+                    this.showToast('Gagal memuat jadwal. Pastikan Rules Firebase untuk node "schedule" sudah ditambahkan.', true);
+                });
+            },
+            jadwalData(kelas) {
+                let list = this.state.schedule || [];
+                if (this.state.role === 'student') { const k = this.kelasSiswaIni(); list = list.filter(e => String(e.kelas || '').trim() === k); }
+                else if (kelas) list = list.filter(e => String(e.kelas || '').trim() === kelas);
+                return list.slice().sort((a, b) => (Number(a.hari) - Number(b.hari)) || String(a.mulai).localeCompare(String(b.mulai)));
+            },
+            jadwalGrid(list) {
+                const hari = [1, 2, 3, 4, 5];
+                if (list.some(e => Number(e.hari) === 6)) hari.push(6);
+                const peta = {};
+                list.forEach(e => { peta[e.mulai + '-' + e.selesai] = { mulai: e.mulai, selesai: e.selesai }; });
+                const slots = Object.values(peta).sort((a, b) => a.mulai.localeCompare(b.mulai) || a.selesai.localeCompare(b.selesai));
+                return { hari, slots, cell: (h, s) => list.filter(e => Number(e.hari) === h && e.mulai === s.mulai && e.selesai === s.selesai) };
+            },
+            jadKelasVal() { const s = document.getElementById('jad-kelas'); return s ? s.value : ''; },
+            jadView(v) { this.state.jadView = v; this.renderJadwal(); },
+            linkAman(u) { return /^https?:\/\//i.test(String(u || '')) ? String(u).replace(/"/g, '%22') : ''; },
+            renderJadwal() {
+                const admin = this.state.role === 'admin', esc = t => this.escapeHtml(t), p = this.periodNow();
+                const body = document.getElementById('jad-body');
+                if (!body) return;
+                document.getElementById('jad-sub').innerText = `Semester ${p.semester} ${p.tahun}` + (admin ? '' : ' · kelas ' + (this.kelasSiswaIni() || '-'));
+                document.getElementById('jad-arsip').innerHTML = this.arsipBadgeHtml();
+                document.getElementById('jad-admin-btns').classList.toggle('hidden', !admin);
+                document.getElementById('jad-kelas-wrap').classList.toggle('hidden', !admin);
+                if (admin) {
+                    const sel = document.getElementById('jad-kelas'), cur = sel.value, kelas = this.classList();
+                    sel.innerHTML = '<option value="">Semua kelas</option>' + kelas.map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('');
+                    if (kelas.includes(cur)) sel.value = cur;
+                }
+                const mode = this.state.jadView || 'minggu';
+                document.getElementById('jad-v-minggu').className = 'px-4 py-2 text-xs font-bold ' + (mode === 'minggu' ? 'bg-brand-blue text-white' : 'bg-white text-gray-600 hover:bg-gray-50');
+                document.getElementById('jad-v-hari').className = 'px-4 py-2 text-xs font-bold ' + (mode === 'hari' ? 'bg-brand-blue text-white' : 'bg-white text-gray-600 hover:bg-gray-50');
+                document.getElementById('jad-hari-wrap').classList.toggle('hidden', mode !== 'hari');
+                const list = this.jadwalData(this.jadKelasVal());
+                if (!list.length) {
+                    body.innerHTML = `<div class="text-center py-10 text-sm text-gray-400"><i class="fa-solid fa-calendar-days text-3xl text-gray-300 mb-2"></i><p>Belum ada jadwal pada pilihan ini.</p>${admin ? '<p class="text-xs mt-1">Klik tombol <b>+ Jadwal</b> untuk menambahkan.</p>' : ''}</div>`;
+                    return;
+                }
+                const chip = (e) => {
+                    const link = this.linkAman(e.link);
+                    return `<div ${admin ? `onclick="app.jadBuka('${e.id}')" ` : ''}class="rounded-lg border px-2 py-1.5 text-xs mb-1 ${this.warnaKelas(e.kelas)} ${admin ? 'cursor-pointer hover:shadow' : ''}">
+                        <p class="font-bold">${esc(e.kelas)}</p><p>${esc(e.mapel || 'Matematika')}${e.ruang ? ' · ' + esc(e.ruang) : ''}</p>
+                        ${link ? `<a href="${link}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="inline-block mt-1 text-[11px] font-bold underline"><i class="fa-solid fa-video mr-1"></i>Kelas daring</a>` : ''}</div>`;
+                };
+                if (mode === 'minggu') {
+                    const g = this.jadwalGrid(list), hariIni = this.hariWIB();
+                    let h = '<table class="w-full border-collapse text-sm min-w-[640px]"><thead><tr><th class="border border-gray-200 bg-gray-100 px-2 py-2 text-xs w-28">WAKTU</th>';
+                    g.hari.forEach(x => { h += `<th class="border border-gray-200 px-2 py-2 text-xs ${x === hariIni ? 'bg-brand-blue text-white' : 'bg-gray-100 text-gray-700'}">${this.NAMA_HARI[x].toUpperCase()}</th>`; });
+                    h += '</tr></thead><tbody>';
+                    g.slots.forEach(s => {
+                        h += `<tr><td class="border border-gray-200 bg-gray-50 px-2 py-2 text-xs font-bold text-gray-600 whitespace-nowrap align-top">${s.mulai}<br>${s.selesai}</td>`;
+                        g.hari.forEach(x => { h += `<td class="border border-gray-200 p-1 align-top ${x === hariIni ? 'bg-blue-50/40' : ''}">${g.cell(x, s).map(chip).join('')}</td>`; });
+                        h += '</tr>';
+                    });
+                    body.innerHTML = h + '</tbody></table>';
+                } else {
+                    const sel = document.getElementById('jad-hari');
+                    if (!sel.dataset.siap) { sel.innerHTML = [1, 2, 3, 4, 5, 6].map(x => `<option value="${x}">${this.NAMA_HARI[x]}</option>`).join(''); sel.dataset.siap = '1'; const hi = this.hariWIB(); sel.value = (hi >= 1 && hi <= 6) ? hi : 1; }
+                    const hari = Number(sel.value), items = list.filter(e => Number(e.hari) === hari);
+                    body.innerHTML = items.length ? '<div class="space-y-2">' + items.map(e => {
+                        const link = this.linkAman(e.link);
+                        return `<div ${admin ? `onclick="app.jadBuka('${e.id}')" ` : ''}class="flex items-center gap-3 p-3 rounded-xl border ${this.warnaKelas(e.kelas)} ${admin ? 'cursor-pointer' : ''}">
+                            <div class="text-center w-16 flex-shrink-0"><p class="text-sm font-bold">${e.mulai}</p><p class="text-[11px] opacity-70">${e.selesai}</p></div>
+                            <div class="flex-1 min-w-0"><p class="font-bold text-sm">${esc(e.kelas)} · ${esc(e.mapel || 'Matematika')}</p><p class="text-xs opacity-80">${e.ruang ? 'Ruang ' + esc(e.ruang) : ''}${e.catatan ? (e.ruang ? ' · ' : '') + esc(e.catatan) : ''}</p></div>
+                            ${link ? `<a href="${link}" target="_blank" rel="noopener" onclick="event.stopPropagation()" class="px-3 py-2 rounded-lg bg-white text-xs font-bold text-brand-blue shadow-sm"><i class="fa-solid fa-video mr-1"></i>Gabung</a>` : ''}</div>`;
+                    }).join('') + '</div>' : '<p class="text-center text-sm text-gray-400 py-8">Tidak ada jadwal pada hari ini.</p>';
+                }
+            },
+            // modal tambah / ubah jadwal
+            jadBuka(id) {
+                const e = id ? (this.state.schedule || []).find(x => x.id === id) : null;
+                const kelas = this.classList();
+                if (!kelas.length) { this.showToast('Tambahkan siswa dulu agar daftar kelas tersedia.', true); return; }
+                this.state.jadEditId = e ? e.id : null;
+                document.getElementById('jm-judul').innerText = e ? 'Ubah Jadwal' : 'Tambah Jadwal';
+                document.getElementById('jm-hari').value = e ? e.hari : (this.hariWIB() >= 1 && this.hariWIB() <= 6 ? this.hariWIB() : 1);
+                document.getElementById('jm-mulai').value = e ? e.mulai : '07:00';
+                document.getElementById('jm-selesai').value = e ? e.selesai : '08:30';
+                const sk = document.getElementById('jm-kelas');
+                sk.innerHTML = kelas.map(k => `<option value="${this.escapeHtml(k)}">${this.escapeHtml(k)}</option>`).join('');
+                sk.value = e && kelas.includes(String(e.kelas).trim()) ? String(e.kelas).trim() : (this.jadKelasVal() || kelas[0]);
+                document.getElementById('jm-mapel').value = e ? (e.mapel || 'Matematika') : 'Matematika';
+                document.getElementById('jm-ruang').value = e ? (e.ruang || '') : '';
+                document.getElementById('jm-link').value = e ? (e.link || '') : '';
+                document.getElementById('jm-catatan').value = e ? (e.catatan || '') : '';
+                document.getElementById('jm-hapus').classList.toggle('hidden', !e);
+                document.getElementById('modal-jadwal').classList.remove('hidden');
+            },
+            jadSimpan() {
+                const hari = Number(document.getElementById('jm-hari').value), mulai = document.getElementById('jm-mulai').value, selesai = document.getElementById('jm-selesai').value;
+                const kelas = document.getElementById('jm-kelas').value, link = document.getElementById('jm-link').value.trim();
+                if (!mulai || !selesai) { this.showToast('Isi jam mulai dan jam selesai.', true); return; }
+                if (mulai >= selesai) { this.showToast('Jam selesai harus setelah jam mulai.', true); return; }
+                if (link && !this.linkAman(link)) { this.showToast('Tautan kelas daring harus diawali http:// atau https://', true); return; }
+                const editId = this.state.jadEditId;
+                const bentrok = (this.state.schedule || []).find(e => e.id !== editId && Number(e.hari) === hari && e.mulai < selesai && mulai < e.selesai);
+                if (bentrok) { this.showToast(`Bentrok dengan jadwal ${bentrok.kelas} (${bentrok.mulai}-${bentrok.selesai}) pada hari yang sama.`, true); return; }
+                const entry = { hari, mulai, selesai, kelas, mapel: document.getElementById('jm-mapel').value.trim() || 'Matematika', ruang: document.getElementById('jm-ruang').value.trim(), link, catatan: document.getElementById('jm-catatan').value.trim() };
+                const p = this.periodNow(), ref = database.ref('schedule/' + this.periodKey(p.tahun, p.semester));
+                this.mulaiLoading('Menyimpan jadwal...');
+                (editId ? ref.child(editId).set(entry) : ref.push(entry)).then(() => {
+                    this.akhiriLoading();
+                    document.getElementById('modal-jadwal').classList.add('hidden');
+                    this.showToast('Jadwal tersimpan.');
+                }).catch(() => { this.akhiriLoading(); this.showToast('Gagal menyimpan jadwal. Pastikan Rules Firebase untuk node "schedule" sudah ditambahkan.', true); });
+            },
+            jadHapus() {
+                const id = this.state.jadEditId;
+                if (!id) return;
+                this.showConfirm('Hapus Jadwal', 'Hapus jadwal ini dari daftar?', () => {
+                    const p = this.periodNow();
+                    database.ref('schedule/' + this.periodKey(p.tahun, p.semester) + '/' + id).remove().then(() => {
+                        document.getElementById('modal-jadwal').classList.add('hidden');
+                        this.showToast('Jadwal dihapus.');
+                    }).catch(() => this.showToast('Gagal menghapus jadwal.', true));
+                });
+            },
+            jadwalPdf() {
+                if (!(window.jspdf && window.jspdf.jsPDF)) { this.showToast('Pustaka PDF belum termuat. Periksa koneksi internet.', true); return; }
+                const kelas = this.jadKelasVal(), list = this.jadwalData(kelas);
+                if (!list.length) { this.showToast('Belum ada jadwal untuk diunduh.', true); return; }
+                const g = this.jadwalGrid(list), p = this.periodNow();
+                const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+                const x0 = 10, w0 = 30, wc = (277 - w0) / g.hari.length, rowH = 16;
+                let y = 26;
+                doc.setFontSize(15); doc.text('Jadwal Mengajar', x0, 14);
+                doc.setFontSize(9); doc.text(`Semester ${p.semester} ${p.tahun}` + (kelas ? ' - Kelas ' + kelas : ''), x0, 20);
+                doc.setFillColor(30, 58, 138); doc.rect(x0, y, 277, 8, 'F'); doc.setTextColor(255, 255, 255);
+                doc.text('WAKTU', x0 + 2, y + 5.5);
+                g.hari.forEach((h, i) => doc.text(this.NAMA_HARI[h].toUpperCase(), x0 + w0 + i * wc + 2, y + 5.5));
+                y += 8; doc.setTextColor(0, 0, 0); doc.setDrawColor(140, 140, 140);
+                g.slots.forEach(s => {
+                    if (y + rowH > 200) { doc.addPage(); y = 14; }
+                    doc.rect(x0, y, w0, rowH); doc.setFontSize(9); doc.text(`${s.mulai} - ${s.selesai}`, x0 + 2, y + 6);
+                    g.hari.forEach((h, i) => {
+                        const x = x0 + w0 + i * wc; doc.rect(x, y, wc, rowH);
+                        const items = g.cell(h, s);
+                        if (items.length) { doc.setFontSize(8); doc.text(doc.splitTextToSize(items.map(e => e.kelas + (e.ruang ? ' / ' + e.ruang : '')).join('\n'), wc - 4), x + 2, y + 5); }
+                    });
+                    y += rowH;
+                });
+                doc.save(`Jadwal_Mengajar_${this.tahunKey(p.tahun)}_${p.semester}.pdf`);
+            },
+            jadwalCetak() {
+                const kelas = this.jadKelasVal(), list = this.jadwalData(kelas);
+                if (!list.length) { this.showToast('Belum ada jadwal untuk dicetak.', true); return; }
+                const g = this.jadwalGrid(list), p = this.periodNow(), esc = t => this.escapeHtml(t);
+                let h = '<table><thead><tr><th>Waktu</th>' + g.hari.map(x => `<th>${this.NAMA_HARI[x]}</th>`).join('') + '</tr></thead><tbody>';
+                g.slots.forEach(s => { h += `<tr><td><b>${s.mulai} - ${s.selesai}</b></td>` + g.hari.map(x => `<td>${g.cell(x, s).map(e => `${esc(e.kelas)}${e.ruang ? '<br>' + esc(e.ruang) : ''}`).join('<hr>')}</td>`).join('') + '</tr>'; });
+                this.cetakHtml('Jadwal Mengajar', `Semester ${p.semester} ${p.tahun}` + (kelas ? ' · Kelas ' + kelas : ''), h + '</tbody></table>', true);
+            },
+
+            // ---------- Beranda ----------
+            jadwalHariIni() {
+                const hari = this.hariWIB();
+                return this.jadwalData('').filter(e => Number(e.hari) === hari).sort((a, b) => String(a.mulai).localeCompare(String(b.mulai)));
+            },
+            renderHomeAkademik() {
+                if (this.state.role === 'admin') { this.renderTahunCard(); this.renderHomeInfo(); this.renderHomeJadwalAdmin(); this.renderPresensiHariIni(false); }
+                else if (this.state.role === 'student') this.renderHomeJadwalSiswa();
+            },
+            renderHomeInfo() {
+                const sapaEl = document.getElementById('ha-sapa'), nextEl = document.getElementById('ha-next');
+                if (!sapaEl) return;
+                const jam = Number(this.jamWIB().slice(0, 2)), sapa = jam < 11 ? 'pagi' : jam < 15 ? 'siang' : jam < 18 ? 'sore' : 'malam';
+                const cu = this.state.currentUser, nama = String((cu && cu.nama) || 'Guru').replace(/\s*\(Guru\)\s*/i, '');
+                sapaEl.innerText = `Selamat ${sapa}, ${nama}!`;
+                const hari = this.jadwalHariIni(), now = this.jamWIB();
+                const sedang = hari.find(e => e.mulai <= now && now < e.selesai), next = hari.find(e => e.mulai > now);
+                if (sedang) nextEl.innerText = `Sedang berlangsung: ${sedang.kelas} (${sedang.mulai}-${sedang.selesai})` + (next ? ` · berikutnya ${next.kelas} pukul ${next.mulai}` : '');
+                else if (next) { const m = this.menitDariJam(next.mulai) - this.menitDariJam(now); nextEl.innerText = `Berikutnya: ${next.kelas} pukul ${next.mulai} (${m >= 60 ? Math.floor(m / 60) + ' jam ' + (m % 60) + ' menit' : m + ' menit'} lagi)`; }
+                else nextEl.innerText = hari.length ? 'Semua jadwal hari ini sudah selesai.' : 'Tidak ada jadwal mengajar hari ini.';
+                document.getElementById('ha-kelas-hari').innerText = new Set(hari.map(e => String(e.kelas).trim())).size;
+            },
+            renderHomeJadwalAdmin() {
+                const box = document.getElementById('ha-jadwal');
+                if (!box) return;
+                const esc = t => this.escapeHtml(t), hari = this.jadwalHariIni(), now = this.jamWIB();
+                if (!hari.length) { box.innerHTML = this.homeEmpty('Tidak ada jadwal mengajar hari ini.'); return; }
+                box.innerHTML = hari.map(e => {
+                    const sedang = e.mulai <= now && now < e.selesai, selesai = e.selesai <= now;
+                    const badge = sedang ? '<span class="text-[11px] font-bold px-2 py-1 rounded-full bg-green-100 text-green-700 whitespace-nowrap">Berlangsung</span>' : (selesai ? '<span class="text-[11px] font-bold px-2 py-1 rounded-full bg-gray-100 text-gray-500 whitespace-nowrap">Selesai</span>' : '');
+                    return this.homeRow('calendar-day', 'bg-orange-100 text-brand-orange', esc(e.kelas), `${e.mulai} - ${e.selesai}${e.ruang ? ' · ' + esc(e.ruang) : ''}`, badge, '');
+                }).join('');
+            },
+            async renderPresensiHariIni(paksa) {
+                const box = document.getElementById('ha-presensi');
+                if (!box) return;
+                const esc = t => this.escapeHtml(t), today = this.tglWIB();
+                const kelasList = [...new Set(this.jadwalHariIni().map(e => String(e.kelas || '').trim()).filter(Boolean))];
+                if (!kelasList.length) { box.innerHTML = this.homeEmpty('Tidak ada jadwal mengajar hari ini.'); return; }
+                const tahun = this.periodNow().tahun, ck = tahun + '|' + today + '|' + kelasList.join(',');
+                let data;
+                if (!paksa && this._hariIni && this._hariIni.ck === ck && Date.now() - this._hariIni.at < 20000) data = this._hariIni.data;
+                else {
+                    try {
+                        const res = await Promise.all(kelasList.map(async k => [k, (await database.ref('attendance/' + this.tahunKey(tahun) + '/' + this.gradesKey(k) + '/' + today).once('value')).val()]));
+                        data = {}; res.forEach(r => { data[r[0]] = r[1]; });
+                        this._hariIni = { ck, at: Date.now(), data };
+                    } catch (e) { box.innerHTML = this.homeEmpty('Data presensi belum bisa dimuat.'); return; }
+                }
+                box.innerHTML = kelasList.map(k => {
+                    const rec = data[k], c = this.hitungStatus(rec);
+                    const meta = rec ? `Hadir ${c.H} · Sakit ${c.S} · Izin ${c.I} · Alpa ${c.A}` : 'Belum diabsen hari ini';
+                    const kq = JSON.stringify(k).replace(/"/g, '&quot;');
+                    const btn = `<button onclick="app.presBuka(${kq})" class="px-3 py-2 rounded-lg ${rec ? 'border border-gray-200 text-gray-700 hover:bg-gray-100' : 'bg-brand-green text-white hover:bg-green-700'} text-xs font-bold transition whitespace-nowrap">${rec ? 'Lihat' : 'Isi absen'}</button>`;
+                    return this.homeRow('square-check', rec ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-500', esc(k), meta, '', btn);
+                }).join('');
+            },
+            renderHomeJadwalSiswa() {
+                const box = document.getElementById('home-jadwal');
+                if (!box) return;
+                const esc = t => this.escapeHtml(t), hari = this.jadwalHariIni(), now = this.jamWIB();
+                if (!hari.length) { box.innerHTML = this.homeEmpty('Tidak ada jadwal Matematika hari ini.'); return; }
+                box.innerHTML = hari.map(e => {
+                    const sedang = e.mulai <= now && now < e.selesai, link = this.linkAman(e.link);
+                    const badge = sedang ? '<span class="text-[11px] font-bold px-2 py-1 rounded-full bg-green-100 text-green-700 whitespace-nowrap">Berlangsung</span>' : '';
+                    const btn = link ? `<a href="${link}" target="_blank" rel="noopener" class="px-3 py-2 rounded-lg bg-brand-blue text-white text-xs font-bold hover:bg-blue-800 transition whitespace-nowrap">Gabung</a>` : '';
+                    return this.homeRow('calendar-day', 'bg-orange-100 text-brand-orange', esc(e.mapel || 'Matematika'), `${e.mulai} - ${e.selesai}${e.ruang ? ' · ' + esc(e.ruang) : ''}`, badge, btn);
+                }).join('');
+            }
+        });
+
+        (function () {
+            const def = app.tpDefault();
+            Object.assign(app.state, {
+                tahun: { list: [def.tahun], aktif: def.tahun, semester: def.semester, dariServer: false },
+                view: null, schedule: [], att: {}, presTab: 'harian', presDraft: null, jadView: 'minggu',
+                stuF: { q: '', kelas: '', urut: 'nama', pilih: {} }
+            });
+            const origInit = app.init;
+            app.init = function () { origInit.call(this); this.initAkademik(); };
+            const origRole = app.setRole;
+            app.setRole = function (role, userData) { origRole.call(this, role, userData); this.tpSeed(); this.listenSchedule(); this.renderTahunCard(); };
+            const origGoPage = app.goPage;
+            app.goPage = function (page) {
+                origGoPage.apply(this, arguments);
+                if (page === 'jadwal') this.renderJadwal();
+                else if (page === 'presensi') this.renderPresensi();
+            };
+            const origHome = app.renderHome;
+            app.renderHome = function () { origHome.apply(this, arguments); this.renderHomeAkademik(); };
         })();
 
         window.addEventListener('popstate', () => { if (app.state.panelUjianBuka) app._tutupPanelNyata(); });
