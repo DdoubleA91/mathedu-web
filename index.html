@@ -313,7 +313,7 @@
                                     <button onclick="app.goPage('kuis')" class="text-left p-3 rounded-xl border border-gray-200 hover:bg-teal-50 hover:border-teal-200 transition"><i class="fa-solid fa-clipboard-question text-teal-600"></i><p class="text-sm font-bold mt-1 text-gray-800">Ujian Online</p></button>
                                     <button onclick="app.openManageStudentsModal()" class="text-left p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition"><i class="fa-solid fa-users text-gray-700"></i><p class="text-sm font-bold mt-1 text-gray-800">Kelola Siswa</p></button>
                                     <button onclick="app.openReportsModal()" class="text-left p-3 rounded-xl border border-gray-200 hover:bg-teal-50 hover:border-teal-200 transition"><i class="fa-solid fa-chart-column text-teal-600"></i><p class="text-sm font-bold mt-1 text-gray-800">Rekap Tugas Modul</p></button>
-                                    <button onclick="app.openGradesModal()" class="text-left p-3 rounded-xl border border-gray-200 hover:bg-green-50 hover:border-green-200 transition"><i class="fa-solid fa-table-list text-brand-green"></i><p class="text-sm font-bold mt-1 text-gray-800">Rekap Nilai</p></button>
+                                    <button onclick="app.openGradesModal()" class="text-left p-3 rounded-xl border border-gray-200 hover:bg-green-50 hover:border-green-200 transition"><i class="fa-solid fa-table-list text-brand-green"></i><p class="text-sm font-bold mt-1 text-gray-800">Buku Nilai</p></button>
                                     <button onclick="app.openAnnouncementsModal()" class="text-left p-3 rounded-xl border border-gray-200 hover:bg-yellow-50 hover:border-yellow-200 transition"><i class="fa-solid fa-bullhorn text-yellow-500"></i><p class="text-sm font-bold mt-1 text-gray-800">Kelola Pengumuman</p></button>
                                 </div>
                             </div>
@@ -894,7 +894,7 @@
     <div id="modal-grades" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center fade-in">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[92vh] flex flex-col mx-2">
             <div class="flex justify-between items-center p-4 border-b border-gray-100 flex-shrink-0">
-                <h3 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-table-list text-brand-green mr-2"></i> Rekap Nilai</h3>
+                <h3 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-table-list text-brand-green mr-2"></i> Buku Nilai <span id="grades-period" class="text-xs font-bold px-2 py-1 rounded-full ml-2 bg-blue-50 text-brand-blue"></span></h3>
                 <button onclick="app.closeGradesModal()" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-times text-xl"></i></button>
             </div>
             <div class="p-4 border-b border-gray-100 bg-gray-50 flex-shrink-0 flex flex-col lg:flex-row gap-3 lg:items-end lg:justify-between">
@@ -904,7 +904,7 @@
                 </div>
                 <div class="flex flex-wrap gap-2 items-center">
                     <span id="grades-dirty" class="text-xs font-bold text-orange-600 hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i> Belum disimpan</span>
-                    <button onclick="app.addGradeColumn()" class="border border-gray-300 bg-white text-gray-700 px-3 py-2 rounded-md text-sm font-bold hover:bg-gray-100 flex items-center gap-2"><i class="fa-solid fa-plus"></i> Kolom Nilai</button>
+                    <button onclick="app.addGradeColumn()" class="border border-gray-300 bg-white text-gray-700 px-3 py-2 rounded-md text-sm font-bold hover:bg-gray-100 flex items-center gap-2"><i class="fa-solid fa-plus"></i> Penilaian</button>
                     <button onclick="app.openTarikUjian()" class="border border-purple-500 text-purple-700 bg-white px-3 py-2 rounded-md text-sm font-bold hover:bg-purple-50 flex items-center gap-2"><i class="fa-solid fa-cloud-arrow-down"></i> Tarik dari Ujian Online</button>
                     <button onclick="app.triggerGradesUpload()" class="border border-blue-500 text-blue-700 bg-white px-3 py-2 rounded-md text-sm font-bold hover:bg-blue-50 flex items-center gap-2"><i class="fa-solid fa-file-arrow-up"></i> Unggah Excel</button>
                     <input type="file" id="grades-file-input" accept=".xlsx,.xls,.csv" class="hidden" onchange="app.handleGradesFile(event)">
@@ -912,11 +912,20 @@
                     <button onclick="app.saveGrades()" class="bg-brand-green text-white px-4 py-2 rounded-md text-sm font-bold hover:bg-green-700 flex items-center gap-2"><i class="fa-solid fa-floppy-disk"></i> Simpan</button>
                 </div>
             </div>
-            <div class="px-4 pt-3 text-xs text-gray-500 flex-shrink-0">
+            <div class="px-4 pt-3 flex-shrink-0 flex flex-wrap items-center gap-2">
+                <button data-gt="input" onclick="app.gradesTab('input')">Input Nilai</button>
+                <button data-gt="daftar" onclick="app.gradesTab('daftar')">Daftar Penilaian</button>
+                <button data-gt="akhir" onclick="app.gradesTab('akhir')">Nilai Akhir</button>
+            </div>
+            <div id="grades-legacy" class="hidden mx-4 mt-3 bg-amber-50 border border-amber-200 text-amber-900 text-xs rounded-lg p-3 flex-shrink-0"></div>
+            <div id="grades-filter" class="px-4 pt-3 flex flex-wrap gap-2 flex-shrink-0"></div>
+            <div id="grades-tools-input" class="px-4 pt-3 text-xs text-gray-500 flex-shrink-0">
                 <i class="fa-solid fa-circle-info mr-1"></i> Salin sel dari Excel (Ctrl+C), klik sel nilai pertama di tabel ini, lalu tempel (Ctrl+V). Urutan baris Excel harus sama dengan urutan nama di bawah (urut abjad). Atau pakai tombol Unggah Excel (baris judul wajib punya kolom NISN atau Nama; kolom lain dianggap kolom nilai). Tempel di kotak judul kolom untuk mengisi judul sekaligus. Koma desimal (85,5) otomatis diterima. Tekan Enter / panah atas-bawah untuk pindah baris.
             </div>
             <div class="p-4 overflow-auto flex-grow">
-                <div id="grades-table-wrap"></div>
+                <div id="grades-p-input"><div id="grades-table-wrap"></div></div>
+                <div id="grades-p-daftar" class="hidden space-y-2"><div id="grades-daftar" class="space-y-2"></div></div>
+                <div id="grades-p-akhir" class="hidden space-y-3"><div id="grades-akhir-atas"></div><div id="grades-akhir-tabel"></div></div>
             </div>
         </div>
     </div>
@@ -929,7 +938,7 @@
                 <button onclick="app.closeTarikUjian()" class="text-gray-400 hover:text-red-500 transition"><i class="fa-solid fa-times text-xl"></i></button>
             </div>
             <div class="p-4 overflow-auto space-y-3">
-                <p class="text-xs text-gray-500">Nilai (skala 0-100) siswa kelas <b id="tarik-kelas">-</b> dimasukkan sebagai kolom baru di tabel Rekap Nilai, dicocokkan lewat NISN. Hasilnya baru tersimpan setelah Bapak klik <b>Simpan</b> di Rekap Nilai.</p>
+                <p class="text-xs text-gray-500">Nilai (skala 0-100) siswa kelas <b id="tarik-kelas">-</b> dimasukkan sebagai kolom baru (jenis Ulangan) di Buku Nilai, dicocokkan lewat NISN. Hasilnya baru tersimpan setelah Bapak klik <b>Simpan</b> di Rekap Nilai.</p>
                 <div id="tarik-login" class="hidden space-y-2">
                     <label class="block text-xs font-medium text-gray-700">Kata sandi admin Ujian Online</label>
                     <input type="password" id="tarik-pw" class="w-full border border-gray-300 rounded-md p-2 text-sm" onkeydown="if(event.key==='Enter') app.loginUjianAdmin()">
@@ -1364,6 +1373,29 @@
                 <div class="flex gap-2 ml-auto">
                     <button onclick="app.closeModals()" class="px-4 py-2 rounded-md text-sm font-bold text-gray-600 hover:bg-gray-100">Batal</button>
                     <button onclick="app.jadSimpan()" class="px-4 py-2 rounded-md text-sm font-bold bg-brand-blue text-white hover:bg-blue-800">Simpan</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Tambah / ubah penilaian (Buku Nilai) -->
+    <div id="modal-penilaian" class="fixed inset-0 bg-black bg-opacity-50 z-[60] hidden flex items-center justify-center fade-in p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-5 space-y-3">
+            <h3 id="pen-judul-modal" class="font-bold text-gray-800 text-lg">Tambah Penilaian</h3>
+            <div><label class="block text-xs font-bold text-gray-600 mb-1">Judul penilaian <span class="text-red-500">*</span></label>
+                <input type="text" id="pen-judul" maxlength="60" placeholder="Contoh: Ulangan Harian Bab 2" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm" onkeydown="if(event.key==='Enter') app.penSimpan()"></div>
+            <div><label class="block text-xs font-bold text-gray-600 mb-1">Jenis penilaian</label>
+                <select id="pen-jenis" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white"></select></div>
+            <div class="grid grid-cols-2 gap-3">
+                <div><label class="block text-xs font-bold text-gray-600 mb-1">Bab / materi</label><input type="text" id="pen-bab" maxlength="20" placeholder="Contoh: Bab 2" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"></div>
+                <div><label class="block text-xs font-bold text-gray-600 mb-1">Tanggal</label><input type="date" id="pen-tgl" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"></div>
+            </div>
+            <p class="text-[11px] text-gray-400">Semester mengikuti periode yang sedang dipilih di Beranda. Jenis menentukan bobot saat menghitung nilai akhir.</p>
+            <div class="flex items-center justify-between gap-2 pt-1">
+                <button id="pen-hapus" onclick="app.penHapus()" class="hidden px-3 py-2 rounded-md text-sm font-bold text-red-600 hover:bg-red-50"><i class="fa-solid fa-trash mr-1"></i> Hapus</button>
+                <div class="flex gap-2 ml-auto">
+                    <button onclick="document.getElementById('modal-penilaian').classList.add('hidden')" class="px-4 py-2 rounded-md text-sm font-bold text-gray-600 hover:bg-gray-100">Batal</button>
+                    <button onclick="app.penSimpan()" class="px-4 py-2 rounded-md text-sm font-bold bg-brand-blue text-white hover:bg-blue-800">Simpan</button>
                 </div>
             </div>
         </div>
@@ -2027,7 +2059,7 @@
                             </div>
                             <div class="flex flex-wrap gap-2">
                                 <button onclick="app.bukaPanelUjian()" class="bg-teal-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-teal-700 transition"><i class="fa-solid fa-gear mr-1"></i> Buka Panel Ujian</button>
-                                <button onclick="app.openGradesModal()" class="border border-gray-300 bg-white text-gray-700 px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-50 transition"><i class="fa-solid fa-table-list mr-1"></i> Rekap Nilai</button>
+                                <button onclick="app.openGradesModal()" class="border border-gray-300 bg-white text-gray-700 px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-50 transition"><i class="fa-solid fa-table-list mr-1"></i> Buku Nilai</button>
                                 <p class="w-full text-[11px] text-gray-400">${this.panelModeGet() === 'tab' ? 'Panel dibuka di tab baru. <button onclick="app.panelModeSet(null); app.renderUjian();" class="underline font-bold">Tampilkan di dalam LMS</button>' : 'Panel tidak tampil? <button onclick="app.panelModeSet(\'tab\'); app.renderUjian();" class="underline font-bold">Gunakan tab baru</button>'}</p>
                             </div>
                         </div>`;
@@ -2080,7 +2112,7 @@
 
             // ---- Tarik nilai Ujian Online ke Rekap Nilai ----
             openTarikUjian() {
-                if (!this.state.gradesLoaded) { this.showToast('Tabel Rekap Nilai belum selesai dimuat.', true); return; }
+                if (!this.state.gradesLoaded) { this.showToast('Tabel Buku Nilai belum selesai dimuat.', true); return; }
                 document.getElementById('tarik-kelas').innerText = this.state.gradesKelas;
                 document.getElementById('tarik-info').innerText = '';
                 document.getElementById('modal-ujian-tarik').classList.remove('hidden');
@@ -2162,6 +2194,8 @@
                             this.ensureGradeCols(this.state.gradesCols.length + 1);
                             ci = this.state.gradesCols.length - 1;
                             this.state.gradesCols[ci].title = judul;
+                            this.state.gradesCols[ci].jenis = this.guessJenis(judul, 'ulangan');
+                            this.state.gradesCols[ci].tgl = this.tglWIB();
                         }
                         const terisi = new Set();
                         let lain = 0;
@@ -2179,7 +2213,7 @@
                     }
                     this.setGradesDirty(true);
                     this.renderGradesTable();
-                    info.innerText = 'Selesai:\n' + laporan.join('\n') + '\n\nKlik Simpan di Rekap Nilai agar tersimpan.';
+                    info.innerText = 'Selesai:\n' + laporan.join('\n') + '\n\nKlik Simpan di Buku Nilai agar tersimpan.';
                 } catch (err) {
                     console.error(err);
                     info.innerText = 'Gagal menarik nilai: ' + (err.message || err) + (laporan.length ? '\n\nSudah masuk ke tabel:\n' + laporan.join('\n') : '');
@@ -2381,7 +2415,7 @@
             planGradesImport(rows, fileName) {
                 const normH = v => String(v == null ? '' : v).trim().toLowerCase().replace(/\s+/g, ' ');
                 const NISN_H = ['nisn', 'nis'], NAMA_H = ['nama', 'nama siswa', 'name'];
-                const IGNORE_H = ['no', 'no.', 'nomor', 'kelas', 'rata-rata', 'rata rata', 'rerata', 'average', 'mean', 'jumlah'];
+                const IGNORE_H = ['no', 'no.', 'nomor', 'kelas', 'rata-rata', 'rata rata', 'rerata', 'average', 'mean', 'jumlah', 'nilai akhir'];
                 let hr = -1;
                 for (let i = 0; i < Math.min(rows.length, 15); i++) {
                     if ((rows[i] || []).some(c => NISN_H.includes(normH(c)) || NAMA_H.includes(normH(c)))) { hr = i; break; }
@@ -6137,6 +6171,7 @@
                 document.getElementById('modal-quiz-results').classList.add('hidden');
                 document.getElementById('modal-edit-student').classList.add('hidden');
                 document.getElementById('modal-jadwal').classList.add('hidden');
+                document.getElementById('modal-penilaian').classList.add('hidden');
                 this.closeConfirmModal();
                 if (this.state.forcePw) document.getElementById('modal-password').classList.remove('hidden');
             },
@@ -6249,7 +6284,7 @@
                     items = [home, modul, kuis,
                         { action: 'app.openManageStudentsModal()', icon: 'users', label: 'Siswa' },
                         { action: 'app.openReportsModal()', icon: 'chart-column', label: 'Rekap Tugas' },
-                        { action: 'app.openGradesModal()', icon: 'table-list', label: 'Rekap Nilai' },
+                        { action: 'app.openGradesModal()', icon: 'table-list', label: 'Buku Nilai' },
                         jadwal, presensi, pengumuman];
                 } else if (role === 'student') {
                     items = [home, modul, kuis, jadwal, kehadiran, pengumuman];
@@ -7379,6 +7414,475 @@
             };
             const origHome = app.renderHome;
             app.renderHome = function () { origHome.apply(this, arguments); this.renderHomeAkademik(); };
+        })();
+
+        // ===================== BUKU NILAI (pengembangan dari Rekap Nilai) =====================
+        // Mesin lama dipertahankan (tempel dari Excel, Unggah Excel, Tarik dari Ujian Online). Yang baru:
+        //   - tiap kolom penilaian punya jenis, bab, dan tanggal
+        //   - data tersimpan per periode:  bukuNilai/<2026-2027_Ganjil>/<kelas> = { columns:[{id,title,jenis,bab,tgl}], scores:{nisn:{colId:nilai}} }
+        //   - bobot & KKM per periode:     bukuNilai/<periode>/_bobot = { harian, ulangan, pts, pas, lainnya, kkm, kosongNol }
+        //   - data lama (manualGrades/<kelas>) tidak diubah; bisa disalin ke periode baru lewat banner.
+        Object.assign(app, {
+            JENIS_NILAI: [
+                { k: 'harian', l: 'Tugas Harian', s: 'Harian', cls: 'bg-blue-100 text-blue-700' },
+                { k: 'ulangan', l: 'Ulangan Harian', s: 'Ulangan', cls: 'bg-purple-100 text-purple-700' },
+                { k: 'pts', l: 'PTS (Tengah Semester)', s: 'PTS', cls: 'bg-orange-100 text-orange-700' },
+                { k: 'pas', l: 'PAS (Akhir Semester)', s: 'PAS', cls: 'bg-red-100 text-red-700' },
+                { k: 'lainnya', l: 'Lainnya (praktik, keaktifan, proyek)', s: 'Lainnya', cls: 'bg-gray-100 text-gray-600' }
+            ],
+            BOBOT_DEFAULT: { harian: 20, ulangan: 30, pts: 20, pas: 30, lainnya: 0, kkm: 75, kosongNol: false },
+
+            jenisInfo(k) { return this.JENIS_NILAI.find(j => j.k === k) || this.JENIS_NILAI[this.JENIS_NILAI.length - 1]; },
+            // Menebak jenis dari judul (dipakai untuk data lama, hasil impor Excel, dan tarikan Ujian Online)
+            guessJenis(title, fallback) {
+                const t = String(title || '').toLowerCase();
+                if (/\bpts\b|\bsts\b|tengah semester/.test(t)) return 'pts';
+                if (/\bpas\b|\bsas\b|\bpat\b|akhir semester|akhir tahun/.test(t)) return 'pas';
+                if (/ulangan|\buh\b|ujian|asesmen|assessment|sumatif|kuis|quiz/.test(t)) return 'ulangan';
+                if (/tugas|latihan|\bpr\b|harian|lkpd|lks/.test(t)) return 'harian';
+                return fallback || 'harian';
+            },
+            colJenis(c) { return (c && c.jenis) || this.guessJenis(c && c.title); },
+            gradesPeriodKey() { const p = this.periodNow(); return this.periodKey(p.tahun, p.semester); },
+            tglSingkat(ymd) { const p = String(ymd).split('-').map(Number); return p[2] + ' ' + this.NAMA_BULAN[p[1] - 1].slice(0, 3); },
+
+            // ---------- Perhitungan ----------
+            nilaiJenisSiswa(nisn) {
+                const row = this.state.gradesScores[nisn] || {}, nol = !!this.state.gradesBobot.kosongNol, out = {};
+                this.JENIS_NILAI.forEach(j => {
+                    const nums = [];
+                    this.state.gradesCols.filter(c => this.colJenis(c) === j.k).forEach(c => {
+                        const n = this.gradeNum(row[c.id]);
+                        if (n !== null) nums.push(n); else if (nol) nums.push(0);
+                    });
+                    out[j.k] = nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
+                });
+                return out;
+            },
+            // Nilai akhir = rata-rata tertimbang dari rata-rata tiap jenis. Jenis yang belum punya nilai tidak ikut
+            // (bobot dinormalkan), dan hasilnya ditandai "sementara" selama masih ada komponen berbobot yang kosong.
+            nilaiAkhirSiswa(nisn) {
+                const b = this.state.gradesBobot, nj = this.nilaiJenisSiswa(nisn);
+                let sum = 0, w = 0, lengkap = true;
+                this.JENIS_NILAI.forEach(j => {
+                    const bw = Number(b[j.k]) || 0;
+                    if (bw <= 0) return;
+                    if (nj[j.k] === null) { lengkap = false; return; }
+                    sum += nj[j.k] * bw; w += bw;
+                });
+                return { val: w ? sum / w : null, lengkap, nj };
+            },
+            gradeAvgVis(nisn) {
+                const row = this.state.gradesScores[nisn] || {};
+                const nums = (this.state.gradesVis || []).map(i => this.gradeNum(row[(this.state.gradesCols[i] || {}).id])).filter(n => n !== null);
+                return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
+            },
+            finHtml(fin) {
+                if (fin.val === null) return '';
+                const kkm = Number(this.state.gradesBobot.kkm) || 0;
+                return `<span class="${fin.val < kkm ? 'text-red-600' : ''}">${this.fmtGrade(fin.val)}</span>${fin.lengkap ? '' : '<span class="text-orange-500" title="Sementara: masih ada komponen berbobot yang belum ada nilainya">*</span>'}`;
+            },
+            colStats(c) {
+                const students = this.gradesStudents(this.state.gradesKelas), kkm = Number(this.state.gradesBobot.kkm) || 0;
+                const nums = students.map(u => this.gradeNum((this.state.gradesScores[u.nisn] || {})[c.id])).filter(n => n !== null);
+                return {
+                    n: nums.length, total: students.length,
+                    avg: nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null,
+                    max: nums.length ? Math.max(...nums) : null, min: nums.length ? Math.min(...nums) : null,
+                    tuntas: nums.filter(x => x >= kkm).length
+                };
+            },
+
+            // ---------- Memuat & menyimpan (per periode) ----------
+            renderGradesPeriod() {
+                const el = document.getElementById('grades-period');
+                if (!el) return;
+                const p = this.periodNow();
+                el.innerText = `Semester ${p.semester} ${p.tahun}` + (this.isArsip() ? ' (arsip)' : '');
+                el.className = 'text-xs font-bold px-2 py-1 rounded-full ml-2 ' + (this.isArsip() ? 'bg-amber-100 text-amber-700' : 'bg-blue-50 text-brand-blue');
+            },
+            loadGrades() {
+                const kelas = document.getElementById('grades-class-select').value;
+                this.state.gradesKelas = kelas;
+                this.state.gradesLoaded = false;
+                this.state.gradesLegacy = null;
+                this.renderGradesPeriod();
+                document.getElementById('grades-table-wrap').innerHTML = '<div class="py-6">' + this.animMini() + '<p class="text-sm text-gray-400 text-center">Memuat nilai...</p></div>';
+                const pk = this.gradesPeriodKey(), kk = this.gradesKey(kelas);
+                Promise.all([
+                    database.ref('bukuNilai/' + pk + '/' + kk).once('value'),
+                    database.ref('bukuNilai/' + pk + '/_bobot').once('value')
+                ]).then(async (r) => {
+                    if (this.state.gradesKelas !== kelas) return;
+                    const d = r[0].val() || {};
+                    let cols = d.columns ? (Array.isArray(d.columns) ? d.columns : Object.values(d.columns)) : [];
+                    cols = cols.filter(c => c && c.id).map(c => ({ id: c.id, title: c.title || '', jenis: c.jenis || undefined, bab: c.bab || '', tgl: c.tgl || '' }));
+                    this.state.gradesCols = cols;
+                    this.state.gradesScores = d.scores || {};
+                    this.state.gradesBobot = Object.assign({}, this.BOBOT_DEFAULT, r[1].val() || {});
+                    this.state.gradesBobotDirty = false;
+                    if (!cols.length) {
+                        // Periode ini masih kosong: tawarkan data Rekap Nilai lama kelas ini (jika ada)
+                        try { const old = await database.ref('manualGrades/' + kk).once('value'); this.state.gradesLegacy = old.val() || null; } catch (e) { this.state.gradesLegacy = null; }
+                        if (this.state.gradesKelas !== kelas) return;
+                        if (!this.state.gradesLegacy) this.state.gradesCols = [{ id: 'c1', title: 'Nilai 1' }];
+                    }
+                    this.state.gradesLoaded = true;
+                    this.setGradesDirty(false);
+                    this.renderGradesTable();
+                }).catch(err => {
+                    console.error(err);
+                    document.getElementById('grades-table-wrap').innerHTML = '<p class="text-sm text-red-600 py-6 text-center">Gagal memuat nilai. Pastikan aturan (Rules) Firebase untuk <b>bukuNilai</b> sudah ditambahkan.</p>';
+                });
+            },
+            renderGradesBanner() {
+                const box = document.getElementById('grades-legacy'), old = this.state.gradesLegacy;
+                if (!box) return;
+                if (!old) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+                const n = (old.columns ? (Array.isArray(old.columns) ? old.columns : Object.values(old.columns)) : []).filter(c => c && c.id).length;
+                const p = this.periodNow();
+                box.innerHTML = `<i class="fa-solid fa-clock-rotate-left mr-1"></i> Ditemukan <b>Rekap Nilai lama</b> kelas ini (${n} kolom) yang belum ada di periode ${p.tahun} ${p.semester}. <button onclick="app.gradesImporLama()" class="ml-1 underline font-bold text-brand-blue">Salin ke periode ini</button> <span class="text-gray-500">(data lama tidak diubah)</span>`;
+                box.classList.remove('hidden');
+            },
+            gradesImporLama() {
+                const old = this.state.gradesLegacy;
+                if (!old) return;
+                const cols = (old.columns ? (Array.isArray(old.columns) ? old.columns : Object.values(old.columns)) : []).filter(c => c && c.id)
+                    .map(c => ({ id: c.id, title: c.title || '', jenis: this.guessJenis(c.title), bab: '', tgl: '' }));
+                this.state.gradesCols = cols.length ? cols : [{ id: 'c1', title: 'Nilai 1' }];
+                this.state.gradesScores = JSON.parse(JSON.stringify(old.scores || {}));
+                this.state.gradesLegacy = null;
+                this.setGradesDirty(true);
+                this.renderGradesTable();
+                this.showToast('Nilai lama disalin. Periksa jenis penilaian tiap kolom (klik labelnya), lalu klik Simpan.');
+            },
+            saveGrades() {
+                if (!this.state.gradesLoaded) { this.showToast('Tabel belum selesai dimuat.', true); return; }
+                const kelas = this.state.gradesKelas, valid = new Set(this.gradesStudents(kelas).map(u => u.nisn)), scores = {};
+                Object.keys(this.state.gradesScores).forEach(n => {
+                    if (!valid.has(n)) return;
+                    const row = {};
+                    Object.keys(this.state.gradesScores[n]).forEach(cid => { if (this.state.gradesCols.some(c => c.id === cid)) row[cid] = this.state.gradesScores[n][cid]; });
+                    if (Object.keys(row).length) scores[n] = row;
+                });
+                const payload = {
+                    kelas, scores, updatedAt: new Date().toISOString(),
+                    columns: this.state.gradesCols.map(c => ({ id: c.id, title: (c.title || '').trim(), jenis: this.colJenis(c), bab: String(c.bab || '').trim(), tgl: c.tgl || '' }))
+                };
+                const pk = this.gradesPeriodKey(), tugas = [database.ref('bukuNilai/' + pk + '/' + this.gradesKey(kelas)).set(payload)];
+                if (this.state.gradesBobotDirty) tugas.push(database.ref('bukuNilai/' + pk + '/_bobot').set(this.state.gradesBobot));
+                this.mulaiLoading('Menyimpan nilai...');
+                Promise.all(tugas).then(() => {
+                    this.akhiriLoading();
+                    this.setGradesDirty(false);
+                    this.state.gradesBobotDirty = false;
+                    this.showToast('Nilai kelas ' + kelas + ' tersimpan.');
+                }).catch(err => {
+                    this.akhiriLoading();
+                    console.error(err);
+                    this.showToast('Gagal menyimpan. Pastikan Rules Firebase untuk bukuNilai sudah ditambahkan.', true);
+                });
+            },
+
+            // ---------- Tab & filter ----------
+            gradesTabUI(t) {
+                ['input', 'daftar', 'akhir'].forEach(x => {
+                    const p = document.getElementById('grades-p-' + x), b = document.querySelector(`[data-gt="${x}"]`);
+                    if (p) p.classList.toggle('hidden', x !== t);
+                    if (b) b.className = 'px-4 py-2 rounded-lg text-sm font-bold transition ' + (x === t ? 'bg-brand-blue text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50');
+                });
+                const hint = document.getElementById('grades-tools-input'), filt = document.getElementById('grades-filter');
+                if (hint) hint.classList.toggle('hidden', t !== 'input');
+                if (filt) filt.classList.toggle('hidden', t === 'akhir');
+            },
+            gradesTab(t) {
+                this.state.gradesTabAktif = t;
+                this.gradesTabUI(t);
+                if (this.state.gradesLoaded) this.renderGradesTable();
+            },
+            gradesFilter(k) { this.state.gradesFilter = k; if (this.state.gradesLoaded) this.renderGradesTable(); },
+            renderGradesFilter() {
+                const box = document.getElementById('grades-filter');
+                if (!box) return;
+                const f = this.state.gradesFilter || 'all', cols = this.state.gradesCols || [], cnt = {};
+                cols.forEach(c => { const j = this.colJenis(c); cnt[j] = (cnt[j] || 0) + 1; });
+                const chip = (k, label, n) => `<button onclick="app.gradesFilter('${k}')" class="px-3 py-1.5 rounded-full text-xs font-bold transition ${f === k ? 'bg-brand-blue text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}">${label} <span class="opacity-70">${n}</span></button>`;
+                box.innerHTML = chip('all', 'Semua', cols.length) + this.JENIS_NILAI.map(j => chip(j.k, j.s, cnt[j.k] || 0)).join('');
+            },
+            // dipanggil oleh alur lama (impor, tarik ujian, hapus kolom): gambar ulang panel yang sedang terbuka
+            renderGradesTable() {
+                const t = this.state.gradesTabAktif || 'input';
+                this.renderGradesBanner();
+                this.renderGradesFilter();
+                this.gradesTabUI(t);
+                if (t === 'daftar') this.renderGradesDaftar();
+                else if (t === 'akhir') this.renderGradesAkhir();
+                else this.renderGradesGrid();
+            },
+
+            // ---------- Tab 1: Input nilai (tabel) ----------
+            renderGradesGrid() {
+                const wrap = document.getElementById('grades-table-wrap'), e = t => this.escapeHtml(t);
+                const students = this.gradesStudents(this.state.gradesKelas), cols = this.state.gradesCols, f = this.state.gradesFilter || 'all';
+                if (!students.length) { wrap.innerHTML = '<p class="text-sm text-gray-400 py-6 text-center">Tidak ada siswa di kelas ini.</p>'; return; }
+                const vis = cols.map((c, i) => i).filter(i => f === 'all' || this.colJenis(cols[i]) === f);
+                this.state.gradesVis = vis;
+                let h = `<table id="grades-table" class="text-sm border-collapse"><thead><tr class="bg-gray-100 text-xs text-gray-700">
+                    <th class="border border-gray-200 px-2 py-2 sticky left-0 bg-gray-100 z-10 align-top">No</th>
+                    <th class="border border-gray-200 px-2 py-2 sticky left-8 bg-gray-100 z-10 text-left min-w-[180px] align-top">Nama</th>`;
+                vis.forEach(ci => {
+                    const c = cols[ci], j = this.jenisInfo(this.colJenis(c));
+                    h += `<th class="border border-gray-200 p-1 min-w-[124px] align-top">
+                        <div class="flex items-center gap-1">
+                            <input type="text" data-h="${ci}" value="${e(c.title)}" placeholder="Judul kolom" class="grades-h w-full border border-gray-200 rounded px-1 py-1 text-xs font-bold bg-white">
+                            <button type="button" onclick="app.removeGradeColumn(${ci})" class="text-gray-400 hover:text-red-500 px-1" title="Hapus kolom"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <button type="button" onclick="app.penBuka(${ci})" class="mt-1 w-full text-left text-[10px] font-bold px-1.5 py-0.5 rounded ${j.cls}" title="Ubah jenis, bab, tanggal">${j.s}${c.bab ? ' · ' + e(c.bab) : ''}${c.tgl ? ' · ' + this.tglSingkat(c.tgl) : ''}</button>
+                    </th>`;
+                });
+                h += `<th class="border border-gray-200 px-2 py-2 min-w-[80px] bg-green-50 text-green-800 align-top">Rata-rata</th>
+                    <th class="border border-gray-200 px-2 py-2 min-w-[90px] bg-blue-50 text-brand-blue align-top" title="Rata-rata tertimbang semua jenis penilaian (lihat tab Nilai Akhir)">Nilai Akhir</th></tr></thead><tbody>`;
+                students.forEach((u, ri) => {
+                    const row = this.state.gradesScores[u.nisn] || {};
+                    h += `<tr data-nisn="${e(u.nisn)}"><td class="border border-gray-200 px-2 py-1 text-center text-gray-500 sticky left-0 bg-white">${ri + 1}</td>
+                        <td class="border border-gray-200 px-2 py-1 font-medium text-gray-800 sticky left-8 bg-white whitespace-nowrap">${e(u.nama)}</td>`;
+                    vis.forEach(ci => {
+                        const c = cols[ci], v = row[c.id] === undefined ? '' : String(row[c.id]).replace('.', ',');
+                        h += `<td class="border border-gray-200 p-0"><input type="text" inputmode="decimal" data-r="${ri}" data-c="${ci}" value="${e(v)}" class="grades-cell w-full px-2 py-1 text-center bg-transparent focus:bg-yellow-50 focus:outline focus:outline-2 focus:outline-blue-400"></td>`;
+                    });
+                    h += `<td class="border border-gray-200 px-2 py-1 text-center font-bold text-green-800 bg-green-50" id="grades-avg-${ri}">${this.fmtGrade(this.gradeAvgVis(u.nisn))}</td>
+                        <td class="border border-gray-200 px-2 py-1 text-center font-bold text-brand-blue bg-blue-50" id="grades-fin-${ri}">${this.finHtml(this.nilaiAkhirSiswa(u.nisn))}</td></tr>`;
+                });
+                wrap.innerHTML = h + '</tbody></table>' + (cols.length ? '' : '<p class="text-sm text-gray-400 py-4 text-center">Belum ada penilaian. Klik <b>+ Penilaian</b> untuk menambahkan.</p>');
+                this.bindGradesTable();
+            },
+            setGradeCell(r, c, raw, students) {
+                const u = students[r], col = this.state.gradesCols[c];
+                if (!u || !col) return;
+                const v = String(raw == null ? '' : raw).trim();
+                if (!this.state.gradesScores[u.nisn]) this.state.gradesScores[u.nisn] = {};
+                if (v === '') delete this.state.gradesScores[u.nisn][col.id];
+                else { const n = this.gradeNum(v); this.state.gradesScores[u.nisn][col.id] = n !== null ? n : v; }
+                const avgEl = document.getElementById('grades-avg-' + r), finEl = document.getElementById('grades-fin-' + r);
+                if (avgEl) avgEl.innerText = this.fmtGrade(this.gradeAvgVis(u.nisn));
+                if (finEl) finEl.innerHTML = this.finHtml(this.nilaiAkhirSiswa(u.nisn));
+            },
+            bindGradesTable() {
+                const table = document.getElementById('grades-table');
+                if (!table) return;
+                const students = this.gradesStudents(this.state.gradesKelas);
+                table.addEventListener('input', ev => {
+                    const t = ev.target;
+                    if (t.dataset.h !== undefined) { this.state.gradesCols[+t.dataset.h].title = t.value; this.setGradesDirty(true); return; }
+                    if (t.dataset.r !== undefined) { this.setGradeCell(+t.dataset.r, +t.dataset.c, t.value, students); this.setGradesDirty(true); }
+                });
+                table.addEventListener('keydown', ev => {
+                    const t = ev.target;
+                    if (t.dataset.r === undefined) return;
+                    let dr = 0;
+                    if (ev.key === 'Enter' || ev.key === 'ArrowDown') dr = 1;
+                    else if (ev.key === 'ArrowUp') dr = -1;
+                    else return;
+                    ev.preventDefault();
+                    const next = table.querySelector(`.grades-cell[data-r="${+t.dataset.r + dr}"][data-c="${t.dataset.c}"]`);
+                    if (next) { next.focus(); next.select(); }
+                });
+                table.addEventListener('paste', ev => {
+                    const t = ev.target;
+                    const text = (ev.clipboardData || window.clipboardData).getData('text');
+                    if (!text || !/[\t\n]/.test(text.replace(/\n$/, ''))) return;   // tempel satu nilai: biarkan perilaku normal
+                    ev.preventDefault();
+                    const rows = text.replace(/\r/g, '').replace(/\n+$/, '').split('\n').map(r => r.split('\t'));
+                    // Saat filter jenis aktif, kolom yang disembunyikan dilewati: tempelan hanya mengisi kolom yang tampak.
+                    const f = this.state.gradesFilter || 'all', vis = this.state.gradesVis || [];
+                    const target = (c0, k) => { if (f === 'all') return c0 + k; const p = vis.indexOf(c0); return (p >= 0 && vis[p + k] !== undefined) ? vis[p + k] : -1; };
+                    if (t.dataset.h !== undefined) {                               // tempel judul kolom
+                        const c0 = +t.dataset.h;
+                        rows[0].forEach((val, k) => { const ci = target(c0, k); if (ci < 0) return; this.ensureGradeCols(ci + 1); this.state.gradesCols[ci].title = val.trim(); });
+                        this.setGradesDirty(true); this.renderGradesTable();
+                        return;
+                    }
+                    if (t.dataset.r === undefined) return;
+                    const r0 = +t.dataset.r, c0 = +t.dataset.c, maxW = Math.max(...rows.map(r => r.length));
+                    if (f === 'all') this.ensureGradeCols(c0 + maxW);
+                    let skipped = 0, skippedCols = 0;
+                    rows.forEach((cells, i) => {
+                        if (r0 + i >= students.length) { skipped++; return; }
+                        cells.forEach((val, k) => { const ci = target(c0, k); if (ci < 0) { if (i === 0) skippedCols++; return; } this.setGradeCell(r0 + i, ci, val, students); });
+                    });
+                    this.setGradesDirty(true);
+                    this.renderGradesTable();
+                    this.showToast(`Ditempel: ${rows.length - skipped} baris x ${maxW - skippedCols} kolom.` + (skipped ? ` ${skipped} baris lebih diabaikan (melebihi jumlah siswa).` : '') + (skippedCols ? ` ${skippedCols} kolom diabaikan (di luar kolom yang tampil pada filter ini).` : ''), skipped > 0 || skippedCols > 0);
+                });
+            },
+
+            // ---------- Tambah / ubah penilaian ----------
+            addGradeColumn() { if (this.state.gradesLoaded) this.penBuka(null); },
+            penBuka(ci) {
+                if (!this.state.gradesLoaded) return;
+                const baru = ci === undefined || ci === null, c = baru ? null : this.state.gradesCols[ci];
+                if (!baru && !c) return;
+                this.state.penCi = baru ? null : ci;
+                document.getElementById('pen-judul-modal').innerText = baru ? 'Tambah Penilaian' : 'Ubah Penilaian';
+                document.getElementById('pen-jenis').innerHTML = this.JENIS_NILAI.map(j => `<option value="${j.k}">${j.l}</option>`).join('');
+                const f = this.state.gradesFilter;
+                document.getElementById('pen-judul').value = c ? c.title : '';
+                document.getElementById('pen-jenis').value = c ? this.colJenis(c) : (f && f !== 'all' ? f : 'harian');
+                document.getElementById('pen-bab').value = c ? (c.bab || '') : '';
+                document.getElementById('pen-tgl').value = c ? (c.tgl || '') : this.tglWIB();
+                document.getElementById('pen-hapus').classList.toggle('hidden', baru);
+                document.getElementById('modal-penilaian').classList.remove('hidden');
+                setTimeout(() => { const e = document.getElementById('pen-judul'); if (e) e.focus(); }, 50);
+            },
+            penSimpan() {
+                const judul = document.getElementById('pen-judul').value.trim(), ci = this.state.penCi;
+                if (!judul) { this.showToast('Judul penilaian wajib diisi.', true); return; }
+                if (this.state.gradesCols.some((x, i) => i !== ci && String(x.title || '').trim().toLowerCase() === judul.toLowerCase())) {
+                    this.showToast('Sudah ada penilaian dengan judul yang sama. Pakai judul lain (mis. tambahkan nomor).', true);
+                    return;
+                }
+                const data = { title: judul, jenis: document.getElementById('pen-jenis').value, bab: document.getElementById('pen-bab').value.trim().slice(0, 20), tgl: document.getElementById('pen-tgl').value || '' };
+                let idx = ci;
+                if (ci === null || ci === undefined) { this.ensureGradeCols(this.state.gradesCols.length + 1); idx = this.state.gradesCols.length - 1; }
+                Object.assign(this.state.gradesCols[idx], data);
+                if (this.state.gradesFilter !== 'all' && data.jenis !== this.state.gradesFilter) this.state.gradesFilter = 'all';   // agar kolom yang baru dibuat tetap terlihat
+                document.getElementById('modal-penilaian').classList.add('hidden');
+                this.setGradesDirty(true);
+                this.renderGradesTable();
+                if (ci === null || ci === undefined) this.showToast('Penilaian ditambahkan. Isi nilainya di tabel, lalu klik Simpan.');
+            },
+            penHapus() {
+                const ci = this.state.penCi;
+                document.getElementById('modal-penilaian').classList.add('hidden');
+                if (ci !== null && ci !== undefined) this.removeGradeColumn(ci);
+            },
+
+            // ---------- Tab 2: Daftar penilaian ----------
+            renderGradesDaftar() {
+                const box = document.getElementById('grades-daftar'), e = t => this.escapeHtml(t), f = this.state.gradesFilter || 'all';
+                const items = this.state.gradesCols.map((c, i) => ({ c, i })).filter(x => f === 'all' || this.colJenis(x.c) === f)
+                    .sort((a, b) => String(b.c.tgl || '').localeCompare(String(a.c.tgl || '')) || b.i - a.i);
+                if (!items.length) { box.innerHTML = '<div class="text-center py-10 text-sm text-gray-400">Belum ada penilaian pada filter ini.</div>'; return; }
+                const kkm = Number(this.state.gradesBobot.kkm) || 0;
+                box.innerHTML = items.map(({ c, i }) => {
+                    const j = this.jenisInfo(this.colJenis(c)), s = this.colStats(c);
+                    const stat = s.n ? `Terisi ${s.n}/${s.total} · Rata-rata <b>${this.fmtGrade(s.avg)}</b> · Tertinggi ${this.fmtGrade(s.max)} · Terendah ${this.fmtGrade(s.min)} · Tuntas (≥${kkm}) ${s.tuntas}/${s.n} (${Math.round(s.tuntas / s.n * 100)}%)` : 'Belum ada nilai';
+                    return `<div class="flex items-center gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50/60">
+                        <span class="text-[11px] font-bold px-2 py-1 rounded ${j.cls} flex-shrink-0">${j.s}</span>
+                        <div class="min-w-0 flex-1"><p class="font-bold text-sm text-gray-800 truncate">${e(c.title || 'Tanpa judul')}</p>
+                        <p class="text-xs text-gray-500">${c.bab ? e(c.bab) + ' · ' : ''}${c.tgl ? this.fmtTgl(c.tgl) : 'Tanggal belum diisi'}</p>
+                        <p class="text-xs text-gray-600 mt-1">${stat}</p></div>
+                        <button onclick="app.penBuka(${i})" class="px-3 py-2 rounded-lg border border-gray-200 text-gray-700 text-xs font-bold hover:bg-gray-100" title="Ubah"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="app.removeGradeColumn(${i})" class="px-3 py-2 rounded-lg text-red-500 text-xs font-bold hover:bg-red-50" title="Hapus"><i class="fa-solid fa-trash"></i></button>
+                    </div>`;
+                }).join('');
+            },
+
+            // ---------- Tab 3: Nilai akhir ----------
+            renderGradesAkhir() {
+                const b = this.state.gradesBobot, box = document.getElementById('grades-akhir-atas');
+                box.innerHTML = `<div class="bg-white border border-gray-200 rounded-xl p-4">
+                    <div class="flex flex-wrap items-end gap-3">
+                        ${this.JENIS_NILAI.map(j => `<div><label class="block text-[11px] font-bold text-gray-600 mb-1">Bobot ${j.s} (%)</label><input type="number" min="0" max="100" step="1" id="bb-${j.k}" value="${b[j.k]}" onchange="app.bobotUbah()" class="w-24 border border-gray-300 rounded-md px-2 py-1.5 text-sm text-center"></div>`).join('')}
+                        <div><label class="block text-[11px] font-bold text-gray-600 mb-1">KKM</label><input type="number" min="0" max="100" id="bb-kkm" value="${b.kkm}" onchange="app.bobotUbah()" class="w-20 border border-gray-300 rounded-md px-2 py-1.5 text-sm text-center"></div>
+                        <div class="ml-auto flex gap-2">
+                            <button onclick="app.exportGradesToExcel()" class="border border-green-600 text-green-700 bg-white px-3 py-2 rounded-md text-sm font-bold hover:bg-green-50"><i class="fa-solid fa-file-excel mr-1"></i> Excel</button>
+                            <button onclick="app.gradesAkhirCetak()" class="border border-gray-300 text-gray-700 bg-white px-3 py-2 rounded-md text-sm font-bold hover:bg-gray-50"><i class="fa-solid fa-print mr-1"></i> Cetak</button>
+                        </div>
+                    </div>
+                    <label class="flex items-center gap-2 mt-3 text-xs text-gray-700 cursor-pointer"><input type="checkbox" id="bb-nol" ${b.kosongNol ? 'checked' : ''} onchange="app.bobotUbah()" class="w-4 h-4"> Nilai yang kosong dihitung 0 (cocok untuk tugas yang tidak dikumpulkan)</label>
+                    <p id="bb-sum" class="text-xs mt-2"></p>
+                </div>`;
+                this.renderGradesAkhirTabel();
+            },
+            bobotUbah() {
+                const b = this.state.gradesBobot;
+                this.JENIS_NILAI.forEach(j => {
+                    const v = parseFloat(String(document.getElementById('bb-' + j.k).value).replace(',', '.'));
+                    b[j.k] = isFinite(v) && v >= 0 ? Math.min(100, v) : 0;
+                });
+                const kkm = parseFloat(String(document.getElementById('bb-kkm').value).replace(',', '.'));
+                b.kkm = isFinite(kkm) ? Math.max(0, Math.min(100, kkm)) : 75;
+                b.kosongNol = document.getElementById('bb-nol').checked;
+                this.state.gradesBobotDirty = true;
+                this.setGradesDirty(true);
+                this.renderGradesAkhirTabel();
+            },
+            renderGradesAkhirTabel() {
+                const box = document.getElementById('grades-akhir-tabel'), e = t => this.escapeHtml(t), b = this.state.gradesBobot;
+                const students = this.gradesStudents(this.state.gradesKelas), kkm = Number(b.kkm) || 0;
+                const total = this.JENIS_NILAI.reduce((a, j) => a + (Number(b[j.k]) || 0), 0), sumEl = document.getElementById('bb-sum');
+                if (sumEl) sumEl.innerHTML = total === 100
+                    ? '<span class="text-green-700 font-bold">Total bobot 100%.</span> <span class="text-gray-500">Jenis yang belum punya nilai tidak ikut dihitung, dan nilai akhir bertanda * masih sementara.</span>'
+                    : `<span class="text-orange-600 font-bold">Total bobot ${total}%.</span> <span class="text-gray-500">Disarankan 100%. Nilai akhir tetap dihitung proporsional.</span>`;
+                if (!students.length) { box.innerHTML = '<p class="text-sm text-gray-400 py-6 text-center">Tidak ada siswa di kelas ini.</p>'; return; }
+                const jn = this.JENIS_NILAI.filter(j => (Number(b[j.k]) || 0) > 0 || this.state.gradesCols.some(c => this.colJenis(c) === j.k));
+                let h = '<div class="overflow-x-auto"><table class="text-sm border-collapse min-w-full"><thead><tr class="bg-gray-100 text-xs text-gray-700"><th class="border border-gray-200 px-2 py-2">No</th><th class="border border-gray-200 px-2 py-2 text-left min-w-[180px]">Nama</th>'
+                    + jn.map(j => `<th class="border border-gray-200 px-2 py-2 ${j.cls}">${j.s}<br><span class="font-normal">${Number(b[j.k]) || 0}%</span></th>`).join('')
+                    + '<th class="border border-gray-200 px-2 py-2 bg-blue-50 text-brand-blue">Nilai Akhir</th><th class="border border-gray-200 px-2 py-2">Ket.</th></tr></thead><tbody>';
+                let sum = 0, n = 0, tuntas = 0;
+                students.forEach((u, i) => {
+                    const fin = this.nilaiAkhirSiswa(u.nisn);
+                    if (fin.val !== null) { sum += fin.val; n++; if (fin.val >= kkm) tuntas++; }
+                    h += `<tr><td class="border border-gray-200 px-2 py-1 text-center text-gray-400">${i + 1}</td><td class="border border-gray-200 px-2 py-1 font-medium text-gray-800 whitespace-nowrap">${e(u.nama)}</td>`
+                        + jn.map(j => `<td class="border border-gray-200 px-2 py-1 text-center">${fin.nj[j.k] === null ? '<span class="text-gray-300">-</span>' : this.fmtGrade(fin.nj[j.k])}</td>`).join('')
+                        + `<td class="border border-gray-200 px-2 py-1 text-center font-bold text-brand-blue bg-blue-50">${this.finHtml(fin) || '<span class="text-gray-300">-</span>'}</td>`
+                        + `<td class="border border-gray-200 px-2 py-1 text-center text-xs font-bold ${fin.val === null ? 'text-gray-300' : (fin.val >= kkm ? 'text-green-700' : 'text-red-600')}">${fin.val === null ? '-' : (fin.val >= kkm ? 'Tuntas' : 'Belum tuntas')}</td></tr>`;
+                });
+                box.innerHTML = `<p class="text-xs text-gray-600 mb-2">${n ? `Rata-rata kelas <b>${this.fmtGrade(sum / n)}</b> · Tuntas ${tuntas} dari ${n} siswa bernilai (KKM ${kkm})` : 'Belum ada nilai.'}</p>` + h + '</tbody></table></div>';
+            },
+            gradesAkhirCetak() {
+                const students = this.gradesStudents(this.state.gradesKelas), b = this.state.gradesBobot, kkm = Number(b.kkm) || 0, p = this.periodNow(), e = t => this.escapeHtml(t);
+                if (!students.length) { this.showToast('Tidak ada siswa.', true); return; }
+                const jn = this.JENIS_NILAI.filter(j => (Number(b[j.k]) || 0) > 0 || this.state.gradesCols.some(c => this.colJenis(c) === j.k));
+                let h = '<table><thead><tr><th>No</th><th class="l">Nama</th>' + jn.map(j => `<th>${j.s} (${Number(b[j.k]) || 0}%)</th>`).join('') + '<th>Nilai Akhir</th><th>Ket.</th></tr></thead><tbody>';
+                students.forEach((u, i) => {
+                    const fin = this.nilaiAkhirSiswa(u.nisn);
+                    h += `<tr><td>${i + 1}</td><td class="l">${e(u.nama)}</td>` + jn.map(j => `<td>${fin.nj[j.k] === null ? '-' : this.fmtGrade(fin.nj[j.k])}</td>`).join('')
+                        + `<td><b>${fin.val === null ? '-' : this.fmtGrade(fin.val) + (fin.lengkap ? '' : '*')}</b></td><td>${fin.val === null ? '-' : (fin.val >= kkm ? 'Tuntas' : 'Belum tuntas')}</td></tr>`;
+                });
+                this.cetakHtml('Nilai Akhir Kelas ' + this.state.gradesKelas, `Matematika · Semester ${p.semester} ${p.tahun} · KKM ${kkm} · tanda * = nilai sementara`, h + '</tbody></table>', false);
+            },
+
+            // ---------- Ekspor Excel (3 lembar) ----------
+            exportGradesToExcel() {
+                if (!this.state.gradesLoaded) return;
+                if (typeof XLSX === 'undefined') { this.showToast('Pustaka Excel belum termuat. Periksa koneksi internet lalu muat ulang halaman.', true); return; }
+                const students = this.gradesStudents(this.state.gradesKelas), cols = this.state.gradesCols, b = this.state.gradesBobot, kkm = Number(b.kkm) || 0;
+                const title = (c, i) => c.title || ('Nilai ' + (i + 1));
+                // Lembar 1: tabel nilai (tetap bisa diunggah kembali lewat Unggah Excel)
+                const a1 = [['No', 'NISN', 'Nama'].concat(cols.map(title), ['Rata-rata', 'Nilai Akhir'])];
+                students.forEach((u, i) => {
+                    const row = this.state.gradesScores[u.nisn] || {}, avg = this.gradeAvg(u.nisn), fin = this.nilaiAkhirSiswa(u.nisn);
+                    a1.push([i + 1, String(u.nisn), u.nama].concat(cols.map(c => row[c.id] === undefined ? '' : row[c.id]), [avg === null ? '' : Math.round(avg * 100) / 100, fin.val === null ? '' : Math.round(fin.val * 100) / 100]));
+                });
+                // Lembar 2: daftar penilaian
+                const a2 = [['Judul', 'Jenis', 'Bab', 'Tanggal', 'Terisi', 'Jumlah Siswa', 'Rata-rata', 'Tertinggi', 'Terendah', 'Tuntas (>= KKM)']];
+                cols.forEach((c, i) => { const s = this.colStats(c); a2.push([title(c, i), this.jenisInfo(this.colJenis(c)).l, c.bab || '', c.tgl || '', s.n, s.total, s.avg === null ? '' : Math.round(s.avg * 100) / 100, s.max === null ? '' : s.max, s.min === null ? '' : s.min, s.tuntas]); });
+                // Lembar 3: nilai akhir
+                const a3 = [['No', 'NISN', 'Nama'].concat(this.JENIS_NILAI.map(j => `${j.s} (${Number(b[j.k]) || 0}%)`), ['Nilai Akhir', 'Sementara?', 'Keterangan (KKM ' + kkm + ')'])];
+                students.forEach((u, i) => {
+                    const fin = this.nilaiAkhirSiswa(u.nisn);
+                    a3.push([i + 1, String(u.nisn), u.nama].concat(this.JENIS_NILAI.map(j => fin.nj[j.k] === null ? '' : Math.round(fin.nj[j.k] * 100) / 100), [fin.val === null ? '' : Math.round(fin.val * 100) / 100, fin.val !== null && !fin.lengkap ? 'Ya' : '', fin.val === null ? '' : (fin.val >= kkm ? 'Tuntas' : 'Belum tuntas')]));
+                });
+                const wb = XLSX.utils.book_new(), p = this.periodNow();
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(a1), 'Nilai');
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(a2), 'Daftar Penilaian');
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(a3), 'Nilai Akhir');
+                XLSX.writeFile(wb, `Buku_Nilai_${String(this.state.gradesKelas).replace(/[\\/:*?"<>|]/g, '-')}_${this.tahunKey(p.tahun)}_${p.semester}.xlsx`);
+            }
+        });
+
+        (function () {
+            Object.assign(app.state, { gradesBobot: Object.assign({}, app.BOBOT_DEFAULT), gradesFilter: 'all', gradesTabAktif: 'input', gradesVis: [], gradesLegacy: null, gradesBobotDirty: false, penCi: null });
+            const origOpen = app.openGradesModal;
+            app.openGradesModal = function () {
+                this.state.gradesTabAktif = 'input';
+                this.state.gradesFilter = 'all';
+                origOpen.call(this);
+                this.gradesTabUI('input');
+                this.renderGradesPeriod();
+            };
         })();
 
         window.addEventListener('popstate', () => { if (app.state.panelUjianBuka) app._tutupPanelNyata(); });
