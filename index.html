@@ -927,7 +927,7 @@
 
                     <div id="nisn-link" class="text-center mb-3"><button type="button" onclick="app.openNisnLookup()" class="text-xs text-brand-blue underline font-medium"><i class="fa-solid fa-magnifying-glass mr-1"></i>Lupa NISN? Cari dengan nama lengkap</button></div>
                     <button type="submit" class="w-full bg-brand-blue text-white font-bold py-2 rounded-md hover:bg-blue-800 transition">Masuk</button>
-                    <button type="button" onclick="app.closeModals()" class="w-full mt-2 bg-gray-100 text-gray-700 font-medium py-2 rounded-md hover:bg-gray-200 transition">Batal</button>
+                    <button type="button" onclick="app.batalLogin()" class="w-full mt-2 bg-gray-100 text-gray-700 font-medium py-2 rounded-md hover:bg-gray-200 transition">Batal</button>
                 </form>
             </div>
         </div>
@@ -2083,6 +2083,8 @@
                     let aksi;
                     if (admin) {
                         aksi = `<span class="text-xs text-gray-400">Pratinjau siswa tersedia lewat tautan ujian.</span>`;
+                    } else if (this.state.role === 'guest') {
+                        aksi = `<button onclick="app.mintaLoginUjian('${esc(u.id)}')" class="inline-flex items-center gap-2 bg-brand-orange hover:bg-orange-600 text-white text-sm font-bold px-4 py-2.5 rounded-xl transition"><i class="fa-solid fa-right-to-bracket"></i> ${u.bisa ? 'Login untuk Mengerjakan' : 'Login untuk Melihat'}</button>`;
                     } else if (u.status === 'selesai') {
                         aksi = `<span class="inline-flex items-center gap-1 bg-green-50 text-green-700 border border-green-200 text-xs font-bold px-3 py-2 rounded-lg"><i class="fa-solid fa-circle-check"></i> Sudah dikerjakan</span>`;
                     } else if (u.bisa) {
@@ -7912,6 +7914,65 @@
                 this.renderSidebar();
                 window.scrollTo({ top: 0 });
             };
+        })();
+
+
+        // ===================== WAJIB LOGIN untuk membuka Modul / Ujian =====================
+        (function () {
+            Object.assign(app, {
+                // Minta login dulu; setelah berhasil login, aksi 'fn' dijalankan otomatis.
+                perluLogin(fn, pesan) {
+                    this.state.afterLogin = fn;
+                    this.showToast(pesan || 'Silakan login terlebih dahulu.', true);
+                    this.openLoginModal();
+                },
+                batalLogin() { this.state.afterLogin = null; this.closeModals(); },
+                mintaLoginUjian(id) {
+                    this.perluLogin(async () => {
+                        this.goPage('kuis');
+                        await this.muatUjian(true);
+                        const u = (this.state.ujianList || []).find(x => x.id === id);
+                        if (!u) return;
+                        if (u.status === 'selesai') { this.showToast('Ujian ini sudah kamu kerjakan.', true); return; }
+                        if (!u.bisa) { this.showToast('Ujian ini belum dibuka.', true); return; }
+                        window.location.href = this.ujianTautan(u);
+                    }, 'Login dulu untuk mengerjakan ujian. Setelah masuk, kamu langsung diarahkan ke ujiannya.');
+                },
+                jalankanTertunda() {
+                    const f = this.state.afterLogin;
+                    if (!f || this.state.role === 'guest' || this.state.forcePw) return;
+                    this.state.afterLogin = null;
+                    f();
+                }
+            });
+
+            const oOpen = app.openCourse;
+            app.openCourse = function (id) {
+                if (this.state.role === 'guest') { this.perluLogin(() => this.openCourse(id), 'Login dulu untuk membuka modul ini.'); return; }
+                return oOpen.apply(this, arguments);
+            };
+            ['openQuiz', 'retakeQuiz'].forEach(fn => {
+                const o = app[fn];
+                app[fn] = function (id) {
+                    if (this.state.role === 'guest') { this.perluLogin(() => this[fn](id), 'Login dulu untuk mengerjakan kuis ini.'); return; }
+                    return o.apply(this, arguments);
+                };
+            });
+            const oLogin = app.processLogin;
+            app.processLogin = async function () {
+                await oLogin.apply(this, arguments);
+                if (this.state.role !== 'guest' && this.state.afterLogin) {
+                    await new Promise(r => setTimeout(r, 400));   // beri waktu pemeriksaan wajib ganti password
+                    this.jalankanTertunda();
+                }
+            };
+            const oPw = app.changePassword;
+            app.changePassword = async function () {
+                await oPw.apply(this, arguments);
+                this.jalankanTertunda();
+            };
+            const oLogout = app.logout;
+            app.logout = function () { this.state.afterLogin = null; return oLogout.apply(this, arguments); };
         })();
 
         window.addEventListener('popstate', () => { if (app.state.panelUjianBuka) app._tutupPanelNyata(); });
